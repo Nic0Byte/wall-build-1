@@ -1483,7 +1483,331 @@ def pack_wall(polygon: Polygon,
 # Optimization (hook - no-op for ora)
 # ────────────────────────────────────────────────────────────────────────────────
 def opt_pass(placed: List[Dict], custom: List[Dict], block_widths: List[int]) -> Tuple[List[Dict], List[Dict]]:
-    return placed, custom
+    """
+    Ottimizzazione post-packing per ridurre sprechi e migliorare efficienza.
+    
+    Strategie implementate:
+    1. Merge custom adiacenti in blocchi standard
+    2. Sostituzione gruppi custom con standard
+    3. Eliminazione micro-custom
+    4. Riposizionamento per allineamento
+    5. Cross-row optimization
+    """
+    if not custom:
+        return placed, custom
+    
+    print(f"🔧 Ottimizzazione: {len(placed)} standard + {len(custom)} custom")
+    
+    # FASE 1: Merge custom adiacenti orizzontalmente
+    optimized_custom = _merge_adjacent_customs_horizontal(custom)
+    print(f"   Merge orizzontale: {len(custom)} → {len(optimized_custom)} custom")
+    
+    # FASE 2: Merge custom adiacenti verticalmente (cross-row)
+    optimized_custom = _merge_adjacent_customs_vertical(optimized_custom)
+    print(f"   Merge verticale: → {len(optimized_custom)} custom")
+    
+    # FASE 3: Sostituzione custom con blocchi standard
+    new_placed, optimized_custom = _replace_customs_with_standards(
+        placed, optimized_custom, block_widths
+    )
+    print(f"   Sostituzione: +{len(new_placed) - len(placed)} standard, -{len(custom) - len(optimized_custom)} custom")
+    
+    # FASE 4: Eliminazione micro-custom (< 50mm in qualsiasi dimensione)
+    optimized_custom = _eliminate_micro_customs(optimized_custom, min_size=50)
+    print(f"   Micro-cleanup: → {len(optimized_custom)} custom")
+    
+    # FASE 5: Riposizionamento per allineamento perfetto
+    aligned_placed, aligned_custom = _align_blocks_to_grid(new_placed, optimized_custom)
+    
+    print(f"✅ Risultato ottimizzazione: {len(aligned_placed)} standard + {len(aligned_custom)} custom")
+    
+    return aligned_placed, aligned_custom
+
+
+def _merge_adjacent_customs_horizontal(customs: List[Dict]) -> List[Dict]:
+    """Unisce custom adiacenti orizzontalmente nella stessa riga."""
+    if len(customs) < 2:
+        return customs
+    
+    # Raggruppa per riga (Y position)
+    rows = defaultdict(list)
+    for c in customs:
+        row_y = int(round(c["y"] / BLOCK_HEIGHT)) * BLOCK_HEIGHT
+        rows[row_y].append(c)
+    
+    merged = []
+    for row_y, row_customs in rows.items():
+        # Ordina per X
+        row_customs.sort(key=lambda c: c["x"])
+        
+        current_group = [row_customs[0]]
+        
+        for i in range(1, len(row_customs)):
+            prev = current_group[-1]
+            curr = row_customs[i]
+            
+            # Controlla se sono adiacenti (gap < 10mm)
+            prev_right = prev["x"] + prev["width"]
+            gap = curr["x"] - prev_right
+            
+            if (gap < 10 and 
+                abs(prev["y"] - curr["y"]) < 5 and  # stessa riga
+                abs(prev["height"] - curr["height"]) < 5):  # stessa altezza
+                current_group.append(curr)
+            else:
+                # Processo gruppo corrente
+                if len(current_group) > 1:
+                    merged_custom = _merge_custom_group(current_group)
+                    merged.append(merged_custom)
+                else:
+                    merged.extend(current_group)
+                
+                current_group = [curr]
+        
+        # Processo ultimo gruppo
+        if len(current_group) > 1:
+            merged_custom = _merge_custom_group(current_group)
+            merged.append(merged_custom)
+        else:
+            merged.extend(current_group)
+    
+    return merged
+
+
+def _merge_adjacent_customs_vertical(customs: List[Dict]) -> List[Dict]:
+    """Unisce custom adiacenti verticalmente tra righe diverse."""
+    if len(customs) < 2:
+        return customs
+    
+    # Raggruppa per colonna (X position)
+    columns = defaultdict(list)
+    for c in customs:
+        col_x = int(round(c["x"] / 10)) * 10  # Snap a griglia 10mm
+        columns[col_x].append(c)
+    
+    merged = []
+    processed = set()
+    
+    for col_x, col_customs in columns.items():
+        # Ordina per Y
+        col_customs.sort(key=lambda c: c["y"])
+        
+        for i, custom in enumerate(col_customs):
+            if id(custom) in processed:
+                continue
+            
+            current_group = [custom]
+            processed.add(id(custom))
+            
+            # Cerca custom adiacenti verticalmente
+            for j in range(i + 1, len(col_customs)):
+                candidate = col_customs[j]
+                if id(candidate) in processed:
+                    continue
+                
+                last_in_group = current_group[-1]
+                last_bottom = last_in_group["y"] + last_in_group["height"]
+                gap = candidate["y"] - last_bottom
+                
+                if (gap < 10 and  # gap piccolo
+                    abs(last_in_group["x"] - candidate["x"]) < 5 and  # stessa colonna
+                    abs(last_in_group["width"] - candidate["width"]) < 10):  # larghezza simile
+                    current_group.append(candidate)
+                    processed.add(id(candidate))
+                else:
+                    break  # Non più adiacenti
+            
+            # Processo gruppo
+            if len(current_group) > 1:
+                merged_custom = _merge_custom_group_vertical(current_group)
+                merged.append(merged_custom)
+            else:
+                merged.extend(current_group)
+    
+    # Aggiungi custom non processati (non in colonne allineate)
+    for custom in customs:
+        if id(custom) not in processed:
+            merged.append(custom)
+    
+    return merged
+
+
+def _merge_custom_group(group: List[Dict]) -> Dict:
+    """Unisce un gruppo di custom adiacenti orizzontalmente."""
+    if len(group) == 1:
+        return group[0]
+    
+    # Calcola bounds del gruppo
+    min_x = min(c["x"] for c in group)
+    max_x = max(c["x"] + c["width"] for c in group)
+    min_y = min(c["y"] for c in group)
+    max_y = max(c["y"] + c["height"] for c in group)
+    
+    # Crea geometria unificata
+    merged_polygon = unary_union([shape(c["geometry"]) for c in group])
+    
+    return {
+        "type": "custom",
+        "width": snap(max_x - min_x),
+        "height": snap(max_y - min_y),
+        "x": snap(min_x),
+        "y": snap(min_y),
+        "geometry": mapping(merged_polygon),
+        "ctype": 2  # Merged custom = tipo flessibile
+    }
+
+
+def _merge_custom_group_vertical(group: List[Dict]) -> Dict:
+    """Unisce un gruppo di custom adiacenti verticalmente."""
+    if len(group) == 1:
+        return group[0]
+    
+    # Calcola bounds del gruppo
+    min_x = min(c["x"] for c in group)
+    max_x = max(c["x"] + c["width"] for c in group)
+    min_y = min(c["y"] for c in group)
+    max_y = max(c["y"] + c["height"] for c in group)
+    
+    # Crea geometria unificata
+    merged_polygon = unary_union([shape(c["geometry"]) for c in group])
+    
+    return {
+        "type": "custom",
+        "width": snap(max_x - min_x),
+        "height": snap(max_y - min_y),
+        "x": snap(min_x),
+        "y": snap(min_y),
+        "geometry": mapping(merged_polygon),
+        "ctype": 2  # Merged custom = tipo flessibile
+    }
+
+
+def _replace_customs_with_standards(placed: List[Dict], customs: List[Dict], 
+                                  block_widths: List[int]) -> Tuple[List[Dict], List[Dict]]:
+    """Sostituisce gruppi di custom con blocchi standard quando conveniente."""
+    new_placed = placed.copy()
+    remaining_customs = []
+    
+    for custom in customs:
+        w = custom["width"]
+        h = custom["height"]
+        
+        # Controlla se può diventare un blocco standard
+        best_match = None
+        best_waste = float('inf')
+        
+        for std_width in block_widths:
+            if (abs(w - std_width) <= SCARTO_CUSTOM_MM and 
+                abs(h - BLOCK_HEIGHT) <= SCARTO_CUSTOM_MM):
+                
+                waste = abs(w - std_width) + abs(h - BLOCK_HEIGHT)
+                if waste < best_waste:
+                    best_waste = waste
+                    best_match = std_width
+        
+        if best_match:
+            # Sostituisci con blocco standard
+            std_block = _mk_std(custom["x"], custom["y"], best_match, BLOCK_HEIGHT)
+            new_placed.append(std_block)
+            print(f"   Sostituzione: custom {w}x{h} → standard {best_match}x{BLOCK_HEIGHT}")
+        else:
+            remaining_customs.append(custom)
+    
+    return new_placed, remaining_customs
+
+
+def _eliminate_micro_customs(customs: List[Dict], min_size: float = 50) -> List[Dict]:
+    """Elimina o unisce custom troppo piccoli."""
+    filtered = []
+    
+    for custom in customs:
+        w = custom["width"]
+        h = custom["height"]
+        
+        if w < min_size or h < min_size:
+            # Troppo piccolo, prova a unire con un custom vicino
+            merged = False
+            for candidate in filtered:
+                if _can_merge_customs(custom, candidate):
+                    # Unisci con candidato esistente
+                    merged_custom = _merge_two_customs(custom, candidate)
+                    filtered.remove(candidate)
+                    filtered.append(merged_custom)
+                    merged = True
+                    break
+            
+            if not merged:
+                # Se non può essere unito e è davvero micro (<20mm), scarta
+                if w >= 20 and h >= 20:
+                    filtered.append(custom)
+                # else: scartato silenziosamente
+        else:
+            filtered.append(custom)
+    
+    return filtered
+
+
+def _can_merge_customs(custom1: Dict, custom2: Dict) -> bool:
+    """Controlla se due custom possono essere uniti."""
+    # Distanza massima per essere considerati "vicini"
+    max_distance = 100  # mm
+    
+    x1, y1, w1, h1 = custom1["x"], custom1["y"], custom1["width"], custom1["height"]
+    x2, y2, w2, h2 = custom2["x"], custom2["y"], custom2["width"], custom2["height"]
+    
+    # Calcola distanza tra centri
+    center1_x, center1_y = x1 + w1/2, y1 + h1/2
+    center2_x, center2_y = x2 + w2/2, y2 + h2/2
+    distance = ((center1_x - center2_x)**2 + (center1_y - center2_y)**2)**0.5
+    
+    return distance <= max_distance
+
+
+def _merge_two_customs(custom1: Dict, custom2: Dict) -> Dict:
+    """Unisce due custom in uno."""
+    # Calcola bounds combinati
+    min_x = min(custom1["x"], custom2["x"])
+    max_x = max(custom1["x"] + custom1["width"], custom2["x"] + custom2["width"])
+    min_y = min(custom1["y"], custom2["y"])
+    max_y = max(custom1["y"] + custom1["height"], custom2["y"] + custom2["height"])
+    
+    # Unisci geometrie
+    geom1 = shape(custom1["geometry"])
+    geom2 = shape(custom2["geometry"])
+    merged_geom = unary_union([geom1, geom2])
+    
+    return {
+        "type": "custom",
+        "width": snap(max_x - min_x),
+        "height": snap(max_y - min_y),
+        "x": snap(min_x),
+        "y": snap(min_y),
+        "geometry": mapping(merged_geom),
+        "ctype": 2
+    }
+
+
+def _align_blocks_to_grid(placed: List[Dict], customs: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    """Allinea tutti i blocchi alla griglia di snap per consistenza."""
+    aligned_placed = []
+    for block in placed:
+        aligned_block = block.copy()
+        aligned_block["x"] = snap(block["x"])
+        aligned_block["y"] = snap(block["y"])
+        aligned_block["width"] = snap(block["width"])
+        aligned_block["height"] = snap(block["height"])
+        aligned_placed.append(aligned_block)
+    
+    aligned_customs = []
+    for custom in customs:
+        aligned_custom = custom.copy()
+        aligned_custom["x"] = snap(custom["x"])
+        aligned_custom["y"] = snap(custom["y"])
+        aligned_custom["width"] = snap(custom["width"])
+        aligned_custom["height"] = snap(custom["height"])
+        aligned_customs.append(aligned_custom)
+    
+    return aligned_placed, aligned_customs
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Merge customs (row-aware)
@@ -2525,6 +2849,10 @@ def _demo():
 
     placed, custom = pack_wall(wall_exterior, BLOCK_WIDTHS, BLOCK_HEIGHT,
                                row_offset=826, apertures=[porta1, porta2])
+    
+    # OTTIMIZZAZIONE POST-PACKING (questa riga era mancante!)
+    placed, custom = opt_pass(placed, custom, BLOCK_WIDTHS)
+    
     summary = summarize_blocks(placed)
 
     print("🔨 Distinta base blocchi standard:")
@@ -2569,7 +2897,7 @@ def _demo():
             print(f"⚠️ Errore DXF demo: {e}")
     else:
         print("⚠️ ezdxf non disponibile per export DXF")
-
+        
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "demo":
