@@ -1,7 +1,18 @@
-fastapi>=0.104.0
-uvicorn>=0.24.0
+# ==== Core geometry & plotting ====
+shapely>=2.0.0,<2.1
+numpy>=1.26.0,<3.0
+matplotlib>=3.8.0,<3.10
+svgpathtools>=1.6.0,<2.0
+
+# ==== API server ====
+fastapi>=0.110.0,<1.0
+uvicorn[standard]>=0.24.0,<0.30
 python-multipart>=0.0.6
-shapely>=2.0.0
-svgpathtools>=1.6.0
-matplotlib>=3.8.0
-numpy>=1.26.0 
+
+# ==== Exports (fase 1.5 / 2) ====
+reportlab>=4.0.0,<5.0      # PDF export (puro Python, consigliato su Windows)
+ezdxf>=1.1.4,<2.0          # DXF export
+
+# ==== Extra utili (opzionali) ====
+orjson>=3.9.10,<4.0        # FastAPI userà ORJSON se presente (più veloce)
+Pillow>=10.0.0,<11.0       # esplicito (già requisito di matplotlib/reportlab)

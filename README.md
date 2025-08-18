@@ -91,7 +91,17 @@ Grande	1239×495
 Medio	826×495	
 Piccolo	413×495	
 
-⚠️ Tutti i blocchi hanno altezza costante (es. 495 mm). Larghezza variabile. I blocchi custom vengono tagliati partendo da quelli piccoli.
+🧱 Libreria blocchi Custom
+Tipo	Dimensioni (mm)	Note
+Tipo 1 — Custom “larghezza”
+  - Altezza fissa: 495 mm.
+  - Larghezza: libera ma < 413 mm.
+  - Forma di base rettangolare; se serve puoi dare un piccolo taglio obliquo su un lato, ma l’altezza resta 495.
+Tipo 2 — Custom “flex”
+ - Altezza: libera ma < 495 mm.
+ - Larghezza: libera ma < 413 mm.
+ - Può essere rettangolo, trapezio/triangolo (taglio diagonale) — basta che stia dentro al 413×495.
+Nota : Entrambi tipo1 e tipo 2 partono dal taglio del blocco piccolo.
 
 ⚙️ Componenti tecnici
 Componente	Dettagli
@@ -110,8 +120,8 @@ Deliverable	Stato	Note
 ✅ Visualizzazione	Pronto	matplotlib + hatch
 ✅ Console debug	Pronto	Lista standard + custom
 ✅ JSON export	Pronto	Esportazione macchina
-🔜 PDF export	In corso	Impaginazione finale
-🔜 Web UI	Prevista	FastAPI + interfaccia a fasi successive
+🔜 PDF export	Pronto da controlalre	Impaginazione finale
+🔜 Web UI	Prontoda controalre	FastAPI + interfaccia a fasi successive
 
 🔄 Evoluzioni previste (fase 2)
 Supporto a porte e finestre (cutout automatici).
@@ -120,4 +130,4 @@ Ottimizzazione layout per ridurre sprechi.
 
 Salvataggio progetti utente (gestione versioni).
 
-Generatore automatico disegni DXF con schema taglio.
+Generatore automatico disegni DXF con schema taglio. QUESTO IN CHAT SONO LE REGOLE DA RISPTETRAE TASSATIVAMENTE. I FILE CHE TI HO CARICATO E' QUELLO CHE HO GIA FATTO. PARTENDO DA LI STUDAIMO UAN ROADMAP PER MIGLIRARE LA'LGORITOMO DI COEM SIS METTONO I BLOCCHI E DOPO PER COMPALETRE LE APRTI MANCNATI. VOLGIO CHE TUTTE LE FUNZIONI , API E VARIE VENAGNO MESSE TUTTE DNETOR UN UNIOC FILE CHE è IL MAIN.PY, (mneo pulito ma piu pratico ), UNICA COSA SARA LA PARTE WEB COLLEGATA  FATSPAI 

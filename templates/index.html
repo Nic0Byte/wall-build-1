@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Costruttore Pareti a Blocchi</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo-section">
+                        <div class="logo-icon">🧱</div>
+                        <div class="logo-text">
+                            <h1>Costruttore Pareti</h1>
+                            <span class="subtitle">Sistema Automatico di Packing</span>
+                        </div>
+                    </div>
+                    <div class="header-stats" id="headerStats" style="display: none;">
+                        <div class="stat-item">
+                            <span class="stat-value" id="statStandard">0</span>
+                            <span class="stat-label">Blocchi Standard</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="statCustom">0</span>
+                            <span class="stat-label">Pezzi Custom</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="statEfficiency">0%</span>
+                            <span class="stat-label">Efficienza</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                
+                <!-- Step 1: Upload -->
+                <section class="step-section" id="uploadSection">
+                    <div class="step-header">
+                        <div class="step-number">1</div>
+                        <div class="step-info">
+                            <h2>Carica File SVG</h2>
+                            <p>Seleziona o trascina il file SVG contenente la parete da costruire</p>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-content">
+                            <div class="upload-icon">📁</div>
+                            <h3>Trascina qui il file SVG</h3>
+                            <p>oppure <button type="button" class="link-button" onclick="document.getElementById('fileInput').click()">seleziona file</button></p>
+                            <div class="upload-info">
+                                <small>Formati supportati: SVG • Dimensione massima: 10MB</small>
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" accept=".svg" style="display: none;">
+                    </div>
+                    
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-preview">
+                            <div class="file-icon">✅</div>
+                            <div class="file-details">
+                                <div class="file-name" id="fileName"></div>
+                                <div class="file-meta" id="fileMeta"></div>
+                            </div>
+                            <button type="button" class="btn-icon" id="removeFile" title="Rimuovi file">❌</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 2: Configuration -->
+                <section class="step-section" id="configSection" style="display: none;">
+                    <div class="step-header">
+                        <div class="step-number">2</div>
+                        <div class="step-info">
+                            <h2>Configurazione Parametri</h2>
+                            <p>Personalizza le impostazioni di packing per ottimizzare il risultato</p>
+                        </div>
+                    </div>
+                    
+                    <div class="config-grid">
+                        <div class="config-card">
+                            <label for="projectName">Nome Progetto</label>
+                            <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
+                        </div>
+                        
+                        <div class="config-card">
+                            <label for="rowOffset">Offset Righe Dispari (mm)</label>
+                            <div class="slider-container">
+                                <input type="range" id="rowOffset" min="0" max="1239" value="826" step="1">
+                                <div class="slider-value" id="rowOffsetValue">826 mm</div>
+                            </div>
+                            <div class="slider-presets">
+                                <button type="button" class="preset-btn" data-value="0">0</button>
+                                <button type="button" class="preset-btn active" data-value="826">826</button>
+                                <button type="button" class="preset-btn" data-value="413">413</button>
+                                <button type="button" class="preset-btn" data-value="1239">1239</button>
+                            </div>
+                        </div>
+                        
+                        <div class="config-card">
+                            <label for="blockWidths">Dimensioni Blocchi (mm)</label>
+                            <input type="text" id="blockWidths" value="1239,826,413" placeholder="es: 1239,826,413">
+                            <small>Larghezze blocchi standard separate da virgola</small>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-primary" id="processBtn">
+                            <span class="btn-icon">⚙️</span>
+                            Calcola Packing
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="backToUpload">
+                            ← Torna a Upload
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 3: Results -->
+                <section class="step-section" id="resultsSection" style="display: none;">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <div class="step-info">
+                            <h2>Risultati Packing</h2>
+                            <p>Visualizza il layout calcolato e scarica i risultati</p>
+                        </div>
+                    </div>
+                    
+                    <div class="results-grid">
+                        <!-- Preview Area -->
+                        <div class="preview-card">
+                            <div class="card-header">
+                                <h3>Preview Parete</h3>
+                                <div class="preview-controls">
+                                    <button type="button" class="btn-icon" id="refreshPreview" title="Aggiorna preview">🔄</button>
+                                    <button type="button" class="btn-icon" id="fullscreenPreview" title="Schermo intero">🔍</button>
+                                </div>
+                            </div>
+                            <div class="preview-container" id="previewContainer">
+                                <div class="preview-loading" id="previewLoading">
+                                    <div class="spinner"></div>
+                                    <p>Generazione preview...</p>
+                                </div>
+                                <img id="previewImage" style="display: none;" alt="Preview parete">
+                            </div>
+                        </div>
+                        
+                        <!-- Summary Tables -->
+                        <div class="summary-cards">
+                            <!-- Standard Blocks -->
+                            <div class="summary-card">
+                                <h3>Blocchi Standard</h3>
+                                <div class="table-container">
+                                    <table id="standardTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Tipo</th>
+                                                <th>Quantità</th>
+                                                <th>Dimensioni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Pieces -->
+                            <div class="summary-card">
+                                <h3>Pezzi Custom</h3>
+                                <div class="table-container">
+                                    <table id="customTable">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Tipo</th>
+                                                <th>Dimensioni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Metrics -->
+                            <div class="summary-card metrics-card">
+                                <h3>Metriche Qualità</h3>
+                                <div class="metrics-grid">
+                                    <div class="metric-item">
+                                        <div class="metric-value" id="metricEfficiency">0%</div>
+                                        <div class="metric-label">Efficienza</div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <div class="metric-value" id="metricWaste">0%</div>
+                                        <div class="metric-label">Spreco</div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <div class="metric-value" id="metricComplexity">0</div>
+                                        <div class="metric-label">Complessità</div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <div class="metric-value" id="metricCoverage">0%</div>
+                                        <div class="metric-label">Copertura</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-success" id="downloadPDF">
+                            <span class="btn-icon">📄</span>
+                            Scarica PDF
+                        </button>
+                        <button type="button" class="btn btn-primary" id="downloadDXF">
+                            <span class="btn-icon">📐</span>
+                            Scarica DXF
+                        </button>
+                        <button type="button" class="btn btn-primary" id="downloadJSON">
+                            <span class="btn-icon">📋</span>
+                            Scarica JSON
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="reconfigureBtn">
+                            ⚙️ Riconfigurazione
+                        </button>
+                        <button type="button" class="btn btn-outline" id="newProjectBtn">
+                            🆕 Nuovo Progetto
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner-large"></div>
+                <h3 id="loadingTitle">Elaborazione in corso...</h3>
+                <p id="loadingMessage">Analisi file SVG e calcolo packing automatico</p>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+
+        <!-- Fullscreen Preview Modal -->
+        <div class="modal-overlay" id="fullscreenModal" style="display: none;">
+            <div class="modal-content fullscreen-modal">
+                <div class="modal-header">
+                    <h3>Preview Parete - Schermo Intero</h3>
+                    <button type="button" class="btn-icon" id="closeFullscreen">❌</button>
+                </div>
+                <div class="modal-body">
+                    <img id="fullscreenImage" alt="Preview parete fullscreen">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
