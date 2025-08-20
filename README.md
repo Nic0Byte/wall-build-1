@@ -1,4 +1,25 @@
-# 📐 Programma “Costruttore pareti a blocchi”
+# 📐Questo programma simula l### 1. Input – Disegno parete
+- L'utente carica un file `.svg`, `.dwg` o `.dxf`.
+- Il disegno rappresenta la **vista frontale** della parete (no 3D).
+- Le aperture (porte/finestre) possono essere rappresentate come:
+  - **SVG**: Layer separati (es. "MURO" e "BUCHI")
+  - **DWG/DXF**: Layer CAD (es. "MURO" e "BUCHI")
+
+### 2. Riconoscimento forma
+- Il file viene interpretato come un **poligono geometrico** tramite:
+  - **SVG**: parser XML con supporto path, rect, circle
+  - **DWG/DXF**: libreria `ezdxf` per entità CAD (polilinee, linee, cerchi, archi)
+- L'area utile viene divisa in **fasce orizzontali** secondo l'altezza del blocco.zione di una parete usando blocchi prefabbricati standard e produce una **distinta base** completa (pezzi standard + pezzi da tagliare), a partire da un **file CAD** caricato dall'utente.  
+
+### In sintesi:
+- Carica un file con la **vista 2D frontale** di una parete (SVG, DWG, DXF).
+- Costruisce la parete con blocchi di dimensioni note.
+- Genera automaticamente:
+  - 📋 Distinta base blocchi standard
+  - ✂️ Elenco pezzi custom (da ritagliare)
+  - 🖼️ Visualizzazione della parete con blocchi posizionati
+  - 📄 PDF stampabile con schema e tabella blocchi
+  - 📐 File DXF per taglio e produzione “Costruttore pareti a blocchi”
 
 ## 🎯 Obiettivo
 

@@ -49,21 +49,29 @@
                     <div class="step-header">
                         <div class="step-number">1</div>
                         <div class="step-info">
-                            <h2>Carica File SVG</h2>
-                            <p>Seleziona o trascina il file SVG contenente la parete da costruire</p>
+                            <h2>Carica File CAD</h2>
+                            <p>Seleziona o trascina il file CAD contenente la parete da costruire</p>
                         </div>
                     </div>
                     
                     <div class="upload-area" id="uploadArea">
                         <div class="upload-content">
                             <div class="upload-icon">📁</div>
-                            <h3>Trascina qui il file SVG</h3>
+                            <h3>Trascina qui il file CAD</h3>
                             <p>oppure <button type="button" class="link-button" onclick="document.getElementById('fileInput').click()">seleziona file</button></p>
                             <div class="upload-info">
-                                <small>Formati supportati: SVG • Dimensione massima: 10MB</small>
+                                <div class="format-support">
+                                    <strong>Formati supportati:</strong>
+                                    <ul>
+                                        <li>✅ <strong>SVG</strong> - Supporto completo</li>
+                                        <li>✅ <strong>DXF</strong> - Supporto completo</li>
+                                        <li>⚠️ <strong>DWG</strong> - AutoCAD R14-2013 (limitato)</li>
+                                    </ul>
+                                    <small><strong>Nota:</strong> Per file DWG moderni (2018+), convertili in DXF prima del caricamento</small>
+                                </div>
                             </div>
                         </div>
-                        <input type="file" id="fileInput" accept=".svg" style="display: none;">
+                        <input type="file" id="fileInput" accept=".svg,.dwg,.dxf" style="display: none;">
                     </div>
                     
                     <div class="file-info" id="fileInfo" style="display: none;">

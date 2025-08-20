@@ -265,6 +265,47 @@ body {
 .upload-info {
     color: var(--gray-500);
     font-size: var(--font-size-sm);
+    margin-top: 20px;
+}
+
+.format-support {
+    text-align: left;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-600);
+}
+
+.format-support strong {
+    color: #333;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.format-support ul {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+}
+
+.format-support li {
+    margin: 5px 0;
+    padding: 3px 0;
+    font-size: 14px;
+}
+
+.format-support li strong {
+    display: inline;
+    margin: 0;
+}
+
+.format-support small {
+    display: block;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #dee2e6;
+    color: #6c757d;
+    font-style: italic;
 }
 
 /* ===== File Info ===== */

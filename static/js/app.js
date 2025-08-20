@@ -163,9 +163,13 @@ class WallPackingApp {
     }
     
     validateAndSetFile(file) {
-        // Validation
-        if (!file.name.toLowerCase().endsWith('.svg')) {
-            this.showToast('Solo file SVG sono supportati', 'error');
+        // Validation - Updated to support SVG, DWG, DXF
+        const fileName = file.name.toLowerCase();
+        const supportedFormats = ['.svg', '.dwg', '.dxf'];
+        const isValidFormat = supportedFormats.some(format => fileName.endsWith(format));
+        
+        if (!isValidFormat) {
+            this.showToast('Formato non supportato. Usa file SVG, DWG o DXF', 'error');
             return;
         }
         
@@ -211,7 +215,17 @@ class WallPackingApp {
         
         if (fileInfo && fileName && fileMeta) {
             fileName.textContent = file.name;
-            fileMeta.textContent = `${this.formatFileSize(file.size)} • ${file.type || 'SVG'}`;
+            
+            // Determine file type based on extension
+            const ext = file.name.toLowerCase().split('.').pop();
+            let fileType = 'Sconosciuto';
+            switch (ext) {
+                case 'svg': fileType = 'SVG'; break;
+                case 'dwg': fileType = 'DWG'; break; 
+                case 'dxf': fileType = 'DXF'; break;
+            }
+            
+            fileMeta.textContent = `${this.formatFileSize(file.size)} • ${fileType}`;
             fileInfo.style.display = 'block';
         }
     }
@@ -236,7 +250,7 @@ class WallPackingApp {
         const config = this.getConfiguration();
         
         // Show loading
-        this.showLoading('Elaborazione in corso...', 'Analisi file SVG e calcolo packing automatico');
+        this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico');
         
         try {
             // Prepare form data
