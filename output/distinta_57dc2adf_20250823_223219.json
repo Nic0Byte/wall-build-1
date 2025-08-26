@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "session_id": "57dc2adf",
+    "generated_at": "2025-08-23T22:32:19.140252",
+    "generator": "Wall Build V2",
+    "version": "2.0.0"
+  },
+  "summary": {
+    "standard_blocks": {
+      "W1000": 5,
+      "W750": 3,
+      "W500": 8
+    },
+    "custom_blocks_count": 2,
+    "total_standard_blocks": 16,
+    "total_blocks": 18
+  },
+  "blocks": {
+    "standard": [
+      {
+        "id": 1,
+        "x": 0,
+        "y": 0,
+        "width": 1000,
+        "height": 190,
+        "type": "standard"
+      },
+      {
+        "id": 2,
+        "x": 1000,
+        "y": 0,
+        "width": 750,
+        "height": 190,
+        "type": "standard"
+      },
+      {
+        "id": 3,
+        "x": 1750,
+        "y": 0,
+        "width": 500,
+        "height": 190,
+        "type": "standard"
+      }
+    ],
+    "custom": [
+      {
+        "id": 1,
+        "x": 100,
+        "y": 200,
+        "width": 300,
+        "height": 190,
+        "type": "custom"
+      },
+      {
+        "id": 2,
+        "x": 400,
+        "y": 200,
+        "width": 150,
+        "height": 190,
+        "type": "custom"
+      }
+    ]
+  },
+  "materials": {
+    "standard_blocks": {
+      "W1000": {
+        "count": 5,
+        "width_mm": 1000,
+        "total_length_mm": 5000,
+        "total_length_m": 5.0
+      },
+      "W750": {
+        "count": 3,
+        "width_mm": 750,
+        "total_length_mm": 2250,
+        "total_length_m": 2.25
+      },
+      "W500": {
+        "count": 8,
+        "width_mm": 500,
+        "total_length_mm": 4000,
+        "total_length_m": 4.0
+      }
+    },
+    "custom_pieces": 2,
+    "cutting_required": true,
+    "total_linear_meters": 11.25
+  },
+  "geometry": {},
+  "parameters": {}
+}
