@@ -32,15 +32,6 @@ except Exception:  # pragma: no cover
     plt = None
     patches = None
 
-# Local imports
-from utils.file_manager import setup_output_directories, get_organized_output_path, generate_unique_filename
-from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_polygon, ensure_multipolygon, SNAP_MM
-from utils.config import (
-    SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
-    MICRO_REST_MM, KEEP_OUT_MM, SPLIT_MAX_WIDTH_MM,
-    BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS
-)
-
 # Optional PDF generation
 try:
     from reportlab.pdfgen import canvas
@@ -59,8 +50,92 @@ except ImportError:
     reportlab_available = False
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Optional dependencies
+# Output Management Functions  
 # ────────────────────────────────────────────────────────────────────────────────
+
+def setup_output_directories() -> Dict[str, str]:
+    """Crea e restituisce i percorsi delle cartelle di output organizzate."""
+    base_output = "output"
+    
+    # Crea directory principali se non esistono
+    os.makedirs(base_output, exist_ok=True)
+    
+    # Sottocartelle per tipologia
+    subdirs = {
+        'json': os.path.join(base_output, 'json'),
+        'pdf': os.path.join(base_output, 'pdf'), 
+        'dxf': os.path.join(base_output, 'dxf'),
+        'images': os.path.join(base_output, 'images'),
+        'svg': os.path.join(base_output, 'svg'),
+        'reports': os.path.join(base_output, 'reports'),
+        'schemas': os.path.join(base_output, 'schemas'),
+        'temp': os.path.join(base_output, 'temp')
+    }
+    
+    # Crea tutte le sottocartelle
+    for subdir in subdirs.values():
+        os.makedirs(subdir, exist_ok=True)
+    
+    return subdirs
+
+def get_organized_output_path(filename: str, file_type: str = None) -> str:
+    """
+    Determina il percorso organizzato per un file di output.
+    
+    Args:
+        filename: Nome del file
+        file_type: Tipo esplicito ('json', 'pdf', 'dxf', 'images', 'svg')
+    
+    Returns:
+        Percorso completo organizzato
+    """
+    dirs = setup_output_directories()
+    
+    # Auto-detect tipo da estensione se non specificato
+    if not file_type:
+        ext = os.path.splitext(filename)[1].lower()
+        type_mapping = {
+            '.json': 'json',
+            '.pdf': 'pdf', 
+            '.dxf': 'dxf',
+            '.png': 'images',
+            '.jpg': 'images',
+            '.jpeg': 'images',
+            '.svg': 'svg',
+            '.gif': 'images',
+            '.bmp': 'images'
+        }
+        file_type = type_mapping.get(ext, 'temp')
+    
+    # Fallback per tipi non riconosciuti
+    if file_type not in dirs:
+        file_type = 'temp'
+    
+    return os.path.join(dirs[file_type], filename)
+
+def generate_unique_filename(base_name: str, extension: str, project_id: str = None) -> str:
+    """
+    Genera un nome file unico con timestamp e ID progetto.
+    
+    Args:
+        base_name: Nome base (es. 'distinta', 'report', 'schema')
+        extension: Estensione file (es. '.json', '.pdf', '.dxf')
+        project_id: ID progetto opzionale
+    
+    Returns:
+        Nome file unico
+    """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Aggiungi microsecondi per unicità anche in chiamate rapide
+    microsecs = datetime.datetime.now().microsecond // 1000  # millisecondi
+    
+    if project_id:
+        return f"{base_name}_{project_id}_{timestamp}_{microsecs:03d}{extension}"
+    else:
+        # Genera ID casuale se non fornito
+        short_id = uuid.uuid4().hex[:8]
+        return f"{base_name}_{short_id}_{timestamp}_{microsecs:03d}{extension}"
 
 # Optional DXF generation
 try:
@@ -91,6 +166,32 @@ try:
     import uvicorn
 except Exception:  # pragma: no cover
     FastAPI = None  # type: ignore
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Configuration & constants
+# ────────────────────────────────────────────────────────────────────────────────
+SCARTO_CUSTOM_MM = 5          # tolleranza matching tipi custom
+AREA_EPS = 1e-3               # area minima per considerare una geometria
+COORD_EPS = 1e-6
+SNAP_MM = 1.0                 # griglia di snap per ridurre "micro-custom"
+DISPLAY_MM_PER_M = 1000.0
+MICRO_REST_MM = 15.0          # soglia per attivare backtrack del resto finale (coda riga)
+KEEP_OUT_MM = 2.0             # margine attorno ad aperture per evitare micro-sfridi
+SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido)
+
+# Libreria blocchi standard (mm)
+BLOCK_HEIGHT = 495
+BLOCK_WIDTHS = [1239, 826, 413]  # Grande, Medio, Piccolo
+SIZE_TO_LETTER = {1239: "A", 826: "B", 413: "C"}
+
+# Ordini di prova per i blocchi – si sceglie il migliore per il segmento
+BLOCK_ORDERS = [
+    [1239, 826, 413],
+    [826, 1239, 413],
+]
+
+# Storage per sessioni (in-memory per semplicità)
+SESSIONS: Dict[str, Dict] = {}
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Pydantic Models per API
@@ -126,6 +227,45 @@ def build_run_params(row_offset: Optional[int] = None) -> Dict:
         "row_aware_merge": True,
         "orders_tried": BLOCK_ORDERS,
     }
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────────────────────────
+def snap(v: float, grid: float = SNAP_MM) -> float:
+    if grid <= 0:
+        return v
+    return round(v / grid) * grid
+
+def snap_bounds(p: Polygon) -> Polygon:
+    minx, miny, maxx, maxy = p.bounds
+    return box(snap(minx), snap(miny), snap(maxx), snap(maxy))
+
+def polygon_holes(p: Polygon) -> List[Polygon]:
+    """Extract interior rings as Polygon objects (apertures)."""
+    holes = []
+    for ring in p.interiors:
+        if isinstance(ring, LinearRing) and len(ring.coords) >= 4:
+            holes.append(Polygon(ring))
+    return holes
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Geometry utilities
+# ────────────────────────────────────────────────────────────────────────────────
+def sanitize_polygon(p: Polygon) -> Polygon:
+    if p.is_valid:
+        return p
+    fixed = p.buffer(0)
+    if fixed.is_valid:
+        return fixed
+    raise ValueError(f"Polygon invalido: {explain_validity(p)}")
+
+def ensure_multipolygon(geom) -> List[Polygon]:
+    if isinstance(geom, Polygon):
+        return [geom]
+    elif isinstance(geom, MultiPolygon):
+        return [g for g in geom.geoms if not g.is_empty]
+    else:
+        return []
 
 # ────────────────────────────────────────────────────────────────────────────────
 # DWG parsing (IMPLEMENTAZIONE COMPLETA)

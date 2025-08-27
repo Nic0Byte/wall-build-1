@@ -35,11 +35,6 @@ except Exception:  # pragma: no cover
 # Local imports
 from utils.file_manager import setup_output_directories, get_organized_output_path, generate_unique_filename
 from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_polygon, ensure_multipolygon, SNAP_MM
-from utils.config import (
-    SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
-    MICRO_REST_MM, KEEP_OUT_MM, SPLIT_MAX_WIDTH_MM,
-    BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS
-)
 
 # Optional PDF generation
 try:
@@ -91,6 +86,31 @@ try:
     import uvicorn
 except Exception:  # pragma: no cover
     FastAPI = None  # type: ignore
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Configuration & constants
+# ────────────────────────────────────────────────────────────────────────────────
+SCARTO_CUSTOM_MM = 5          # tolleranza matching tipi custom
+AREA_EPS = 1e-3               # area minima per considerare una geometria
+COORD_EPS = 1e-6
+DISPLAY_MM_PER_M = 1000.0
+MICRO_REST_MM = 15.0          # soglia per attivare backtrack del resto finale (coda riga)
+KEEP_OUT_MM = 2.0             # margine attorno ad aperture per evitare micro-sfridi
+SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido)
+
+# Libreria blocchi standard (mm)
+BLOCK_HEIGHT = 495
+BLOCK_WIDTHS = [1239, 826, 413]  # Grande, Medio, Piccolo
+SIZE_TO_LETTER = {1239: "A", 826: "B", 413: "C"}
+
+# Ordini di prova per i blocchi – si sceglie il migliore per il segmento
+BLOCK_ORDERS = [
+    [1239, 826, 413],
+    [826, 1239, 413],
+]
+
+# Storage per sessioni (in-memory per semplicità)
+SESSIONS: Dict[str, Dict] = {}
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Pydantic Models per API

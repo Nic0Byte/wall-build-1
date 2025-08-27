@@ -34,12 +34,6 @@ except Exception:  # pragma: no cover
 
 # Local imports
 from utils.file_manager import setup_output_directories, get_organized_output_path, generate_unique_filename
-from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_polygon, ensure_multipolygon, SNAP_MM
-from utils.config import (
-    SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
-    MICRO_REST_MM, KEEP_OUT_MM, SPLIT_MAX_WIDTH_MM,
-    BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS
-)
 
 # Optional PDF generation
 try:
@@ -93,6 +87,32 @@ except Exception:  # pragma: no cover
     FastAPI = None  # type: ignore
 
 # ────────────────────────────────────────────────────────────────────────────────
+# Configuration & constants
+# ────────────────────────────────────────────────────────────────────────────────
+SCARTO_CUSTOM_MM = 5          # tolleranza matching tipi custom
+AREA_EPS = 1e-3               # area minima per considerare una geometria
+COORD_EPS = 1e-6
+SNAP_MM = 1.0                 # griglia di snap per ridurre "micro-custom"
+DISPLAY_MM_PER_M = 1000.0
+MICRO_REST_MM = 15.0          # soglia per attivare backtrack del resto finale (coda riga)
+KEEP_OUT_MM = 2.0             # margine attorno ad aperture per evitare micro-sfridi
+SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido)
+
+# Libreria blocchi standard (mm)
+BLOCK_HEIGHT = 495
+BLOCK_WIDTHS = [1239, 826, 413]  # Grande, Medio, Piccolo
+SIZE_TO_LETTER = {1239: "A", 826: "B", 413: "C"}
+
+# Ordini di prova per i blocchi – si sceglie il migliore per il segmento
+BLOCK_ORDERS = [
+    [1239, 826, 413],
+    [826, 1239, 413],
+]
+
+# Storage per sessioni (in-memory per semplicità)
+SESSIONS: Dict[str, Dict] = {}
+
+# ────────────────────────────────────────────────────────────────────────────────
 # Pydantic Models per API
 # ────────────────────────────────────────────────────────────────────────────────
 class PackingConfig(BaseModel):
@@ -126,6 +146,45 @@ def build_run_params(row_offset: Optional[int] = None) -> Dict:
         "row_aware_merge": True,
         "orders_tried": BLOCK_ORDERS,
     }
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────────────────────────
+def snap(v: float, grid: float = SNAP_MM) -> float:
+    if grid <= 0:
+        return v
+    return round(v / grid) * grid
+
+def snap_bounds(p: Polygon) -> Polygon:
+    minx, miny, maxx, maxy = p.bounds
+    return box(snap(minx), snap(miny), snap(maxx), snap(maxy))
+
+def polygon_holes(p: Polygon) -> List[Polygon]:
+    """Extract interior rings as Polygon objects (apertures)."""
+    holes = []
+    for ring in p.interiors:
+        if isinstance(ring, LinearRing) and len(ring.coords) >= 4:
+            holes.append(Polygon(ring))
+    return holes
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Geometry utilities
+# ────────────────────────────────────────────────────────────────────────────────
+def sanitize_polygon(p: Polygon) -> Polygon:
+    if p.is_valid:
+        return p
+    fixed = p.buffer(0)
+    if fixed.is_valid:
+        return fixed
+    raise ValueError(f"Polygon invalido: {explain_validity(p)}")
+
+def ensure_multipolygon(geom) -> List[Polygon]:
+    if isinstance(geom, Polygon):
+        return [geom]
+    elif isinstance(geom, MultiPolygon):
+        return [g for g in geom.geoms if not g.is_empty]
+    else:
+        return []
 
 # ────────────────────────────────────────────────────────────────────────────────
 # DWG parsing (IMPLEMENTAZIONE COMPLETA)
