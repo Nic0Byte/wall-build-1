@@ -49,6 +49,94 @@ except ImportError:
     print("⚠️ reportlab non installato. Export PDF non disponibile.")
     reportlab_available = False
 
+# ────────────────────────────────────────────────────────────────────────────────
+# Output Management Functions  
+# ────────────────────────────────────────────────────────────────────────────────
+
+def setup_output_directories() -> Dict[str, str]:
+    """Crea e restituisce i percorsi delle cartelle di output organizzate."""
+    base_output = "output"
+    
+    # Crea directory principali se non esistono
+    os.makedirs(base_output, exist_ok=True)
+    
+    # Sottocartelle per tipologia
+    subdirs = {
+        'json': os.path.join(base_output, 'json'),
+        'pdf': os.path.join(base_output, 'pdf'), 
+        'dxf': os.path.join(base_output, 'dxf'),
+        'images': os.path.join(base_output, 'images'),
+        'svg': os.path.join(base_output, 'svg'),
+        'reports': os.path.join(base_output, 'reports'),
+        'schemas': os.path.join(base_output, 'schemas'),
+        'temp': os.path.join(base_output, 'temp')
+    }
+    
+    # Crea tutte le sottocartelle
+    for subdir in subdirs.values():
+        os.makedirs(subdir, exist_ok=True)
+    
+    return subdirs
+
+def get_organized_output_path(filename: str, file_type: str = None) -> str:
+    """
+    Determina il percorso organizzato per un file di output.
+    
+    Args:
+        filename: Nome del file
+        file_type: Tipo esplicito ('json', 'pdf', 'dxf', 'images', 'svg')
+    
+    Returns:
+        Percorso completo organizzato
+    """
+    dirs = setup_output_directories()
+    
+    # Auto-detect tipo da estensione se non specificato
+    if not file_type:
+        ext = os.path.splitext(filename)[1].lower()
+        type_mapping = {
+            '.json': 'json',
+            '.pdf': 'pdf', 
+            '.dxf': 'dxf',
+            '.png': 'images',
+            '.jpg': 'images',
+            '.jpeg': 'images',
+            '.svg': 'svg',
+            '.gif': 'images',
+            '.bmp': 'images'
+        }
+        file_type = type_mapping.get(ext, 'temp')
+    
+    # Fallback per tipi non riconosciuti
+    if file_type not in dirs:
+        file_type = 'temp'
+    
+    return os.path.join(dirs[file_type], filename)
+
+def generate_unique_filename(base_name: str, extension: str, project_id: str = None) -> str:
+    """
+    Genera un nome file unico con timestamp e ID progetto.
+    
+    Args:
+        base_name: Nome base (es. 'distinta', 'report', 'schema')
+        extension: Estensione file (es. '.json', '.pdf', '.dxf')
+        project_id: ID progetto opzionale
+    
+    Returns:
+        Nome file unico
+    """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Aggiungi microsecondi per unicità anche in chiamate rapide
+    microsecs = datetime.datetime.now().microsecond // 1000  # millisecondi
+    
+    if project_id:
+        return f"{base_name}_{project_id}_{timestamp}_{microsecs:03d}{extension}"
+    else:
+        # Genera ID casuale se non fornito
+        short_id = uuid.uuid4().hex[:8]
+        return f"{base_name}_{short_id}_{timestamp}_{microsecs:03d}{extension}"
+
 # Optional DXF generation
 try:
     import ezdxf
@@ -63,10 +151,10 @@ except ImportError:
 try:
     import dxfgrabber
     dxfgrabber_available = True
-    print("✅ dxfgrabber caricato - Supporto DWG avanzato disponibile")
+    print("[OK] dxfgrabber caricato - Supporto DWG avanzato disponibile")
 except ImportError:
     dxfgrabber_available = False
-    print("⚠️ dxfgrabber non installato. Parser DWG avanzato non disponibile.")
+    print("[WARNING] dxfgrabber non installato. Parser DWG avanzato non disponibile.")
 
 # ---- FastAPI (kept in same file as requested) ----
 try:
@@ -1184,6 +1272,9 @@ def export_to_dxf(summary: Dict[str, int],
     if not ezdxf_available:
         raise RuntimeError("ezdxf non disponibile. Installa con: pip install ezdxf")
     
+    # Usa il sistema di organizzazione automatica
+    organized_path = get_organized_output_path(out_path, 'dxf')
+    
     try:
         # Crea nuovo documento DXF
         doc = ezdxf.new('R2010')
@@ -1233,10 +1324,10 @@ def export_to_dxf(summary: Dict[str, int],
         _draw_legend_and_notes_fixed(msp, legend_zone)
         
         # Salva documento
-        doc.saveas(out_path)
-        print(f"✅ DXF senza sovrapposizioni generato: {out_path}")
+        doc.saveas(organized_path)
+        print(f"✅ DXF senza sovrapposizioni generato: {organized_path}")
         print(f"📐 Layout totale: {layout.get_total_width():.0f} x {layout.get_total_height():.0f} mm")
-        return out_path
+        return organized_path
         
     except Exception as e:
         print(f"❌ Errore generazione DXF: {e}")
@@ -2649,6 +2740,9 @@ def summarize_blocks(placed: List[Dict]) -> Dict[str, int]:
     return summary
 
 def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Dict], out_path: str = "distinta_wall.json", params: Optional[Dict] = None) -> str:
+    # Usa il sistema di organizzazione automatica
+    organized_path = get_organized_output_path(out_path, 'json')
+    
     std_labels, custom_labels = create_block_labels(placed, customs)
 
     data = {
@@ -2683,9 +2777,9 @@ def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Di
         }
     }
 
-    with open(out_path, "w", encoding="utf-8") as f:
+    with open(organized_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, sort_keys=True)
-    return out_path
+    return organized_path
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Generate preview image
@@ -2797,10 +2891,13 @@ def export_to_pdf(summary: Dict[str, int],
     if not reportlab_available:
         raise RuntimeError("reportlab non disponibile. Installa con: pip install reportlab")
     
+    # Usa il sistema di organizzazione automatica
+    organized_path = get_organized_output_path(out_path, 'pdf')
+    
     try:
         # Setup documento
         doc = SimpleDocTemplate(
-            out_path,
+            organized_path,
             pagesize=A4,
             rightMargin=20*mm,
             leftMargin=20*mm,
@@ -2840,8 +2937,8 @@ def export_to_pdf(summary: Dict[str, int],
         
         # Genera PDF
         doc.build(story)
-        print(f"✅ PDF generato: {out_path}")
-        return out_path
+        print(f"✅ PDF generato: {organized_path}")
+        return organized_path
         
     except Exception as e:
         print(f"❌ Errore generazione PDF: {e}")
@@ -3181,8 +3278,10 @@ if app:
         """Serve la pagina principale del frontend."""
         return FileResponse("templates/index.html")
     
-    # Mount static files
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    # Mount static files - solo se la directory esiste
+    import os
+    if os.path.exists("static"):
+        app.mount("/static", StaticFiles(directory="static"), name="static")
     
     # ===== HEALTH CHECK =====
     
@@ -3637,7 +3736,12 @@ def _demo():
     print(f"  • Waste ratio: {metrics['waste_ratio']:.1%}")
     print(f"  • Complessità: {metrics['complexity']} pezzi CU2")
 
-    out = export_to_json(summary, custom, placed, out_path="distinta_base_wall.json", params=build_run_params(row_offset=826))
+    # Genera nomi file unici con timestamp
+    json_filename = generate_unique_filename("distinta_demo", ".json", "trapezoidale")
+    pdf_filename = generate_unique_filename("report_demo", ".pdf", "trapezoidale") 
+    dxf_filename = generate_unique_filename("schema_demo", ".dxf", "trapezoidale")
+
+    out = export_to_json(summary, custom, placed, out_path=json_filename, params=build_run_params(row_offset=826))
     print(f"📄 JSON scritto in: {out}")
 
     # Test export PDF
@@ -3646,7 +3750,7 @@ def _demo():
             pdf_path = export_to_pdf(summary, custom, placed, wall_exterior, 
                                    apertures=[porta1, porta2],
                                    project_name="Demo Parete Trapezoidale", 
-                                   out_path="demo_parete_trapezoidale.pdf",
+                                   out_path=pdf_filename,
                                    params=build_run_params(row_offset=826))
             print(f"📄 PDF demo generato: {pdf_path}")
         except Exception as e:
@@ -3660,7 +3764,7 @@ def _demo():
             dxf_path = export_to_dxf(summary, custom, placed, wall_exterior, 
                                    apertures=[porta1, porta2],
                                    project_name="Demo Parete Trapezoidale", 
-                                   out_path="demo_parete_senza_sovrapposizioni.dxf",
+                                   out_path=dxf_filename,
                                    params=build_run_params(row_offset=826))
             print(f"📐 DXF demo SENZA SOVRAPPOSIZIONI generato: {dxf_path}")
         except Exception as e:
