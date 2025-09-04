@@ -369,13 +369,136 @@
                     </div>
                     
                     <div class="features-grid">
-                        <div class="feature-card">
+                        <!-- Color Theme Customization Card -->
+                        <div class="feature-card color-theme-card">
                             <div class="feature-icon">
                                 <i class="fas fa-palette"></i>
                             </div>
                             <div class="feature-content">
                                 <h3>Temi Personalizzati</h3>
-                                <p>Scegli il tema che preferisci per l'interfaccia</p>
+                                <p>Personalizza i colori dei blocchi e degli elementi</p>
+                                
+                                <!-- Color Settings Panel -->
+                                <div class="color-settings-panel">
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-cubes"></i> Blocchi Standard</h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="standardBlockColor">Colore Riempimento:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="standardBlockColor" value="#E5E7EB" class="color-picker">
+                                                    <input type="text" id="standardBlockColorText" value="#E5E7EB" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="standardBlockBorder">Colore Bordo:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="standardBlockBorder" value="#374151" class="color-picker">
+                                                    <input type="text" id="standardBlockBorderText" value="#374151" class="color-text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-door-open"></i> Porte e Finestre</h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="doorWindowColor">Colore Riempimento:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="doorWindowColor" value="#FEE2E2" class="color-picker">
+                                                    <input type="text" id="doorWindowColorText" value="#FEE2E2" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="doorWindowBorder">Colore Bordo:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="doorWindowBorder" value="#DC2626" class="color-picker">
+                                                    <input type="text" id="doorWindowBorderText" value="#DC2626" class="color-text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-vector-square"></i> Contorno Parete</h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="wallOutlineColor">Colore Contorno:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="wallOutlineColor" value="#1E40AF" class="color-picker">
+                                                    <input type="text" id="wallOutlineColorText" value="#1E40AF" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="wallLineWidth">Spessore Linea:</label>
+                                                <div class="range-input-group">
+                                                    <input type="range" id="wallLineWidth" min="1" max="5" value="2" class="range-slider">
+                                                    <span class="range-value">2px</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-puzzle-piece"></i> Pezzi Custom</h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="customPieceColor">Colore Riempimento:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="customPieceColor" value="#F3E8FF" class="color-picker">
+                                                    <input type="text" id="customPieceColorText" value="#F3E8FF" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="customPieceBorder">Colore Bordo:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="customPieceBorder" value="#7C3AED" class="color-picker">
+                                                    <input type="text" id="customPieceBorderText" value="#7C3AED" class="color-text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Preview Section -->
+                                    <div class="color-preview-section">
+                                        <h4><i class="fas fa-eye"></i> Anteprima Colori</h4>
+                                        <div class="color-preview-grid">
+                                            <div class="preview-item">
+                                                <div class="preview-block standard-block" id="previewStandardBlock"></div>
+                                                <span>Blocco Standard</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <div class="preview-block door-window-block" id="previewDoorWindow"></div>
+                                                <span>Porta/Finestra</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <div class="preview-block custom-piece-block" id="previewCustomPiece"></div>
+                                                <span>Pezzo Custom</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <div class="preview-outline" id="previewWallOutline"></div>
+                                                <span>Contorno</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="color-actions">
+                                        <button class="preset-btn" onclick="applyPreset('default')">
+                                            <i class="fas fa-undo"></i> Default
+                                        </button>
+                                        <button class="preset-btn" onclick="applyPreset('highContrast')">
+                                            <i class="fas fa-adjust"></i> Alto Contrasto
+                                        </button>
+                                        <button class="preset-btn" onclick="applyPreset('colorful')">
+                                            <i class="fas fa-rainbow"></i> Colorato
+                                        </button>
+                                        <button class="save-btn primary-btn" onclick="saveColorTheme()">
+                                            <i class="fas fa-save"></i> Salva Tema
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="feature-card">

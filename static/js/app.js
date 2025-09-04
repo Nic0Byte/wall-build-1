@@ -1018,4 +1018,246 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🎨 Professional design mode enabled');
     console.log('📱 Responsive layout activated');
     console.log('⌨️ Keyboard shortcuts: Ctrl+1 (App), Ctrl+2 (Libreria), Ctrl+3 (Impostazioni)');
+    
+    // Initialize color theme system
+    initializeColorTheme();
 });
+
+// ===== COLOR THEME SYSTEM =====
+
+// Color presets
+const colorPresets = {
+    default: {
+        standardBlockColor: '#E5E7EB',
+        standardBlockBorder: '#374151',
+        doorWindowColor: '#FEE2E2',
+        doorWindowBorder: '#DC2626',
+        wallOutlineColor: '#1E40AF',
+        wallLineWidth: 2,
+        customPieceColor: '#F3E8FF',
+        customPieceBorder: '#7C3AED'
+    },
+    highContrast: {
+        standardBlockColor: '#FFFFFF',
+        standardBlockBorder: '#000000',
+        doorWindowColor: '#FFFF00',
+        doorWindowBorder: '#FF0000',
+        wallOutlineColor: '#0000FF',
+        wallLineWidth: 3,
+        customPieceColor: '#00FF00',
+        customPieceBorder: '#800080'
+    },
+    colorful: {
+        standardBlockColor: '#DBEAFE',
+        standardBlockBorder: '#1E40AF',
+        doorWindowColor: '#FED7D7',
+        doorWindowBorder: '#E53E3E',
+        wallOutlineColor: '#059669',
+        wallLineWidth: 2,
+        customPieceColor: '#E9D8FD',
+        customPieceBorder: '#805AD5'
+    }
+};
+
+function initializeColorTheme() {
+    console.log('🎨 Initializing Color Theme System');
+    
+    // Load saved theme or use default
+    const savedTheme = localStorage.getItem('wallTheme');
+    const currentTheme = savedTheme ? JSON.parse(savedTheme) : colorPresets.default;
+    
+    // Setup color inputs
+    setupColorInputs(currentTheme);
+    
+    // Setup range slider
+    setupRangeSlider();
+    
+    // Update preview
+    updateColorPreview();
+    
+    console.log('✅ Color Theme System initialized');
+}
+
+function setupColorInputs(theme) {
+    const colorInputs = [
+        'standardBlockColor', 'standardBlockBorder',
+        'doorWindowColor', 'doorWindowBorder',
+        'wallOutlineColor', 'customPieceColor', 'customPieceBorder'
+    ];
+    
+    colorInputs.forEach(inputId => {
+        const colorPicker = document.getElementById(inputId);
+        const colorText = document.getElementById(inputId + 'Text');
+        
+        if (colorPicker && colorText) {
+            // Set initial values
+            const value = theme[inputId] || colorPresets.default[inputId];
+            colorPicker.value = value;
+            colorText.value = value;
+            
+            // Color picker change
+            colorPicker.addEventListener('input', (e) => {
+                const color = e.target.value;
+                colorText.value = color;
+                updateColorPreview();
+            });
+            
+            // Text input change
+            colorText.addEventListener('input', (e) => {
+                const color = e.target.value;
+                if (isValidHexColor(color)) {
+                    colorPicker.value = color;
+                    updateColorPreview();
+                }
+            });
+        }
+    });
+    
+    // Setup line width
+    const wallLineWidth = document.getElementById('wallLineWidth');
+    if (wallLineWidth) {
+        wallLineWidth.value = theme.wallLineWidth || 2;
+    }
+}
+
+function setupRangeSlider() {
+    const slider = document.getElementById('wallLineWidth');
+    const valueDisplay = document.querySelector('.range-value');
+    
+    if (slider && valueDisplay) {
+        const updateValue = () => {
+            valueDisplay.textContent = slider.value + 'px';
+            updateColorPreview();
+        };
+        
+        slider.addEventListener('input', updateValue);
+        updateValue(); // Initial update
+    }
+}
+
+function updateColorPreview() {
+    const elements = {
+        'previewStandardBlock': {
+            bg: 'standardBlockColor',
+            border: 'standardBlockBorder'
+        },
+        'previewDoorWindow': {
+            bg: 'doorWindowColor',
+            border: 'doorWindowBorder'
+        },
+        'previewCustomPiece': {
+            bg: 'customPieceColor',
+            border: 'customPieceBorder'
+        },
+        'previewWallOutline': {
+            border: 'wallOutlineColor'
+        }
+    };
+    
+    Object.entries(elements).forEach(([elementId, config]) => {
+        const element = document.getElementById(elementId);
+        if (element) {
+            if (config.bg) {
+                const bgColor = document.getElementById(config.bg)?.value;
+                if (bgColor) element.style.backgroundColor = bgColor;
+            }
+            
+            if (config.border) {
+                const borderColor = document.getElementById(config.border)?.value;
+                if (borderColor) element.style.borderColor = borderColor;
+                
+                // Special handling for wall outline
+                if (elementId === 'previewWallOutline') {
+                    const lineWidth = document.getElementById('wallLineWidth')?.value || 2;
+                    element.style.borderWidth = lineWidth + 'px';
+                }
+            }
+        }
+    });
+}
+
+function applyPreset(presetName) {
+    console.log(`🎨 Applying preset: ${presetName}`);
+    
+    const preset = colorPresets[presetName];
+    if (!preset) {
+        console.error(`❌ Preset '${presetName}' not found`);
+        return;
+    }
+    
+    // Apply all values
+    Object.entries(preset).forEach(([key, value]) => {
+        const colorPicker = document.getElementById(key);
+        const colorText = document.getElementById(key + 'Text');
+        
+        if (colorPicker && colorText) {
+            colorPicker.value = value;
+            colorText.value = value;
+        } else if (key === 'wallLineWidth') {
+            const slider = document.getElementById('wallLineWidth');
+            if (slider) slider.value = value;
+        }
+    });
+    
+    // Update range slider display
+    setupRangeSlider();
+    
+    // Update preview
+    updateColorPreview();
+    
+    // Show confirmation
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast(`Preset "${presetName}" applicato`, 'success');
+    }
+}
+
+function saveColorTheme() {
+    console.log('💾 Saving color theme');
+    
+    const theme = {
+        standardBlockColor: document.getElementById('standardBlockColor')?.value,
+        standardBlockBorder: document.getElementById('standardBlockBorder')?.value,
+        doorWindowColor: document.getElementById('doorWindowColor')?.value,
+        doorWindowBorder: document.getElementById('doorWindowBorder')?.value,
+        wallOutlineColor: document.getElementById('wallOutlineColor')?.value,
+        wallLineWidth: parseInt(document.getElementById('wallLineWidth')?.value) || 2,
+        customPieceColor: document.getElementById('customPieceColor')?.value,
+        customPieceBorder: document.getElementById('customPieceBorder')?.value
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('wallTheme', JSON.stringify(theme));
+    
+    // Apply to current session
+    window.currentColorTheme = theme;
+    
+    // Show confirmation
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Tema salvato con successo!', 'success');
+    }
+    
+    console.log('✅ Color theme saved:', theme);
+}
+
+function isValidHexColor(hex) {
+    return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
+}
+
+// Export current theme for use in processing
+function getCurrentColorTheme() {
+    if (window.currentColorTheme) {
+        return window.currentColorTheme;
+    }
+    
+    // Fallback to reading from inputs
+    return {
+        standardBlockColor: document.getElementById('standardBlockColor')?.value || '#E5E7EB',
+        standardBlockBorder: document.getElementById('standardBlockBorder')?.value || '#374151',
+        doorWindowColor: document.getElementById('doorWindowColor')?.value || '#FEE2E2',
+        doorWindowBorder: document.getElementById('doorWindowBorder')?.value || '#DC2626',
+        wallOutlineColor: document.getElementById('wallOutlineColor')?.value || '#1E40AF',
+        wallLineWidth: parseInt(document.getElementById('wallLineWidth')?.value) || 2,
+        customPieceColor: document.getElementById('customPieceColor')?.value || '#F3E8FF',
+        customPieceBorder: document.getElementById('customPieceBorder')?.value || '#7C3AED'
+    };
+}
