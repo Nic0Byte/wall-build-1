@@ -1,5 +1,5 @@
 /**
- * Costruttore Pareti - Frontend Application
+ * Parete TAKTAK® - Frontend Application
  * Complete client-side logic for SVG processing and wall packing
  */
 
@@ -8,19 +8,87 @@ class WallPackingApp {
         this.currentFile = null;
         this.currentSessionId = null;
         this.currentData = null;
+        this.currentSection = 'app'; // Track current section
         
         // Bind methods
         this.handleFileSelect = this.handleFileSelect.bind(this);
         this.handleDragOver = this.handleDragOver.bind(this);
         this.handleDrop = this.handleDrop.bind(this);
+        this.handleNavigation = this.handleNavigation.bind(this);
         
         this.init();
     }
     
     init() {
-        console.log('🚀 Inizializzazione Wall Packing App');
+        console.log('🚀 Inizializzazione Parete TAKTAK® App');
         this.setupEventListeners();
+        this.setupNavigation();
+        this.showMainSection('app');
         this.showSection('upload');
+    }
+    
+    // ===== NAVIGATION SETUP =====
+    
+    setupNavigation() {
+        // Setup navigation menu
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', this.handleNavigation);
+        });
+    }
+    
+    handleNavigation(e) {
+        const targetSection = e.currentTarget.dataset.section;
+        if (targetSection) {
+            this.showMainSection(targetSection);
+            
+            // Update active navigation item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            e.currentTarget.classList.add('active');
+            
+            // Show/hide header stats based on section
+            const headerStats = document.getElementById('headerStats');
+            if (headerStats) {
+                if (targetSection === 'app' && this.currentData) {
+                    headerStats.style.display = 'flex';
+                } else {
+                    headerStats.style.display = 'none';
+                }
+            }
+        }
+    }
+    
+    showMainSection(sectionName) {
+        // Hide all main sections
+        const sections = ['appSection', 'librarySection', 'settingsSection'];
+        sections.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.remove('active');
+            }
+        });
+        
+        // Show target section
+        const targetSection = document.getElementById(sectionName + 'Section');
+        if (targetSection) {
+            targetSection.classList.add('active');
+        }
+        
+        this.currentSection = sectionName;
+        
+        // Handle section-specific logic
+        if (sectionName === 'app') {
+            // Restore app state
+            if (this.currentData) {
+                this.showSection('results');
+            } else if (this.currentFile) {
+                this.showSection('config');
+            } else {
+                this.showSection('upload');
+            }
+        }
     }
     
     // ===== EVENT LISTENERS SETUP =====
@@ -107,6 +175,20 @@ class WallPackingApp {
             if (e.key === 'Escape') {
                 this.closeFullscreenPreview();
             }
+            
+            // Navigation shortcuts (Ctrl + 1/2/3)
+            if (e.ctrlKey && ['1', '2', '3'].includes(e.key)) {
+                e.preventDefault();
+                const sections = ['app', 'library', 'settings'];
+                const sectionIndex = parseInt(e.key) - 1;
+                if (sections[sectionIndex]) {
+                    // Find and click the corresponding nav item
+                    const navItem = document.querySelector(`[data-section="${sections[sectionIndex]}"]`);
+                    if (navItem) {
+                        navItem.click();
+                    }
+                }
+            }
         });
     }
     
@@ -186,9 +268,17 @@ class WallPackingApp {
         // Set file
         this.currentFile = file;
         this.showFileInfo(file);
-        this.showSection('config');
         
+        // Show success message and auto-progress to configuration
         this.showToast('File caricato con successo', 'success');
+        
+        // Auto-progress with smooth transition
+        setTimeout(() => {
+            this.showToast('Passaggio alla configurazione...', 'info');
+            setTimeout(() => {
+                this.showSection('config');
+            }, 800);
+        }, 1200);
     }
     
     removeFile() {
@@ -479,6 +569,11 @@ class WallPackingApp {
     // ===== UI STATE MANAGEMENT =====
     
     showSection(sectionName) {
+        // Only show sections if we're in the app section
+        if (this.currentSection !== 'app') {
+            return;
+        }
+        
         // Hide all sections
         const sections = ['uploadSection', 'configSection', 'resultsSection'];
         sections.forEach(id => {
@@ -497,14 +592,14 @@ class WallPackingApp {
             // If we have data, add reconfigure handler
             const processBtn = document.getElementById('processBtn');
             if (processBtn) {
-                processBtn.innerHTML = '<span class="btn-icon">⚙️</span> Ricalcola Packing';
+                processBtn.innerHTML = '<i class="fas fa-cogs"></i><span>Ricalcola Packing</span>';
                 processBtn.onclick = () => this.reconfigureAndProcess();
             }
         } else if (sectionName === 'config') {
             // Reset to normal process button
             const processBtn = document.getElementById('processBtn');
             if (processBtn) {
-                processBtn.innerHTML = '<span class="btn-icon">⚙️</span> Calcola Packing';
+                processBtn.innerHTML = '<i class="fas fa-cogs"></i><span>Calcola Packing</span>';
                 processBtn.onclick = () => this.processFile();
             }
         }
@@ -537,7 +632,10 @@ class WallPackingApp {
             statCustom.textContent = totalCustom;
             statEfficiency.textContent = `${Math.round(efficiency * 100)}%`;
             
-            headerStats.style.display = 'flex';
+            // Show stats only if we're in app section
+            if (this.currentSection === 'app') {
+                headerStats.style.display = 'flex';
+            }
         }
     }
     
@@ -738,14 +836,38 @@ class WallPackingApp {
         
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.textContent = message;
+        
+        // Add icon based on type
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle"></i>';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle"></i>';
+                break;
+            case 'warning':
+                icon = '<i class="fas fa-exclamation-triangle"></i>';
+                break;
+            case 'info':
+            default:
+                icon = '<i class="fas fa-info-circle"></i>';
+                break;
+        }
+        
+        toast.innerHTML = `${icon}<span>${message}</span>`;
         
         container.appendChild(toast);
         
         // Auto remove
         setTimeout(() => {
             if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
             }
         }, duration);
     }
@@ -785,12 +907,21 @@ class WallPackingApp {
         // Reset process button
         const processBtn = document.getElementById('processBtn');
         if (processBtn) {
-            processBtn.innerHTML = '<span class="btn-icon">⚙️</span> Calcola Packing';
+            processBtn.innerHTML = '<i class="fas fa-cogs"></i><span>Calcola Packing</span>';
             processBtn.onclick = () => this.processFile();
         }
         
-        // Show upload section
+        // Show upload section and switch to app
+        this.showMainSection('app');
         this.showSection('upload');
+        
+        // Update navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.section === 'app') {
+                item.classList.add('active');
+            }
+        });
         
         this.showToast('Applicazione ripristinata', 'info');
     }
@@ -826,7 +957,7 @@ function throttle(func, limit) {
 // ===== INITIALIZATION =====
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎯 DOM Content Loaded');
+    console.log('🎯 DOM Content Loaded - Parete TAKTAK®');
     
     // Initialize app
     window.wallPackingApp = new WallPackingApp();
@@ -841,6 +972,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 console.error(`❌ ${btnId} button NON trovato`);
             }
+        });
+        
+        // Verifica navigazione
+        const navItems = document.querySelectorAll('.nav-item');
+        console.log(`🧭 Trovati ${navItems.length} elementi di navigazione`);
+        navItems.forEach((item, index) => {
+            console.log(`📍 Nav ${index + 1}: ${item.dataset.section}`);
         });
     }, 1000);
     
@@ -862,5 +1000,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    console.log('✅ Wall Packing App initialized successfully');
+    // Add smooth scroll behavior for better UX
+    document.documentElement.style.scrollBehavior = 'smooth';
+    
+    // Add loading states for external resources
+    const images = document.querySelectorAll('img');
+    images.forEach(img => {
+        img.addEventListener('load', () => {
+            img.style.opacity = '1';
+        });
+        img.addEventListener('error', () => {
+            console.warn('Image failed to load:', img.src);
+        });
+    });
+    
+    console.log('✅ Parete TAKTAK® App initialized successfully');
+    console.log('🎨 Professional design mode enabled');
+    console.log('📱 Responsive layout activated');
+    console.log('⌨️ Keyboard shortcuts: Ctrl+1 (App), Ctrl+2 (Libreria), Ctrl+3 (Impostazioni)');
 });

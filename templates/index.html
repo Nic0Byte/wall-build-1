@@ -3,25 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Costruttore Pareti a Blocchi</title>
+    <title>Parete TAKTAK® - Sistema Professionale</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div id="app">
-        <!-- Header -->
+        <!-- Header with Navigation -->
         <header class="header">
             <div class="container">
                 <div class="header-content">
+                    <!-- Logo and Brand -->
                     <div class="logo-section">
-                        <div class="logo-icon">🧱</div>
+                        <div class="logo-icon">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
                         <div class="logo-text">
-                            <h1>Costruttore Pareti</h1>
-                            <span class="subtitle">Sistema Automatico di Packing</span>
+                            <h1>Parete TAKTAK<sup>®</sup></h1>
+                            <span class="subtitle">Sistema Professionale di Progettazione</span>
                         </div>
                     </div>
+                    
+                    <!-- Navigation Menu -->
+                    <nav class="main-nav">
+                        <div class="nav-item active" data-section="app">
+                            <i class="fas fa-play-circle"></i>
+                            <span>Applicazione</span>
+                        </div>
+                        <div class="nav-item" data-section="library">
+                            <i class="fas fa-folder-open"></i>
+                            <span>Libreria</span>
+                        </div>
+                        <div class="nav-item" data-section="settings">
+                            <i class="fas fa-cog"></i>
+                            <span>Impostazioni Globali</span>
+                        </div>
+                    </nav>
+                    
+                    <!-- Header Stats (shown only in app section) -->
                     <div class="header-stats" id="headerStats" style="display: none;">
                         <div class="stat-item">
                             <span class="stat-value" id="statStandard">0</span>
@@ -40,217 +63,351 @@
             </div>
         </header>
 
-        <!-- Main Content -->
+        <!-- Main Content Container -->
         <main class="main-content">
             <div class="container">
                 
-                <!-- Step 1: Upload -->
-                <section class="step-section" id="uploadSection">
-                    <div class="step-header">
-                        <div class="step-number">1</div>
-                        <div class="step-info">
-                            <h2>Carica File CAD</h2>
-                            <p>Seleziona o trascina il file CAD contenente la parete da costruire</p>
+                <!-- APPLICATION SECTION -->
+                <div id="appSection" class="content-section active">
+                    <!-- Step 1: Upload -->
+                    <section class="step-section" id="uploadSection">
+                        <div class="step-header">
+                            <div class="step-number">1</div>
+                            <div class="step-info">
+                                <h2>Carica File CAD</h2>
+                                <p>Seleziona o trascina il file CAD contenente la parete da costruire</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="upload-area" id="uploadArea">
-                        <div class="upload-content">
-                            <div class="upload-icon">📁</div>
-                            <h3>Trascina qui il file CAD</h3>
-                            <p>oppure <button type="button" class="link-button" onclick="document.getElementById('fileInput').click()">seleziona file</button></p>
-                            <div class="upload-info">
-                                <div class="format-support">
-                                    <strong>Formati supportati:</strong>
-                                    <ul>
-                                        <li>✅ <strong>SVG</strong> - Supporto completo</li>
-                                        <li>✅ <strong>DXF</strong> - Supporto completo</li>
-                                        <li>⚠️ <strong>DWG</strong> - AutoCAD R14-2013 (limitato)</li>
-                                    </ul>
-                                    <small><strong>Nota:</strong> Per file DWG moderni (2018+), convertili in DXF prima del caricamento</small>
+                        
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-content">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <h3>Trascina qui il file CAD</h3>
+                                <p>oppure <button type="button" class="link-button" onclick="document.getElementById('fileInput').click()">seleziona file</button></p>
+                                <div class="upload-info">
+                                    <div class="format-support">
+                                        <strong>Formati supportati:</strong>
+                                        <ul>
+                                            <li><i class="fas fa-check-circle text-success"></i> <strong>SVG</strong> - Supporto completo</li>
+                                            <li><i class="fas fa-check-circle text-success"></i> <strong>DXF</strong> - Supporto completo</li>
+                                            <li><i class="fas fa-exclamation-triangle text-warning"></i> <strong>DWG</strong> - AutoCAD R14-2013 (limitato)</li>
+                                        </ul>
+                                        <small><strong>Nota:</strong> Per file DWG moderni (2018+), convertili in DXF prima del caricamento</small>
+                                    </div>
                                 </div>
                             </div>
+                            <input type="file" id="fileInput" accept=".svg,.dwg,.dxf" style="display: none;">
                         </div>
-                        <input type="file" id="fileInput" accept=".svg,.dwg,.dxf" style="display: none;">
-                    </div>
-                    
-                    <div class="file-info" id="fileInfo" style="display: none;">
-                        <div class="file-preview">
-                            <div class="file-icon">✅</div>
-                            <div class="file-details">
-                                <div class="file-name" id="fileName"></div>
-                                <div class="file-meta" id="fileMeta"></div>
+                        
+                        <div class="file-info" id="fileInfo" style="display: none;">
+                            <div class="file-preview">
+                                <div class="file-icon">
+                                    <i class="fas fa-file-check"></i>
+                                </div>
+                                <div class="file-details">
+                                    <div class="file-name" id="fileName"></div>
+                                    <div class="file-meta" id="fileMeta"></div>
+                                </div>
+                                <button type="button" class="btn-icon" id="removeFile" title="Rimuovi file">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
-                            <button type="button" class="btn-icon" id="removeFile" title="Rimuovi file">❌</button>
                         </div>
-                    </div>
-                </section>
+                    </section>
 
-                <!-- Step 2: Configuration -->
-                <section class="step-section" id="configSection" style="display: none;">
-                    <div class="step-header">
-                        <div class="step-number">2</div>
-                        <div class="step-info">
-                            <h2>Configurazione Parametri</h2>
-                            <p>Personalizza le impostazioni di packing per ottimizzare il risultato</p>
-                        </div>
-                    </div>
-                    
-                    <div class="config-grid">
-                        <div class="config-card">
-                            <label for="projectName">Nome Progetto</label>
-                            <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
-                        </div>
-                        
-                        <div class="config-card">
-                            <label for="rowOffset">Offset Righe Dispari (mm)</label>
-                            <div class="slider-container">
-                                <input type="range" id="rowOffset" min="0" max="1239" value="826" step="1">
-                                <div class="slider-value" id="rowOffsetValue">826 mm</div>
-                            </div>
-                            <div class="slider-presets">
-                                <button type="button" class="preset-btn" data-value="0">0</button>
-                                <button type="button" class="preset-btn active" data-value="826">826</button>
-                                <button type="button" class="preset-btn" data-value="413">413</button>
-                                <button type="button" class="preset-btn" data-value="1239">1239</button>
+                    <!-- Step 2: Configuration -->
+                    <section class="step-section" id="configSection" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <div class="step-info">
+                                <h2>Configurazione Parametri</h2>
+                                <p>Personalizza le impostazioni di packing per ottimizzare il risultato</p>
                             </div>
                         </div>
                         
-                        <div class="config-card">
-                            <label for="blockWidths">Dimensioni Blocchi (mm)</label>
-                            <input type="text" id="blockWidths" value="1239,826,413" placeholder="es: 1239,826,413">
-                            <small>Larghezze blocchi standard separate da virgola</small>
-                        </div>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button type="button" class="btn btn-primary" id="processBtn">
-                            <span class="btn-icon">⚙️</span>
-                            Calcola Packing
-                        </button>
-                        <button type="button" class="btn btn-secondary" id="backToUpload">
-                            ← Torna a Upload
-                        </button>
-                    </div>
-                </section>
-
-                <!-- Step 3: Results -->
-                <section class="step-section" id="resultsSection" style="display: none;">
-                    <div class="step-header">
-                        <div class="step-number">3</div>
-                        <div class="step-info">
-                            <h2>Risultati Packing</h2>
-                            <p>Visualizza il layout calcolato e scarica i risultati</p>
-                        </div>
-                    </div>
-                    
-                    <div class="results-grid">
-                        <!-- Preview Area -->
-                        <div class="preview-card">
-                            <div class="card-header">
-                                <h3>Preview Parete</h3>
-                                <div class="preview-controls">
-                                    <button type="button" class="btn-icon" id="refreshPreview" title="Aggiorna preview">🔄</button>
-                                    <button type="button" class="btn-icon" id="fullscreenPreview" title="Schermo intero">🔍</button>
+                        <div class="config-grid">
+                            <div class="config-card">
+                                <label for="projectName">
+                                    <i class="fas fa-project-diagram"></i>
+                                    Nome Progetto
+                                </label>
+                                <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
+                            </div>
+                            
+                            <div class="config-card">
+                                <label for="rowOffset">
+                                    <i class="fas fa-arrows-alt-h"></i>
+                                    Offset Righe Dispari (mm)
+                                </label>
+                                <div class="slider-container">
+                                    <input type="range" id="rowOffset" min="0" max="1239" value="826" step="1">
+                                    <div class="slider-value" id="rowOffsetValue">826 mm</div>
                                 </div>
-                            </div>
-                            <div class="preview-container" id="previewContainer">
-                                <div class="preview-loading" id="previewLoading">
-                                    <div class="spinner"></div>
-                                    <p>Generazione preview...</p>
-                                </div>
-                                <img id="previewImage" style="display: none;" alt="Preview parete">
-                            </div>
-                        </div>
-                        
-                        <!-- Summary Tables -->
-                        <div class="summary-cards">
-                            <!-- Standard Blocks -->
-                            <div class="summary-card">
-                                <h3>Blocchi Standard (Raggruppati)</h3>
-                                <div class="table-container">
-                                    <table id="standardTable">
-                                        <thead>
-                                            <tr>
-                                                <th>Categoria</th>
-                                                <th>Quantità</th>
-                                                <th>Dimensioni</th>
-                                                <th>Numerazione</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <!-- Populated by JS -->
-                                        </tbody>
-                                    </table>
+                                <div class="slider-presets">
+                                    <button type="button" class="preset-btn" data-value="0">0</button>
+                                    <button type="button" class="preset-btn active" data-value="826">826</button>
+                                    <button type="button" class="preset-btn" data-value="413">413</button>
+                                    <button type="button" class="preset-btn" data-value="1239">1239</button>
                                 </div>
                             </div>
                             
-                            <!-- Custom Pieces -->
-                            <div class="summary-card">
-                                <h3>Pezzi Custom (Raggruppati)</h3>
-                                <div class="table-container">
-                                    <table id="customTable">
-                                        <thead>
-                                            <tr>
-                                                <th>Categoria</th>
-                                                <th>Quantità</th>
-                                                <th>Dimensioni</th>
-                                                <th>Numerazione</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <!-- Populated by JS -->
-                                        </tbody>
-                                    </table>
+                            <div class="config-card">
+                                <label for="blockWidths">
+                                    <i class="fas fa-ruler-horizontal"></i>
+                                    Dimensioni Blocchi (mm)
+                                </label>
+                                <input type="text" id="blockWidths" value="1239,826,413" placeholder="es: 1239,826,413">
+                                <small>Larghezze blocchi standard separate da virgola</small>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-primary" id="processBtn">
+                                <i class="fas fa-cogs"></i>
+                                <span>Calcola Packing</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="backToUpload">
+                                <i class="fas fa-arrow-left"></i>
+                                <span>Torna a Upload</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Step 3: Results -->
+                    <section class="step-section" id="resultsSection" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <div class="step-info">
+                                <h2>Risultati Packing</h2>
+                                <p>Visualizza il layout calcolato e scarica i risultati</p>
+                            </div>
+                        </div>
+                        
+                        <div class="results-grid">
+                            <!-- Preview Area -->
+                            <div class="preview-card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-eye"></i> Preview Parete</h3>
+                                    <div class="preview-controls">
+                                        <button type="button" class="btn-icon" id="refreshPreview" title="Aggiorna preview">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn-icon" id="fullscreenPreview" title="Schermo intero">
+                                            <i class="fas fa-expand"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="preview-container" id="previewContainer">
+                                    <div class="preview-loading" id="previewLoading">
+                                        <div class="spinner"></div>
+                                        <p>Generazione preview...</p>
+                                    </div>
+                                    <img id="previewImage" style="display: none;" alt="Preview parete">
                                 </div>
                             </div>
                             
-                            <!-- Metrics -->
-                            <div class="summary-card metrics-card">
-                                <h3>Metriche Qualità</h3>
-                                <div class="metrics-grid">
-                                    <div class="metric-item">
-                                        <div class="metric-value" id="metricEfficiency">0%</div>
-                                        <div class="metric-label">Efficienza</div>
+                            <!-- Summary Tables -->
+                            <div class="summary-cards">
+                                <!-- Standard Blocks -->
+                                <div class="summary-card">
+                                    <h3><i class="fas fa-cubes"></i> Blocchi Standard (Raggruppati)</h3>
+                                    <div class="table-container">
+                                        <table id="standardTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Categoria</th>
+                                                    <th>Quantità</th>
+                                                    <th>Dimensioni</th>
+                                                    <th>Numerazione</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Populated by JS -->
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <div class="metric-item">
-                                        <div class="metric-value" id="metricWaste">0%</div>
-                                        <div class="metric-label">Spreco</div>
+                                </div>
+                                
+                                <!-- Custom Pieces -->
+                                <div class="summary-card">
+                                    <h3><i class="fas fa-puzzle-piece"></i> Pezzi Custom (Raggruppati)</h3>
+                                    <div class="table-container">
+                                        <table id="customTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Categoria</th>
+                                                    <th>Quantità</th>
+                                                    <th>Dimensioni</th>
+                                                    <th>Numerazione</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Populated by JS -->
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <div class="metric-item">
-                                        <div class="metric-value" id="metricComplexity">0</div>
-                                        <div class="metric-label">Complessità</div>
-                                    </div>
-                                    <div class="metric-item">
-                                        <div class="metric-value" id="metricCoverage">0%</div>
-                                        <div class="metric-label">Copertura</div>
+                                </div>
+                                
+                                <!-- Metrics -->
+                                <div class="summary-card metrics-card">
+                                    <h3><i class="fas fa-chart-bar"></i> Metriche Qualità</h3>
+                                    <div class="metrics-grid">
+                                        <div class="metric-item">
+                                            <div class="metric-icon"><i class="fas fa-percentage"></i></div>
+                                            <div class="metric-value" id="metricEfficiency">0%</div>
+                                            <div class="metric-label">Efficienza</div>
+                                        </div>
+                                        <div class="metric-item">
+                                            <div class="metric-icon"><i class="fas fa-trash-alt"></i></div>
+                                            <div class="metric-value" id="metricWaste">0%</div>
+                                            <div class="metric-label">Spreco</div>
+                                        </div>
+                                        <div class="metric-item">
+                                            <div class="metric-icon"><i class="fas fa-layer-group"></i></div>
+                                            <div class="metric-value" id="metricComplexity">0</div>
+                                            <div class="metric-label">Complessità</div>
+                                        </div>
+                                        <div class="metric-item">
+                                            <div class="metric-icon"><i class="fas fa-fill"></i></div>
+                                            <div class="metric-value" id="metricCoverage">0%</div>
+                                            <div class="metric-label">Copertura</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-success" id="downloadPDF">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Scarica PDF</span>
+                            </button>
+                            <button type="button" class="btn btn-primary" id="downloadDXF">
+                                <i class="fas fa-drafting-compass"></i>
+                                <span>Scarica DXF</span>
+                            </button>
+                            <button type="button" class="btn btn-primary" id="downloadJSON">
+                                <i class="fas fa-file-code"></i>
+                                <span>Scarica JSON</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="reconfigureBtn">
+                                <i class="fas fa-cogs"></i>
+                                <span>Riconfigurazione</span>
+                            </button>
+                            <button type="button" class="btn btn-outline" id="newProjectBtn">
+                                <i class="fas fa-plus"></i>
+                                <span>Nuovo Progetto</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+                
+                <!-- LIBRARY SECTION -->
+                <div id="librarySection" class="content-section">
+                    <div class="page-header">
+                        <div class="page-icon">
+                            <i class="fas fa-folder-open"></i>
+                        </div>
+                        <div class="page-info">
+                            <h1>Libreria Progetti</h1>
+                            <p>Gestione e archivio dei progetti salvati</p>
+                        </div>
                     </div>
                     
-                    <div class="action-buttons">
-                        <button type="button" class="btn btn-success" id="downloadPDF">
-                            <span class="btn-icon">📄</span>
-                            Scarica PDF
-                        </button>
-                        <button type="button" class="btn btn-primary" id="downloadDXF">
-                            <span class="btn-icon">📐</span>
-                            Scarica DXF
-                        </button>
-                        <button type="button" class="btn btn-primary" id="downloadJSON">
-                            <span class="btn-icon">📋</span>
-                            Scarica JSON
-                        </button>
-                        <button type="button" class="btn btn-secondary" id="reconfigureBtn">
-                            ⚙️ Riconfigurazione
-                        </button>
-                        <button type="button" class="btn btn-outline" id="newProjectBtn">
-                            🆕 Nuovo Progetto
-                        </button>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-save"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Salvataggio Automatico</h3>
+                                <p>I tuoi progetti vengono salvati automaticamente</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Ricerca Avanzata</h3>
+                                <p>Trova rapidamente i progetti che cerchi</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-tags"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Gestione Tag</h3>
+                                <p>Organizza i progetti con etichette personalizzate</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-history"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Cronologia Versioni</h3>
+                                <p>Tieni traccia delle modifiche nel tempo</p>
+                            </div>
+                        </div>
                     </div>
-                </section>
+                </div>
+                
+                <!-- SETTINGS SECTION -->
+                <div id="settingsSection" class="content-section">
+                    <div class="page-header">
+                        <div class="page-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="page-info">
+                            <h1>Impostazioni Globali</h1>
+                            <p>Configurazione generale del sistema</p>
+                        </div>
+                    </div>
+                    
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-palette"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Temi Personalizzati</h3>
+                                <p>Scegli il tema che preferisci per l'interfaccia</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-cube"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Blocchi Predefiniti</h3>
+                                <p>Configura le dimensioni standard dei blocchi</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-download"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Formati Export</h3>
+                                <p>Personalizza i formati di esportazione disponibili</p>
+                            </div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-user-cog"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Preferenze Utente</h3>
+                                <p>Imposta le tue preferenze personali</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
         </main>
 
@@ -270,8 +427,10 @@
         <div class="modal-overlay" id="fullscreenModal" style="display: none;">
             <div class="modal-content fullscreen-modal">
                 <div class="modal-header">
-                    <h3>Preview Parete - Schermo Intero</h3>
-                    <button type="button" class="btn-icon" id="closeFullscreen">❌</button>
+                    <h3><i class="fas fa-expand"></i> Preview Parete - Schermo Intero</h3>
+                    <button type="button" class="btn-icon" id="closeFullscreen">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
                 <div class="modal-body">
                     <img id="fullscreenImage" alt="Preview parete fullscreen">
