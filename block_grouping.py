@@ -110,29 +110,34 @@ class BlockGrouping:
     def _assign_categories(self, std_groups: Dict, custom_groups: Dict) -> Dict[str, str]:
         """
         Assegna lettere categoria ai gruppi.
-        Priorità: gruppi più numerosi prima.
+        A, B, C riservate per standard, D+ per custom.
         """
-        # Combina tutti i gruppi con info priorità
-        all_groups = []
-        
-        # Standard blocks con priorità alta (più stabili)
-        for group_key, indices in std_groups.items():
-            priority = len(indices) * 1000  # Priorità molto alta per standard
-            all_groups.append((group_key, len(indices), priority, 'standard'))
-        
-        # Custom blocks
-        for group_key, indices in custom_groups.items():
-            priority = len(indices) * 10  # Priorità media per custom
-            all_groups.append((group_key, len(indices), priority, 'custom'))
-        
-        # Ordina per priorità decrescente
-        all_groups.sort(key=lambda x: x[2], reverse=True)
-        
-        # Assegna lettere
         category_map = {}
-        letter_index = 0
         
-        for group_key, count, priority, block_type in all_groups:
+        # PRIMA: Assegna A, B, C ai gruppi standard (ordinati per quantità)
+        std_sorted = sorted(std_groups.items(), key=lambda x: len(x[1]), reverse=True)
+        for i, (group_key, indices) in enumerate(std_sorted):
+            if i < 3:  # Solo A, B, C per standard
+                letter = chr(ord('A') + i)
+                category_map[group_key] = letter
+                
+                # Salva definizione categoria
+                self.category_definitions[letter] = {
+                    'group_key': group_key,
+                    'count': len(indices),
+                    'type': 'standard',
+                    'priority': len(indices) * 1000
+                }
+                
+                print(f"📋 Categoria {letter} → {group_key} ({len(indices)} blocchi, tipo: standard)")
+        
+        # SECONDA: Assegna D, E, F... ai gruppi custom (ordinati per quantità)
+        custom_sorted = sorted(custom_groups.items(), key=lambda x: len(x[1]), reverse=True)
+        custom_letter_start = 3  # Inizia da D (indice 3)
+        
+        for i, (group_key, indices) in enumerate(custom_sorted):
+            letter_index = custom_letter_start + i
+            
             if letter_index < 26:
                 letter = string.ascii_uppercase[letter_index]
             else:
@@ -144,14 +149,12 @@ class BlockGrouping:
             # Salva definizione categoria
             self.category_definitions[letter] = {
                 'group_key': group_key,
-                'count': count,
-                'type': block_type,
-                'priority': priority
+                'count': len(indices),
+                'type': 'custom',
+                'priority': len(indices) * 10
             }
             
-            letter_index += 1
-            
-            print(f"📋 Categoria {letter} → {group_key} ({count} blocchi, tipo: {block_type})")
+            print(f"📋 Categoria {letter} → {group_key} ({len(indices)} blocchi, tipo: custom)")
         
         return category_map
     
