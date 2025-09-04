@@ -1021,7 +1021,376 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize color theme system
     initializeColorTheme();
+    
+    // Initialize active blocks display
+    updateActiveBlocksDisplay();
 });
+
+// ===== ACTIVE BLOCKS INTEGRATION =====
+
+// Update the active blocks display in configuration section
+function updateActiveBlocksDisplay() {
+    const currentDimensions = getCurrentBlockDimensions();
+    
+    // Update dimension displays
+    document.getElementById('activeBlock1Dims').textContent = 
+        `${currentDimensions.block1.width}×${currentDimensions.block1.height}×${currentDimensions.block1.depth} mm`;
+    document.getElementById('activeBlock2Dims').textContent = 
+        `${currentDimensions.block2.width}×${currentDimensions.block2.height}×${currentDimensions.block2.depth} mm`;
+    document.getElementById('activeBlock3Dims').textContent = 
+        `${currentDimensions.block3.width}×${currentDimensions.block3.height}×${currentDimensions.block3.depth} mm`;
+    
+    // Update mini preview proportions
+    updateMiniPreviews(currentDimensions);
+    
+    console.log('🔄 Active blocks display updated');
+}
+
+function updateMiniPreviews(dimensions) {
+    const blockTypes = ['block1', 'block2', 'block3'];
+    
+    blockTypes.forEach((blockType, index) => {
+        const preview = document.querySelector(`.block-type${index + 1}`);
+        if (preview) {
+            const dims = dimensions[blockType];
+            const maxDim = Math.max(dims.width, dims.height, dims.depth);
+            
+            // Scale to fit in mini preview (40x30px max)
+            const scale = Math.min(40, maxDim / 5);
+            const displayWidth = (dims.width / maxDim) * scale;
+            const displayHeight = (dims.height / maxDim) * scale;
+            
+            preview.style.width = Math.max(20, displayWidth) + 'px';
+            preview.style.height = Math.max(15, displayHeight) + 'px';
+        }
+    });
+}
+
+// Open block library (switch to library section)
+function openBlockLibrary() {
+    console.log('📚 Opening block library');
+    
+    // Switch to library section
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showSection('library');
+        
+        // Show toast to guide user
+        setTimeout(() => {
+            window.wallPackingApp.showToast('Clicca su "Dimensioni Blocchi Standard" per modificare', 'info');
+        }, 500);
+    }
+}
+
+// Listen for block dimension changes to update active display
+function onBlockDimensionsChanged() {
+    updateActiveBlocksDisplay();
+    
+    // Show feedback that changes are reflected
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Blocchi aggiornati nell\'applicazione', 'success');
+    }
+}
+
+// ===== BLOCK DIMENSIONS SYSTEM =====
+
+// Block dimension presets
+const blockPresets = {
+    standard: {
+        block1: { width: 1239, height: 495, depth: 100 },  // Blocco A - Grande
+        block2: { width: 826, height: 495, depth: 100 },   // Blocco B - Medio  
+        block3: { width: 413, height: 495, depth: 100 }    // Blocco C - Piccolo
+    },
+    metric: {
+        block1: { width: 1200, height: 500, depth: 120 },  // Dimensioni metriche arrotondate
+        block2: { width: 800, height: 500, depth: 120 },
+        block3: { width: 400, height: 500, depth: 120 }
+    },
+    compact: {
+        block1: { width: 1000, height: 400, depth: 80 },   // Versione compatta
+        block2: { width: 650, height: 400, depth: 80 },
+        block3: { width: 300, height: 400, depth: 80 }
+    }
+};
+
+// Toggle block dimensions panel
+function toggleBlockDimensionsPanel() {
+    const panel = document.getElementById('blockDimensionsPanel');
+    const icon = document.getElementById('blockDimensionsExpandIcon');
+    
+    if (!panel || !icon) return;
+    
+    const isVisible = panel.style.display !== 'none';
+    
+    if (isVisible) {
+        // Close panel
+        panel.style.display = 'none';
+        icon.classList.remove('expanded');
+        console.log('📏 Block dimensions panel closed');
+    } else {
+        // Open panel
+        panel.style.display = 'block';
+        icon.classList.add('expanded');
+        
+        // Initialize panel if not already done
+        if (!window.blockDimensionsInitialized) {
+            setTimeout(() => {
+                initializeBlockDimensions();
+                window.blockDimensionsInitialized = true;
+            }, 100);
+        }
+        
+        console.log('📏 Block dimensions panel opened');
+    }
+}
+
+function initializeBlockDimensions() {
+    console.log('📏 Initializing Block Dimensions System');
+    
+    // Load saved dimensions from localStorage, fallback to system defaults
+    const savedDimensions = localStorage.getItem('blockDimensions');
+    let currentDimensions;
+    
+    if (savedDimensions) {
+        try {
+            currentDimensions = JSON.parse(savedDimensions);
+            console.log('📦 Using saved custom block dimensions');
+        } catch (e) {
+            console.warn('⚠️ Error parsing saved dimensions, using system defaults');
+            currentDimensions = blockPresets.standard;
+        }
+    } else {
+        // Use system defaults (matching utils/config.py)
+        currentDimensions = blockPresets.standard;
+        console.log('📦 Using system default block dimensions (A: 1239×495, B: 826×495, C: 413×495)');
+    }
+    
+    // Setup dimension inputs
+    setupDimensionInputs(currentDimensions);
+    
+    // Update previews and comparison
+    updateBlockPreviews();
+    updateBlockComparison();
+    
+    console.log('✅ Block Dimensions System initialized');
+}
+
+function setupDimensionInputs(dimensions) {
+    const blockTypes = ['block1', 'block2', 'block3'];
+    const dimensionTypes = ['Width', 'Height', 'Depth'];
+    
+    blockTypes.forEach(blockType => {
+        dimensionTypes.forEach(dimType => {
+            const inputId = blockType + dimType;
+            const input = document.getElementById(inputId);
+            
+            if (input) {
+                // Set initial value
+                const value = dimensions[blockType][dimType.toLowerCase()] || 100;
+                input.value = value;
+                
+                // Prevent propagation
+                input.addEventListener('click', (e) => e.stopPropagation());
+                input.addEventListener('focus', (e) => e.stopPropagation());
+                
+                // Update on change
+                input.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    updateBlockPreviews();
+                    updateBlockComparison();
+                    
+                    // Update active blocks display in real-time
+                    onBlockDimensionsChanged();
+                });
+            }
+        });
+    });
+    
+    // Prevent propagation on the entire panel
+    const panel = document.getElementById('blockDimensionsPanel');
+    if (panel) {
+        panel.addEventListener('click', (e) => e.stopPropagation());
+    }
+}
+
+function updateBlockPreviews() {
+    const blockTypes = ['block1', 'block2', 'block3'];
+    
+    blockTypes.forEach(blockType => {
+        const width = parseFloat(document.getElementById(blockType + 'Width')?.value) || 100;
+        const height = parseFloat(document.getElementById(blockType + 'Height')?.value) || 100;
+        const depth = parseFloat(document.getElementById(blockType + 'Depth')?.value) || 50;
+        
+        // Calculate volume in liters
+        const volume = (width * height * depth) / 1000000; // mm³ to L
+        
+        // Estimate weight (assuming concrete density ~2.4 kg/L)
+        const weight = volume * 2.4;
+        
+        // Update volume and weight displays
+        const volumeElement = document.getElementById(blockType + 'Volume');
+        const weightElement = document.getElementById(blockType + 'Weight');
+        
+        if (volumeElement) {
+            volumeElement.textContent = `Volume: ${volume.toFixed(3)} L`;
+        }
+        
+        if (weightElement) {
+            weightElement.textContent = `Peso: ~${weight.toFixed(1)} kg`;
+        }
+        
+        // Update 3D preview size (proportional)
+        const previewElement = document.getElementById('preview' + blockType.charAt(0).toUpperCase() + blockType.slice(1));
+        if (previewElement) {
+            const maxDim = Math.max(width, height, depth);
+            const scale = Math.min(80, maxDim / 3); // Scale to fit in 80px max
+            
+            const displayWidth = (width / maxDim) * scale;
+            const displayHeight = (height / maxDim) * scale;
+            
+            previewElement.style.width = displayWidth + 'px';
+            previewElement.style.height = displayHeight + 'px';
+        }
+    });
+}
+
+function updateBlockComparison() {
+    const block1Volume = calculateBlockVolume('block1');
+    const block2Volume = calculateBlockVolume('block2');
+    const block3Volume = calculateBlockVolume('block3');
+    
+    const maxVolume = Math.max(block1Volume, block2Volume, block3Volume);
+    
+    // Update comparison bars
+    updateComparisonBar('comparisonBar1', 'comparisonRatio1', block1Volume, maxVolume);
+    updateComparisonBar('comparisonBar2', 'comparisonRatio2', block2Volume, maxVolume);
+    updateComparisonBar('comparisonBar3', 'comparisonRatio3', block3Volume, maxVolume);
+}
+
+function calculateBlockVolume(blockType) {
+    const width = parseFloat(document.getElementById(blockType + 'Width')?.value) || 100;
+    const height = parseFloat(document.getElementById(blockType + 'Height')?.value) || 100;
+    const depth = parseFloat(document.getElementById(blockType + 'Depth')?.value) || 50;
+    
+    return width * height * depth;
+}
+
+function updateComparisonBar(barId, ratioId, volume, maxVolume) {
+    const bar = document.getElementById(barId);
+    const ratio = document.getElementById(ratioId);
+    
+    if (bar && ratio) {
+        const percentage = (volume / maxVolume) * 100;
+        bar.style.width = percentage + '%';
+        ratio.textContent = Math.round(percentage) + '%';
+    }
+}
+
+function applyBlockPreset(presetName) {
+    console.log(`📏 Applying block preset: ${presetName}`);
+    
+    const preset = blockPresets[presetName];
+    if (!preset) {
+        console.error(`❌ Block preset '${presetName}' not found`);
+        return;
+    }
+    
+    // Apply all values
+    Object.entries(preset).forEach(([blockType, dimensions]) => {
+        Object.entries(dimensions).forEach(([dimType, value]) => {
+            const inputId = blockType + dimType.charAt(0).toUpperCase() + dimType.slice(1);
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = value;
+            }
+        });
+    });
+    
+    // Update previews and comparison
+    updateBlockPreviews();
+    updateBlockComparison();
+    
+    // Update active blocks display
+    onBlockDimensionsChanged();
+    
+    // Show confirmation
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast(`Preset blocchi "${presetName}" applicato`, 'success');
+    }
+}
+
+function saveBlockDimensions() {
+    console.log('💾 Saving block dimensions');
+    
+    const dimensions = {
+        block1: {
+            width: parseFloat(document.getElementById('block1Width')?.value) || 100,
+            height: parseFloat(document.getElementById('block1Height')?.value) || 100,
+            depth: parseFloat(document.getElementById('block1Depth')?.value) || 50
+        },
+        block2: {
+            width: parseFloat(document.getElementById('block2Width')?.value) || 100,
+            height: parseFloat(document.getElementById('block2Height')?.value) || 100,
+            depth: parseFloat(document.getElementById('block2Depth')?.value) || 50
+        },
+        block3: {
+            width: parseFloat(document.getElementById('block3Width')?.value) || 100,
+            height: parseFloat(document.getElementById('block3Height')?.value) || 100,
+            depth: parseFloat(document.getElementById('block3Depth')?.value) || 50
+        }
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('blockDimensions', JSON.stringify(dimensions));
+    
+    // Apply to current session
+    window.currentBlockDimensions = dimensions;
+    
+    // Update active blocks display in configuration
+    updateActiveBlocksDisplay();
+    
+    // Show confirmation
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Dimensioni blocchi salvate e applicate!', 'success');
+    }
+    
+    console.log('✅ Block dimensions saved:', dimensions);
+}
+
+// Export current block dimensions for use in processing
+function getCurrentBlockDimensions() {
+    if (window.currentBlockDimensions) {
+        return window.currentBlockDimensions;
+    }
+    
+    // Check localStorage for saved dimensions
+    const saved = localStorage.getItem('blockDimensions');
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.warn('Error parsing saved block dimensions, using defaults');
+        }
+    }
+    
+    // Fallback to system defaults (from utils/config.py: BLOCK_WIDTHS + BLOCK_HEIGHT)
+    return {
+        block1: {
+            width: parseFloat(document.getElementById('block1Width')?.value) || 1239,  // A - Grande
+            height: parseFloat(document.getElementById('block1Height')?.value) || 495, // BLOCK_HEIGHT
+            depth: parseFloat(document.getElementById('block1Depth')?.value) || 100    // Standard depth
+        },
+        block2: {
+            width: parseFloat(document.getElementById('block2Width')?.value) || 826,   // B - Medio
+            height: parseFloat(document.getElementById('block2Height')?.value) || 495, // BLOCK_HEIGHT
+            depth: parseFloat(document.getElementById('block2Depth')?.value) || 100    // Standard depth
+        },
+        block3: {
+            width: parseFloat(document.getElementById('block3Width')?.value) || 413,   // C - Piccolo
+            height: parseFloat(document.getElementById('block3Height')?.value) || 495, // BLOCK_HEIGHT
+            depth: parseFloat(document.getElementById('block3Depth')?.value) || 100    // Standard depth
+        }
+    };
+}
 
 // ===== COLOR THEME SYSTEM =====
 
@@ -1308,4 +1677,36 @@ function getCurrentColorTheme() {
         customPieceColor: document.getElementById('customPieceColor')?.value || '#F3E8FF',
         customPieceBorder: document.getElementById('customPieceBorder')?.value || '#7C3AED'
     };
+}
+
+// Get block dimensions for backend processing
+function getBlockDimensionsForBackend() {
+    const dimensions = getCurrentBlockDimensions();
+    
+    // Convert to format expected by backend (matching BLOCK_WIDTHS, BLOCK_HEIGHT)
+    return {
+        block_widths: [
+            dimensions.block1.width,
+            dimensions.block2.width, 
+            dimensions.block3.width
+        ],
+        block_height: dimensions.block1.height, // Assume uniform height
+        block_depth: dimensions.block1.depth    // Standard depth for 3D calculations
+    };
+}
+
+// Reset to system defaults
+function resetToSystemDefaults() {
+    console.log('🔄 Resetting to system defaults');
+    
+    // Clear localStorage
+    localStorage.removeItem('blockDimensions');
+    
+    // Apply system defaults
+    applyBlockPreset('standard');
+    
+    // Show confirmation
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Ripristinate dimensioni sistema (A: 1239×495, B: 826×495, C: 413×495)', 'info');
+    }
 }

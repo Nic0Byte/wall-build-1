@@ -128,6 +128,43 @@
                         </div>
                         
                         <div class="config-grid">
+                            <!-- Active Block Configuration Display -->
+                            <div class="config-card active-blocks-card">
+                                <label>
+                                    <i class="fas fa-cubes"></i>
+                                    Blocchi Configurati
+                                    <button type="button" class="edit-blocks-btn" onclick="openBlockLibrary()">
+                                        <i class="fas fa-edit"></i> Modifica in Libreria
+                                    </button>
+                                </label>
+                                <div class="active-blocks-preview" id="activeBlocksPreview">
+                                    <div class="active-block-item">
+                                        <div class="block-mini-preview block-type1"></div>
+                                        <div class="block-details">
+                                            <span class="block-name">Tipo 1</span>
+                                            <span class="block-dims" id="activeBlock1Dims">1239×495×100 mm</span>
+                                        </div>
+                                    </div>
+                                    <div class="active-block-item">
+                                        <div class="block-mini-preview block-type2"></div>
+                                        <div class="block-details">
+                                            <span class="block-name">Tipo 2</span>
+                                            <span class="block-dims" id="activeBlock2Dims">826×495×100 mm</span>
+                                        </div>
+                                    </div>
+                                    <div class="active-block-item">
+                                        <div class="block-mini-preview block-type3"></div>
+                                        <div class="block-details">
+                                            <span class="block-name">Tipo 3</span>
+                                            <span class="block-dims" id="activeBlock3Dims">413×495×100 mm</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="blocks-usage-info">
+                                    <small><i class="fas fa-info-circle"></i> Questi blocchi verranno utilizzati per il packing della parete</small>
+                                </div>
+                            </div>
+                            
                             <div class="config-card">
                                 <label for="projectName">
                                     <i class="fas fa-project-diagram"></i>
@@ -317,13 +354,176 @@
                     </div>
                     
                     <div class="features-grid">
-                        <div class="feature-card">
+                        <!-- Block Dimensions Configuration Card -->
+                        <div class="feature-card block-dimensions-card" onclick="toggleBlockDimensionsPanel()">
                             <div class="feature-icon">
-                                <i class="fas fa-save"></i>
+                                <i class="fas fa-ruler-combined"></i>
                             </div>
                             <div class="feature-content">
-                                <h3>Salvataggio Automatico</h3>
-                                <p>I tuoi progetti vengono salvati automaticamente</p>
+                                <h3>Dimensioni Blocchi Standard <i class="fas fa-chevron-down expand-icon" id="blockDimensionsExpandIcon"></i></h3>
+                                <p>Configura le misure dei 3 tipi di blocchi standard</p>
+                                
+                                <!-- Block Dimensions Panel (Initially Hidden) -->
+                                <div class="block-dimensions-panel" id="blockDimensionsPanel" style="display: none;">
+                                    
+                                    <!-- Block Type 1 -->
+                                    <div class="block-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 1</h4>
+                                        <div class="dimensions-controls">
+                                            <div class="dimension-control">
+                                                <label for="block1Width">Larghezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block1Width" value="1239" min="400" max="1500" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block1Height">Altezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block1Height" value="495" min="200" max="800" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block1Depth">Profondità (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block1Depth" value="100" min="50" max="300" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="block-preview">
+                                            <div class="preview-block-3d" id="previewBlock1">
+                                                <span class="block-label">Tipo 1</span>
+                                            </div>
+                                            <div class="block-info">
+                                                <span class="block-volume" id="block1Volume">Volume: 1.000 L</span>
+                                                <span class="block-weight" id="block1Weight">Peso: ~2.4 kg</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Block Type 2 -->
+                                    <div class="block-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 2</h4>
+                                        <div class="dimensions-controls">
+                                            <div class="dimension-control">
+                                                <label for="block2Width">Larghezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block2Width" value="826" min="400" max="1500" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block2Height">Altezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block2Height" value="495" min="200" max="800" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block2Depth">Profondità (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block2Depth" value="100" min="50" max="300" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="block-preview">
+                                            <div class="preview-block-3d" id="previewBlock2">
+                                                <span class="block-label">Tipo 2</span>
+                                            </div>
+                                            <div class="block-info">
+                                                <span class="block-volume" id="block2Volume">Volume: 0.750 L</span>
+                                                <span class="block-weight" id="block2Weight">Peso: ~1.8 kg</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Block Type 3 -->
+                                    <div class="block-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 3</h4>
+                                        <div class="dimensions-controls">
+                                            <div class="dimension-control">
+                                                <label for="block3Width">Larghezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block3Width" value="413" min="200" max="800" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block3Height">Altezza (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block3Height" value="495" min="200" max="800" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="dimension-control">
+                                                <label for="block3Depth">Profondità (mm):</label>
+                                                <div class="number-input-group">
+                                                    <input type="number" id="block3Depth" value="100" min="50" max="300" class="dimension-input">
+                                                    <span class="unit">mm</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="block-preview">
+                                            <div class="preview-block-3d" id="previewBlock3">
+                                                <span class="block-label">Tipo 3</span>
+                                            </div>
+                                            <div class="block-info">
+                                                <span class="block-volume" id="block3Volume">Volume: 0.500 L</span>
+                                                <span class="block-weight" id="block3Weight">Peso: ~1.2 kg</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Comparison Section -->
+                                    <div class="blocks-comparison">
+                                        <h4><i class="fas fa-chart-bar"></i> Confronto Blocchi</h4>
+                                        <div class="comparison-grid">
+                                            <div class="comparison-item">
+                                                <strong>Tipo 1</strong>
+                                                <div class="comparison-bar">
+                                                    <div class="bar bar-type1" id="comparisonBar1"></div>
+                                                </div>
+                                                <span id="comparisonRatio1">100%</span>
+                                            </div>
+                                            <div class="comparison-item">
+                                                <strong>Tipo 2</strong>
+                                                <div class="comparison-bar">
+                                                    <div class="bar bar-type2" id="comparisonBar2"></div>
+                                                </div>
+                                                <span id="comparisonRatio2">75%</span>
+                                            </div>
+                                            <div class="comparison-item">
+                                                <strong>Tipo 3</strong>
+                                                <div class="comparison-bar">
+                                                    <div class="bar bar-type3" id="comparisonBar3"></div>
+                                                </div>
+                                                <span id="comparisonRatio3">50%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="block-actions">
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('standard')">
+                                            <i class="fas fa-undo"></i> Standard
+                                        </button>
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('metric')">
+                                            <i class="fas fa-ruler"></i> Metriche
+                                        </button>
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('compact')">
+                                            <i class="fas fa-compress"></i> Compatti
+                                        </button>
+                                        <button class="preset-btn reset-btn" onclick="event.stopPropagation(); resetToSystemDefaults()">
+                                            <i class="fas fa-cogs"></i> Reset Sistema
+                                        </button>
+                                        <button class="save-btn primary-btn" onclick="event.stopPropagation(); saveBlockDimensions()">
+                                            <i class="fas fa-save"></i> Salva Dimensioni
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="feature-card">
