@@ -350,6 +350,10 @@ class WallPackingApp {
             formData.append('block_widths', config.blockWidths);
             formData.append('project_name', config.projectName);
             
+            // Add color theme configuration
+            const colorTheme = getCurrentColorTheme();
+            formData.append('color_theme', JSON.stringify(colorTheme));
+            
             // Make API call
             const response = await fetch('/api/upload', {
                 method: 'POST',

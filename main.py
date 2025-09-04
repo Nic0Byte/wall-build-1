@@ -1125,7 +1125,8 @@ def export_to_dxf(summary: Dict[str, int],
                   apertures: Optional[List[Polygon]] = None,
                   project_name: str = "Progetto Parete",
                   out_path: str = "schema_taglio.dxf",
-                  params: Optional[Dict] = None) -> str:
+                  params: Optional[Dict] = None,
+                  color_theme: Optional[Dict] = None) -> str:
     """
     Genera DXF con layout: SOPRA assemblato completo + SOTTO schema taglio raggruppato.
     """
@@ -1141,7 +1142,7 @@ def export_to_dxf(summary: Dict[str, int],
         msp = doc.modelspace()
         
         # Setup layer professionali
-        _setup_dxf_layers(doc)
+        _setup_dxf_layers(doc, color_theme)
         
         # Calcola bounds wall per reference
         minx, miny, maxx, maxy = wall_polygon.bounds
@@ -2006,20 +2007,44 @@ def _draw_legend_and_notes_fixed(msp, zone: Dict):
 
 # ===== FUNZIONI HELPER ESISTENTI (mantengono la stessa logica) =====
 
-def _setup_dxf_layers(doc):
-    """Configura layer professionali con colori e stili standard."""
+def _setup_dxf_layers(doc, color_theme: Optional[Dict] = None):
+    """Configura layer professionali con colori personalizzabili."""
+    
+    # Color mapping da theme a DXF colors
+    def theme_color_to_dxf(theme_color, fallback_dxf_color):
+        """Converte colore hex del theme in colore DXF."""
+        if not theme_color or not isinstance(theme_color, str):
+            return fallback_dxf_color
+        
+        # Mapping semplificato colori comuni
+        color_map = {
+            '#1E40AF': dxf_colors.BLUE,     # wallOutlineColor default
+            '#DC2626': dxf_colors.RED,      # doorWindowBorder default  
+            '#374151': dxf_colors.BLACK,    # standardBlockBorder default
+            '#7C3AED': dxf_colors.MAGENTA,  # customPieceBorder default
+            '#16A34A': dxf_colors.GREEN,    # green variants
+        }
+        
+        return color_map.get(theme_color, fallback_dxf_color)
+    
+    # Default colors se theme non fornito
+    if not color_theme:
+        color_theme = {}
+    
     layer_config = [
-        # (name, color, linetype, lineweight)
-        ("PARETE", dxf_colors.BLUE, "CONTINUOUS", 0.50),
-        ("APERTURE", dxf_colors.RED, "DASHED", 0.30),
-        ("BLOCCHI_STD", dxf_colors.BLACK, "CONTINUOUS", 0.25),
-        ("BLOCCHI_CUSTOM", dxf_colors.GREEN, "CONTINUOUS", 0.35),
+        # (name, theme_key, fallback_color, linetype, lineweight)
+        ("PARETE", theme_color_to_dxf(color_theme.get('wallOutlineColor'), dxf_colors.BLUE), "CONTINUOUS", 0.50),
+        ("APERTURE", theme_color_to_dxf(color_theme.get('doorWindowBorder'), dxf_colors.RED), "DASHED", 0.30),
+        ("BLOCCHI_STD", theme_color_to_dxf(color_theme.get('standardBlockBorder'), dxf_colors.BLACK), "CONTINUOUS", 0.25),
+        ("BLOCCHI_CUSTOM", theme_color_to_dxf(color_theme.get('customPieceBorder'), dxf_colors.MAGENTA), "CONTINUOUS", 0.35),
         ("QUOTE", dxf_colors.MAGENTA, "CONTINUOUS", 0.18),
         ("TESTI", dxf_colors.BLACK, "CONTINUOUS", 0.15),
         ("TAGLIO", dxf_colors.CYAN, "CONTINUOUS", 0.40),
         ("CARTIGLIO", dxf_colors.BLACK, "CONTINUOUS", 0.25),
         ("LEGENDA", dxf_colors.BLACK, "CONTINUOUS", 0.20),
     ]
+    
+    print(f"🎨 [DEBUG] Setting up DXF layers with theme colors: {color_theme}")
     
     for name, color, linetype, lineweight in layer_config:
         layer = doc.layers.add(name)
@@ -3104,11 +3129,28 @@ def generate_preview_image(wall_polygon: Polygon,
                           placed: List[Dict], 
                           customs: List[Dict],
                           apertures: Optional[List[Polygon]] = None,
+                          color_theme: Optional[Dict] = None,
                           width: int = 800,
                           height: int = 600) -> str:
     """Genera immagine preview come base64 string."""
     if not plt or not patches:
         return ""
+    
+    # Default colors se theme non fornito
+    if not color_theme:
+        color_theme = {}
+    
+    # Extract colors with fallbacks
+    wall_color = color_theme.get('wallOutlineColor', '#1E40AF')
+    wall_line_width = color_theme.get('wallLineWidth', 2)
+    standard_block_color = color_theme.get('standardBlockColor', '#E5E7EB')
+    standard_block_border = color_theme.get('standardBlockBorder', '#374151')
+    custom_piece_color = color_theme.get('customPieceColor', '#F3E8FF')
+    custom_piece_border = color_theme.get('customPieceBorder', '#7C3AED')
+    door_window_color = color_theme.get('doorWindowColor', '#FEE2E2')
+    door_window_border = color_theme.get('doorWindowBorder', '#DC2626')
+    
+    print(f"🎨 [DEBUG] Preview using colors: wall={wall_color}, blocks={standard_block_color}")
         
     try:
         # Setup figura
@@ -3123,7 +3165,7 @@ def generate_preview_image(wall_polygon: Polygon,
         
         # Contorno parete
         x, y = wall_polygon.exterior.xy
-        ax.plot(x, y, color='#2563eb', linewidth=2, label='Parete')
+        ax.plot(x, y, color=wall_color, linewidth=wall_line_width, label='Parete')
         
         # Labels per blocchi - NUOVO SISTEMA RAGGRUPPATO
         detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
@@ -3132,7 +3174,7 @@ def generate_preview_image(wall_polygon: Polygon,
         for i, blk in enumerate(placed):
             rect = patches.Rectangle(
                 (blk['x'], blk['y']), blk['width'], blk['height'],
-                facecolor='#e5e7eb', edgecolor='#374151', linewidth=0.5
+                facecolor=standard_block_color, edgecolor=standard_block_border, linewidth=0.5
             )
             ax.add_patch(rect)
             
@@ -3172,7 +3214,7 @@ def generate_preview_image(wall_polygon: Polygon,
                 poly = shape(cust['geometry'])
                 patch = patches.Polygon(
                     list(poly.exterior.coords),
-                    facecolor='#dcfce7', edgecolor='#16a34a', 
+                    facecolor=custom_piece_color, edgecolor=custom_piece_border, 
                     linewidth=0.8, hatch='//', alpha=0.8
                 )
                 ax.add_patch(patch)
@@ -3213,8 +3255,8 @@ def generate_preview_image(wall_polygon: Polygon,
         if apertures:
             for ap in apertures:
                 x, y = ap.exterior.xy
-                ax.plot(x, y, color='#dc2626', linestyle='--', linewidth=2)
-                ax.fill(x, y, color='#dc2626', alpha=0.15)
+                ax.plot(x, y, color=door_window_border, linestyle='--', linewidth=2)
+                ax.fill(x, y, color=door_window_color, alpha=0.15)
         
         # Styling
         ax.set_title('Preview Costruzione Parete', fontsize=12, fontweight='bold', color='#1f2937')
@@ -3693,7 +3735,8 @@ if app:
         file: UploadFile = File(...),
         row_offset: int = Form(826),
         block_widths: str = Form("1239,826,413"),
-        project_name: str = Form("Progetto Parete")
+        project_name: str = Form("Progetto Parete"),
+        color_theme: str = Form("{}")
     ):
         """
         Upload SVG/DWG e processamento completo con preview.
@@ -3724,6 +3767,15 @@ if app:
                     widths = BLOCK_WIDTHS
             except ValueError:
                 widths = BLOCK_WIDTHS
+            
+            # Parse tema colori
+            try:
+                import json
+                color_config = json.loads(color_theme) if color_theme else {}
+                print(f"🎨 [DEBUG] Color theme received: {color_config}")
+            except (ValueError, json.JSONDecodeError):
+                color_config = {}
+                print("⚠️ Color theme parsing failed, using defaults")
             
             # Parse file (SVG o DWG)
             wall, apertures = parse_wall_file(file_bytes, file.filename)
@@ -3758,7 +3810,8 @@ if app:
                     "block_widths": widths,
                     "block_height": BLOCK_HEIGHT,
                     "row_offset": row_offset,
-                    "project_name": project_name
+                    "project_name": project_name,
+                    "color_theme": color_config
                 },
                 "metrics": metrics,
                 "timestamp": datetime.datetime.now()
@@ -3890,7 +3943,8 @@ if app:
                 session["wall_polygon"],
                 session["placed"],
                 session["customs"],
-                session["apertures"]
+                session["apertures"],
+                session["config"].get("color_theme", {})
             )
             
             if not preview_base64:
@@ -3968,7 +4022,8 @@ if app:
                     session["apertures"],
                     project_name=session["config"]["project_name"],
                     out_path=filename,
-                    params=build_run_params(session["config"]["row_offset"])
+                    params=build_run_params(session["config"]["row_offset"]),
+                    color_theme=session["config"].get("color_theme", {})
                 )
                 
                 return FileResponse(
