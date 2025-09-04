@@ -514,9 +514,9 @@ class WallPackingApp {
         // Update header stats
         this.updateHeaderStats(data);
         
-        // Update tables
-        this.updateStandardTable(data.summary);
-        this.updateCustomTable(data.blocks_custom || []);
+        // Update tables CON NUOVO SISTEMA RAGGRUPPAMENTO
+        this.updateGroupedStandardTable(data.summary, data.blocks_standard || []);
+        this.updateGroupedCustomTable(data.blocks_custom || []);
         
         // Update metrics
         this.updateMetrics(data.metrics);
@@ -541,61 +541,130 @@ class WallPackingApp {
         }
     }
     
-    updateStandardTable(summary) {
+    updateGroupedStandardTable(summary, standardBlocks) {
         const tbody = document.querySelector('#standardTable tbody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
         
-        // Block type mappings
+        // Simula raggruppamento per categoria (usa i mapping esistenti per ora)
         const typeMap = {
-            'std_1239x495': { name: 'Tipo A (Grande)', size: '1239 × 495' },
-            'std_826x495': { name: 'Tipo B (Medio)', size: '826 × 495' },
-            'std_413x495': { name: 'Tipo C (Piccolo)', size: '413 × 495' }
+            'std_1239x495': { name: 'Categoria A', size: '1239 × 495', category: 'A' },
+            'std_826x495': { name: 'Categoria B', size: '826 × 495', category: 'B' },
+            'std_413x495': { name: 'Categoria C', size: '413 × 495', category: 'C' }
         };
         
+        // Raggruppa per categoria mostrando il nuovo formato
         for (const [type, count] of Object.entries(summary || {})) {
-            const typeInfo = typeMap[type] || { name: type, size: 'N/A' };
+            const typeInfo = typeMap[type] || { name: `Categoria ${type}`, size: 'N/A', category: 'X' };
             
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><strong>${typeInfo.name}</strong></td>
-                <td class="text-center">${count}</td>
+                <td>
+                    <div class="flex items-center space-x-3">
+                        <div class="category-badge bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold">${typeInfo.category}</div>
+                        <span><strong>${typeInfo.name}</strong></span>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="count-badge bg-green-100 text-green-800 px-2 py-1 rounded">${count}</span>
+                </td>
                 <td>${typeInfo.size} mm</td>
+                <td class="text-sm text-gray-600">
+                    ${typeInfo.category}1, ${typeInfo.category}2, ..., ${typeInfo.category}${count}
+                </td>
             `;
             tbody.appendChild(row);
         }
         
         if (Object.keys(summary || {}).length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="3" class="text-center text-gray-500">Nessun blocco standard</td>';
+            row.innerHTML = '<td colspan="4" class="text-center text-gray-500">Nessun blocco standard</td>';
             tbody.appendChild(row);
         }
     }
-    
-    updateCustomTable(customBlocks) {
+
+    updateGroupedCustomTable(customBlocks) {
         const tbody = document.querySelector('#customTable tbody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
         
-        customBlocks.forEach((block, index) => {
-            const row = document.createElement('tr');
-            const ctypeDisplay = block.ctype === 1 ? 'CU1' : block.ctype === 2 ? 'CU2' : 'CUX';
+        // Raggruppa custom per dimensioni simili (simulazione raggruppamento)
+        const customGroups = this.groupCustomBlocks(customBlocks);
+        
+        let categoryLetter = 'D'; // Inizia da D per custom
+        
+        Object.entries(customGroups).forEach(([dimensions, blocks]) => {
+            const count = blocks.length;
             
+            const row = document.createElement('tr');
             row.innerHTML = `
-                <td>CU${block.ctype}(${index + 1})</td>
-                <td class="text-center">${ctypeDisplay}</td>
-                <td>${Math.round(block.width)} × ${Math.round(block.height)} mm</td>
+                <td>
+                    <div class="flex items-center space-x-3">
+                        <div class="category-badge bg-green-100 text-green-800 px-2 py-1 rounded font-bold">${categoryLetter}</div>
+                        <span><strong>Categoria ${categoryLetter}</strong></span>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="count-badge bg-orange-100 text-orange-800 px-2 py-1 rounded">${count}</span>
+                </td>
+                <td>${dimensions} mm</td>
+                <td class="text-sm text-gray-600">
+                    ${blocks.map((b, i) => `${categoryLetter}${i+1}`).join(', ')}
+                </td>
             `;
             tbody.appendChild(row);
+            
+            // Prossima categoria
+            categoryLetter = String.fromCharCode(categoryLetter.charCodeAt(0) + 1);
         });
         
         if (customBlocks.length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="3" class="text-center text-gray-500">Nessun pezzo custom</td>';
+            row.innerHTML = '<td colspan="4" class="text-center text-gray-500">Nessun pezzo custom</td>';
             tbody.appendChild(row);
         }
+    }
+    
+    groupCustomBlocks(customBlocks) {
+        const groups = {};
+        const tolerance = 5; // mm di tolleranza per raggruppare
+        
+        customBlocks.forEach(block => {
+            const width = Math.round(block.width);
+            const height = Math.round(block.height);
+            const key = `${width} × ${height}`;
+            
+            // Cerca gruppo esistente con dimensioni simili
+            let foundGroup = null;
+            for (const [existingKey, existingBlocks] of Object.entries(groups)) {
+                const [existingW, existingH] = existingKey.split(' × ').map(Number);
+                if (Math.abs(width - existingW) <= tolerance && Math.abs(height - existingH) <= tolerance) {
+                    foundGroup = existingKey;
+                    break;
+                }
+            }
+            
+            if (foundGroup) {
+                groups[foundGroup].push(block);
+            } else {
+                groups[key] = [block];
+            }
+        });
+        
+        return groups;
+    }
+
+    // FUNZIONI LEGACY PER COMPATIBILITA'
+    updateStandardTable(summary) {
+        console.log('⚠️ Usando funzione legacy updateStandardTable');
+        return this.updateGroupedStandardTable(summary, []);
+    }
+
+    updateCustomTable(customBlocks) {
+        console.log('⚠️ Usando funzione legacy updateCustomTable');
+        return this.updateGroupedCustomTable(customBlocks);
     }
     
     updateMetrics(metrics) {

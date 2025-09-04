@@ -1336,7 +1336,7 @@ def _draw_main_layout(msp, wall_polygon: Polygon, placed: List[Dict], customs: L
 
 
 def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
-    """Disegna schema di taglio nella zona assegnata."""
+    """Disegna schema di taglio con etichette raggruppate nella zona assegnata."""
     if not customs:
         return
     
@@ -1350,7 +1350,7 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
     }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 600), 
                     align=TextEntityAlignment.MIDDLE_CENTER)
     
-    msp.add_text("PEZZI CUSTOM", height=200, dxfattribs={
+    msp.add_text("PEZZI CUSTOM RAGGRUPPATI", height=200, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
     }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 300), 
@@ -1358,7 +1358,9 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
     
     # Layout pezzi di taglio
     cutting_layout = _optimize_cutting_layout(customs)
-    _, custom_labels = create_block_labels([], customs)
+    
+    # Usa nuovo sistema etichette dettagliate
+    _, detailed_custom_labels = create_detailed_block_labels([], customs)
     
     current_x = offset_x + 100  # Margine sinistro
     current_y = offset_y + zone['height'] - 800  # Partenza dall'alto - PIÙ SPAZIO PER TITOLO
@@ -1391,20 +1393,49 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
                 (current_x, current_y)
             ], dxfattribs={"layer": "TAGLIO"})
             
-            # Etichetta pezzo
-            center_x = current_x + width / 2
-            center_y = current_y - height / 2
-            label = custom_labels[piece_idx]
-            
-            msp.add_text(label, height=100, dxfattribs={
-                "layer": "TESTI",
-                "style": "Standard"
-            }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
+            # Etichetta pezzo con NUOVO SISTEMA RAGGRUPPATO
+            if piece_idx in detailed_custom_labels:
+                label_info = detailed_custom_labels[piece_idx]
+                category = label_info['display']['bottom_left']
+                number = label_info['display']['top_right']
+                
+                # Posizioni per categoria e numero
+                cat_x = current_x + 30
+                cat_y = current_y - height + 30
+                num_x = current_x + width - 30
+                num_y = current_y - 30
+                
+                # Categoria (basso sinistra)
+                msp.add_text(category, height=120, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard",
+                    "color": 3  # Verde per categoria
+                }).set_placement((cat_x, cat_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                # Numero (alto destra)
+                msp.add_text(number, height=80, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard", 
+                    "color": 4  # Cyan per numero
+                }).set_placement((num_x, num_y), align=TextEntityAlignment.TOP_RIGHT)
+                
+            else:
+                # Fallback: etichetta legacy centrata
+                center_x = current_x + width / 2
+                center_y = current_y - height / 2
+                
+                _, custom_labels_fallback = create_block_labels([], customs)
+                label = custom_labels_fallback.get(piece_idx, f"CU{piece_idx+1}")
+                
+                msp.add_text(label, height=100, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard"
+                }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
             
             # Quote
             msp.add_text(f"{width:.0f}", height=60, dxfattribs={
                 "layer": "QUOTE"
-            }).set_placement((center_x, current_y + 80), align=TextEntityAlignment.MIDDLE_CENTER)
+            }).set_placement((current_x + width/2, current_y + 80), align=TextEntityAlignment.MIDDLE_CENTER)
             
             current_x += width + margin
             max_height_in_row = max(max_height_in_row, height)
@@ -1442,31 +1473,41 @@ def _draw_tables_section(msp, summary: Dict[str, int], customs: List[Dict], plac
 
 
 def _draw_standard_blocks_table_fixed(msp, summary: Dict[str, int], placed: List[Dict], zone: Dict):
-    """Disegna tabella blocchi standard nella zona assegnata."""
+    """Disegna tabella blocchi standard con raggruppamento categorizzato."""
     offset_x = zone['x']
     offset_y = zone['y']
     
     # Titolo
-    msp.add_text("BLOCCHI STANDARD", height=150, dxfattribs={
+    msp.add_text("BLOCCHI STANDARD (RAGGRUPPATI)", height=150, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
     }).set_placement((offset_x + zone['width']/2, offset_y - 100), align=TextEntityAlignment.MIDDLE_CENTER)
     
-    # Raggruppa per tipo
-    type_details = {}
-    for blk in placed:
-        btype = blk['type']
-        if btype not in type_details:
-            type_details[btype] = {
-                'count': 0,
-                'width': blk['width'],
-                'height': blk['height']
-            }
-        type_details[btype]['count'] += 1
+    # Usa il nuovo sistema per ottenere categorie
+    try:
+        if get_block_category_summary:
+            categories = get_block_category_summary()
+            # Filtra solo categorie standard
+            std_categories = {k: v for k, v in categories.items() if v['type'] == 'standard'}
+        else:
+            # Fallback al sistema legacy
+            std_categories = {}
+            for blk in placed:
+                letter = SIZE_TO_LETTER.get(int(blk["width"]), "X")
+                if letter not in std_categories:
+                    std_categories[letter] = {
+                        'count': 0,
+                        'type': 'standard',
+                        'dimensions': f"{blk['width']}×{blk['height']}"
+                    }
+                std_categories[letter]['count'] += 1
+    except:
+        # Doppio fallback
+        std_categories = {'A': {'count': len(placed), 'type': 'standard', 'dimensions': '1239×495'}}
     
     # Setup tabella
-    headers = ["TIPO", "QTÀ", "DIMENSIONI"]
-    col_widths = [zone['width'] * 0.4, zone['width'] * 0.2, zone['width'] * 0.4]
+    headers = ["CATEGORIA", "QTÀ", "DIMENSIONI", "TIPO"]
+    col_widths = [zone['width'] * 0.25, zone['width'] * 0.2, zone['width'] * 0.35, zone['width'] * 0.2]
     row_height = 200
     
     start_y = offset_y - 300
@@ -1489,10 +1530,10 @@ def _draw_standard_blocks_table_fixed(msp, summary: Dict[str, int], placed: List
                         align=TextEntityAlignment.MIDDLE_CENTER)
         current_x += width
     
-    # Righe dati
-    sorted_types = sorted(type_details.items(), key=lambda x: x[1]['width'], reverse=True)
+    # Righe dati (ordinate per categoria)
+    sorted_categories = sorted(std_categories.items())
     
-    for i, (btype, details) in enumerate(sorted_types):
+    for i, (category, details) in enumerate(sorted_categories):
         current_y = start_y - (i + 2) * row_height  # +2 per saltare header
         current_x = offset_x
         
@@ -1500,13 +1541,11 @@ def _draw_standard_blocks_table_fixed(msp, summary: Dict[str, int], placed: List
         if current_y < offset_y - zone['height']:
             break
         
-        letter = SIZE_TO_LETTER.get(details['width'], 'X')
-        friendly_name = f"Tipo {letter}"
-        
         row_data = [
-            friendly_name,
-            str(details['count']),
-            f"{details['width']}×{details['height']}"
+            f"Tipo {category}",           # Categoria con descrizione
+            str(details['count']),        # Quantità
+            details['dimensions'],        # Dimensioni
+            "Standard"                    # Tipo
         ]
         
         for j, (data, width) in enumerate(zip(row_data, col_widths)):
@@ -1527,7 +1566,7 @@ def _draw_standard_blocks_table_fixed(msp, summary: Dict[str, int], placed: List
 
 
 def _draw_custom_dimensions_table_fixed(msp, customs: List[Dict], zone: Dict):
-    """Disegna tabella dimensioni custom nella zona assegnata."""
+    """Disegna tabella custom con raggruppamento categorizzato."""
     if not customs:
         return
     
@@ -1535,14 +1574,57 @@ def _draw_custom_dimensions_table_fixed(msp, customs: List[Dict], zone: Dict):
     offset_y = zone['y']
     
     # Titolo
-    msp.add_text("PEZZI CUSTOM", height=150, dxfattribs={
+    msp.add_text("PEZZI CUSTOM (RAGGRUPPATI)", height=150, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
     }).set_placement((offset_x + zone['width']/2, offset_y - 100), align=TextEntityAlignment.MIDDLE_CENTER)
     
+    # Usa il nuovo sistema per ottenere categorie custom
+    try:
+        if get_block_category_summary:
+            categories = get_block_category_summary()
+            # Filtra solo categorie custom
+            custom_categories = {k: v for k, v in categories.items() if v['type'] == 'custom'}
+        else:
+            # Fallback: raggruppa manualmente per dimensioni simili
+            custom_categories = {}
+            tolerance = 5  # mm
+            category_letter = 'D'  # Inizia da D per custom
+            
+            for i, custom in enumerate(customs):
+                width = round(custom['width'])
+                height = round(custom['height'])
+                
+                # Cerca categoria esistente con dimensioni simili
+                found_category = None
+                for cat, info in custom_categories.items():
+                    try:
+                        existing_dims = info['dimensions'].split('×')
+                        existing_w, existing_h = int(existing_dims[0]), int(existing_dims[1])
+                        if (abs(width - existing_w) <= tolerance and 
+                            abs(height - existing_h) <= tolerance):
+                            found_category = cat
+                            break
+                    except:
+                        continue
+                
+                if found_category:
+                    custom_categories[found_category]['count'] += 1
+                else:
+                    # Nuova categoria
+                    custom_categories[category_letter] = {
+                        'count': 1,
+                        'type': 'custom',
+                        'dimensions': f"{width}×{height}"
+                    }
+                    category_letter = chr(ord(category_letter) + 1)
+    except:
+        # Doppio fallback
+        custom_categories = {'D': {'count': len(customs), 'type': 'custom', 'dimensions': '300×400'}}
+    
     # Setup tabella
-    headers = ["ID", "TIPO", "DIM"]
-    col_widths = [zone['width'] * 0.3, zone['width'] * 0.3, zone['width'] * 0.4]
+    headers = ["CATEGORIA", "QTÀ", "DIMENSIONI", "TIPO"]
+    col_widths = [zone['width'] * 0.25, zone['width'] * 0.2, zone['width'] * 0.35, zone['width'] * 0.2]
     row_height = 200
     
     start_y = offset_y - 300
@@ -1565,22 +1647,19 @@ def _draw_custom_dimensions_table_fixed(msp, customs: List[Dict], zone: Dict):
                         align=TextEntityAlignment.MIDDLE_CENTER)
         current_x += width
     
-    # Dati
-    _, custom_labels = create_block_labels([], customs)
-    
+    # Dati categorie custom
     max_rows = int((zone['height'] - 400) / row_height) - 1  # -1 per header
-    display_customs = customs[:max_rows]  # Limita il numero di righe
+    display_categories = list(custom_categories.items())[:max_rows]
     
-    for i, custom in enumerate(display_customs):
+    for i, (category, details) in enumerate(display_categories):
         current_y = start_y - (i + 1) * row_height
         current_x = offset_x
         
-        ctype = custom.get('ctype', 2)
-        
         row_data = [
-            custom_labels[i],
-            f"CU{ctype}",
-            f"{custom['width']:.0f}×{custom['height']:.0f}"
+            f"Tipo {category}",        # Categoria
+            str(details['count']),     # Quantità
+            details['dimensions'],     # Dimensioni
+            "Custom"                   # Tipo
         ]
         
         for data, width in zip(row_data, col_widths):
@@ -1599,9 +1678,9 @@ def _draw_custom_dimensions_table_fixed(msp, customs: List[Dict], zone: Dict):
                             align=TextEntityAlignment.MIDDLE_CENTER)
             current_x += width
     
-    # Nota se ci sono più custom di quelli visualizzati
-    if len(customs) > max_rows:
-        msp.add_text(f"... e altri {len(customs) - max_rows} pezzi custom", 
+    # Nota se ci sono più categorie di quelle visualizzate
+    if len(custom_categories) > max_rows:
+        msp.add_text(f"... e altre {len(custom_categories) - max_rows} categorie custom", 
                     height=60, dxfattribs={
                         "layer": "TESTI",
                         "style": "Standard"
@@ -1764,8 +1843,9 @@ def _draw_apertures(msp, apertures: List[Polygon], offset_x: float, offset_y: fl
 
 
 def _draw_standard_blocks(msp, placed: List[Dict], offset_x: float, offset_y: float):
-    """Disegna blocchi standard con etichette."""
-    std_labels, _ = create_block_labels(placed, [])
+    """Disegna blocchi standard con etichette raggruppate."""
+    # Usa il nuovo sistema di etichettatura dettagliata
+    detailed_labels, _ = create_detailed_block_labels(placed, [])
     
     for i, block in enumerate(placed):
         x1 = block['x'] + offset_x
@@ -1778,20 +1858,50 @@ def _draw_standard_blocks(msp, placed: List[Dict], offset_x: float, offset_y: fl
             (x1, y1), (x2, y1), (x2, y2), (x1, y2), (x1, y1)
         ], dxfattribs={"layer": "BLOCCHI_STD"})
         
-        # Etichetta centrata
-        center_x = x1 + block['width'] / 2
-        center_y = y1 + block['height'] / 2
-        label = std_labels[i]
-        
-        msp.add_text(label, height=120, dxfattribs={
-            "layer": "TESTI",
-            "style": "Standard"
-        }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
+        # Sistema di etichettatura NUOVO: categoria BL + numero TR
+        if i in detailed_labels:
+            label_info = detailed_labels[i]
+            
+            # Posizioni specifiche
+            category_x = x1 + 50  # Basso sinistra X
+            category_y = y1 + 50  # Basso sinistra Y
+            number_x = x2 - 50    # Alto destra X  
+            number_y = y2 - 50    # Alto destra Y
+            
+            # Lettera categoria (basso sinistra) - più grande
+            category = label_info['display']['bottom_left']
+            msp.add_text(category, height=150, dxfattribs={
+                "layer": "TESTI",
+                "style": "Standard",
+                "color": 1  # Rosso per categoria
+            }).set_placement((category_x, category_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Numero progressivo (alto destra) - più piccolo
+            number = label_info['display']['top_right']
+            msp.add_text(number, height=100, dxfattribs={
+                "layer": "TESTI", 
+                "style": "Standard",
+                "color": 2  # Giallo per numero
+            }).set_placement((number_x, number_y), align=TextEntityAlignment.TOP_RIGHT)
+            
+        else:
+            # Fallback: etichetta centrata
+            center_x = x1 + block['width'] / 2
+            center_y = y1 + block['height'] / 2
+            
+            std_labels, _ = create_block_labels(placed, [])
+            label = std_labels.get(i, f"STD{i+1}")
+            
+            msp.add_text(label, height=120, dxfattribs={
+                "layer": "TESTI",
+                "style": "Standard"
+            }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
 
 
 def _draw_custom_blocks(msp, customs: List[Dict], offset_x: float, offset_y: float):
-    """Disegna blocchi custom con etichette e info taglio."""
-    _, custom_labels = create_block_labels([], customs)
+    """Disegna blocchi custom con etichette raggruppate e info taglio."""
+    # Usa il nuovo sistema di etichettatura dettagliata
+    _, detailed_labels = create_detailed_block_labels([], customs)
     
     for i, custom in enumerate(customs):
         # Disegna geometria custom
@@ -1800,17 +1910,66 @@ def _draw_custom_blocks(msp, customs: List[Dict], offset_x: float, offset_y: flo
             coords = [(x + offset_x, y + offset_y) for x, y in poly.exterior.coords]
             msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": "BLOCCHI_CUSTOM"})
             
-            # Etichetta con info taglio
-            center_x = custom['x'] + custom['width'] / 2 + offset_x
-            center_y = custom['y'] + custom['height'] / 2 + offset_y
+            # Calcola bounds per posizionamento etichette
+            x1 = custom['x'] + offset_x
+            y1 = custom['y'] + offset_y
+            x2 = x1 + custom['width']
+            y2 = y1 + custom['height']
             
-            ctype = custom.get('ctype', 2)
-            label = f"{custom_labels[i]}\n{custom['width']:.0f}x{custom['height']:.0f}\nCU{ctype}"
-            
-            msp.add_text(label, height=90, dxfattribs={
-                "layer": "TESTI",
-                "style": "Standard"
-            }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
+            # Sistema di etichettatura NUOVO: categoria BL + numero TR
+            if i in detailed_labels:
+                label_info = detailed_labels[i]
+                
+                # Posizioni specifiche
+                category_x = x1 + 40  # Basso sinistra X (margine più piccolo per custom)
+                category_y = y1 + 40  # Basso sinistra Y
+                number_x = x2 - 40    # Alto destra X  
+                number_y = y2 - 40    # Alto destra Y
+                
+                # Lettera categoria (basso sinistra) - più grande
+                category = label_info['display']['bottom_left']
+                msp.add_text(category, height=120, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard",
+                    "color": 3  # Verde per categoria custom
+                }).set_placement((category_x, category_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                # Numero progressivo (alto destra) - più piccolo
+                number = label_info['display']['top_right']
+                msp.add_text(number, height=80, dxfattribs={
+                    "layer": "TESTI", 
+                    "style": "Standard",
+                    "color": 4  # Cyan per numero custom
+                }).set_placement((number_x, number_y), align=TextEntityAlignment.TOP_RIGHT)
+                
+                # Info taglio al centro (opzionale, più piccola)
+                center_x = custom['x'] + custom['width'] / 2 + offset_x
+                center_y = custom['y'] + custom['height'] / 2 + offset_y
+                
+                ctype = custom.get('ctype', 2)
+                dimensions_text = f"{custom['width']:.0f}×{custom['height']:.0f}\nCU{ctype}"
+                
+                msp.add_text(dimensions_text, height=60, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard",
+                    "color": 8  # Grigio per info aggiuntive
+                }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
+                
+            else:
+                # Fallback: etichetta centrata legacy
+                center_x = custom['x'] + custom['width'] / 2 + offset_x
+                center_y = custom['y'] + custom['height'] / 2 + offset_y
+                
+                _, custom_labels = create_block_labels([], customs)
+                label = custom_labels.get(i, f"CU{i+1}")
+                
+                ctype = custom.get('ctype', 2)
+                full_label = f"{label}\n{custom['width']:.0f}x{custom['height']:.0f}\nCU{ctype}"
+                
+                msp.add_text(full_label, height=90, dxfattribs={
+                    "layer": "TESTI",
+                    "style": "Standard"
+                }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
             
         except Exception as e:
             print(f"⚠️ Errore disegno custom {i}: {e}")
@@ -2566,9 +2725,82 @@ def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
     return out
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Labeling
+# Labeling (NUOVO SISTEMA RAGGRUPPAMENTO)
 # ────────────────────────────────────────────────────────────────────────────────
+
+# Import del nuovo sistema di raggruppamento
+try:
+    from block_grouping import create_grouped_block_labels, get_block_category_summary, create_block_labels_legacy
+except ImportError:
+    # Fallback se il modulo non è disponibile
+    print("⚠️ Modulo block_grouping non disponibile, uso sistema legacy")
+    create_grouped_block_labels = None
+    get_block_category_summary = None
+    create_block_labels_legacy = None
+
 def create_block_labels(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, str], Dict[int, str]]:
+    """
+    Funzione principale per creare etichette blocchi.
+    Usa il nuovo sistema di raggruppamento se disponibile, altrimenti fallback legacy.
+    """
+    if create_block_labels_legacy is not None:
+        # Usa nuovo sistema raggruppato
+        return create_block_labels_legacy(placed, custom)
+    else:
+        # Fallback sistema legacy
+        return _create_block_labels_legacy_impl(placed, custom)
+
+def create_detailed_block_labels(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
+    """
+    Versione avanzata che restituisce informazioni dettagliate per il layout.
+    Ogni etichetta include info per posizionamento layout (categoria BL + numero TR).
+    """
+    if create_grouped_block_labels is not None:
+        return create_grouped_block_labels(placed, custom)
+    else:
+        # Fallback: converti etichette legacy in formato dettagliato
+        std_labels, custom_labels = _create_block_labels_legacy_impl(placed, custom)
+        
+        # Converti in formato dettagliato per compatibilità
+        detailed_std = {}
+        detailed_custom = {}
+        
+        for i, label in std_labels.items():
+            # Estrai categoria e numero da etichetta legacy (es: "A1" -> "A", "1")
+            category = label[0] if len(label) > 0 else "X"
+            number = label[1:] if len(label) > 1 else "1"
+            
+            detailed_std[i] = {
+                'category': category,
+                'number': int(number) if number.isdigit() else 1,
+                'full_label': label,
+                'display': {
+                    'bottom_left': category,
+                    'top_right': number,
+                    'type': 'standard'
+                }
+            }
+        
+        for i, label in custom_labels.items():
+            # Custom labels hanno formato "CU1(1)" -> categoria "D", numero "1"
+            category = "D"  # Default per custom
+            number = "1"
+            
+            detailed_custom[i] = {
+                'category': category,
+                'number': int(number),
+                'full_label': label,
+                'display': {
+                    'bottom_left': category,
+                    'top_right': number,
+                    'type': 'custom'
+                }
+            }
+        
+        return detailed_std, detailed_custom
+
+def _create_block_labels_legacy_impl(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, str], Dict[int, str]]:
+    """Implementazione legacy del sistema di etichettatura."""
     std_counters = {"A": 0, "B": 0, "C": 0}
     std_labels: Dict[int, str] = {}
 
@@ -2669,10 +2901,10 @@ def generate_preview_image(wall_polygon: Polygon,
         x, y = wall_polygon.exterior.xy
         ax.plot(x, y, color='#2563eb', linewidth=2, label='Parete')
         
-        # Labels per blocchi
-        std_labels, custom_labels = create_block_labels(placed, customs)
+        # Labels per blocchi - NUOVO SISTEMA RAGGRUPPATO
+        detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
         
-        # Blocchi standard
+        # Blocchi standard con nuovo layout
         for i, blk in enumerate(placed):
             rect = patches.Rectangle(
                 (blk['x'], blk['y']), blk['width'], blk['height'],
@@ -2680,14 +2912,37 @@ def generate_preview_image(wall_polygon: Polygon,
             )
             ax.add_patch(rect)
             
-            # Label centrata
-            cx = blk['x'] + blk['width'] / 2
-            cy = blk['y'] + blk['height'] / 2
-            fontsize = min(8, max(4, blk['width'] / 200))
-            ax.text(cx, cy, std_labels[i], ha='center', va='center', 
-                   fontsize=fontsize, fontweight='bold', color='#1f2937')
+            # Layout nuovo: categoria BL + numero TR (per immagini adattato)
+            if i in detailed_std_labels:
+                label_info = detailed_std_labels[i]
+                category = label_info['display']['bottom_left']
+                number = label_info['display']['top_right']
+                
+                # Posizioni adattate per preview
+                bl_x = blk['x'] + blk['width'] * 0.1   # 10% da sinistra
+                bl_y = blk['y'] + blk['height'] * 0.2  # 20% dal basso
+                tr_x = blk['x'] + blk['width'] * 0.9   # 90% da sinistra 
+                tr_y = blk['y'] + blk['height'] * 0.8  # 80% dal basso
+                
+                # Categoria (più grande)
+                fontsize_cat = min(12, max(6, blk['width'] / 150))
+                ax.text(bl_x, bl_y, category, ha='left', va='bottom',
+                       fontsize=fontsize_cat, fontweight='bold', color='#dc2626')
+                
+                # Numero (più piccolo)
+                fontsize_num = min(10, max(4, blk['width'] / 200))
+                ax.text(tr_x, tr_y, number, ha='right', va='top',
+                       fontsize=fontsize_num, fontweight='normal', color='#2563eb')
+            else:
+                # Fallback: etichetta centrata
+                std_labels, _ = create_block_labels(placed, customs)
+                cx = blk['x'] + blk['width'] / 2
+                cy = blk['y'] + blk['height'] / 2
+                fontsize = min(8, max(4, blk['width'] / 200))
+                ax.text(cx, cy, std_labels.get(i, f"STD{i+1}"), ha='center', va='center', 
+                       fontsize=fontsize, fontweight='bold', color='#1f2937')
         
-        # Blocchi custom
+        # Blocchi custom con nuovo layout
         for i, cust in enumerate(customs):
             try:
                 poly = shape(cust['geometry'])
@@ -2698,12 +2953,35 @@ def generate_preview_image(wall_polygon: Polygon,
                 )
                 ax.add_patch(patch)
                 
-                # Label custom
-                cx = cust['x'] + cust['width'] / 2
-                cy = cust['y'] + cust['height'] / 2
-                label = custom_labels[i]
-                ax.text(cx, cy, label, ha='center', va='center', 
-                       fontsize=6, fontweight='bold', color='#15803d')
+                # Layout nuovo: categoria BL + numero TR per custom
+                if i in detailed_custom_labels:
+                    label_info = detailed_custom_labels[i]
+                    category = label_info['display']['bottom_left'] 
+                    number = label_info['display']['top_right']
+                    
+                    # Posizioni adattate per preview custom
+                    bl_x = cust['x'] + cust['width'] * 0.1
+                    bl_y = cust['y'] + cust['height'] * 0.2
+                    tr_x = cust['x'] + cust['width'] * 0.9
+                    tr_y = cust['y'] + cust['height'] * 0.8
+                    
+                    # Categoria custom (verde)
+                    fontsize_cat = min(10, max(5, cust['width'] / 120))
+                    ax.text(bl_x, bl_y, category, ha='left', va='bottom',
+                           fontsize=fontsize_cat, fontweight='bold', color='#16a34a')
+                    
+                    # Numero custom (più piccolo)
+                    fontsize_num = min(8, max(4, cust['width'] / 150))
+                    ax.text(tr_x, tr_y, number, ha='right', va='top',
+                           fontsize=fontsize_num, fontweight='normal', color='#065f46')
+                else:
+                    # Fallback: etichetta centrata
+                    _, custom_labels_fallback = create_block_labels([], customs)
+                    cx = cust['x'] + cust['width'] / 2
+                    cy = cust['y'] + cust['height'] / 2
+                    label = custom_labels_fallback.get(i, f"CU{i+1}")
+                    ax.text(cx, cy, label, ha='center', va='center', 
+                           fontsize=6, fontweight='bold', color='#15803d')
             except Exception as e:
                 print(f"⚠️ Errore rendering custom {i}: {e}")
         
