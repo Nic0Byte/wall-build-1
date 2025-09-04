@@ -370,16 +370,16 @@
                     
                     <div class="features-grid">
                         <!-- Color Theme Customization Card -->
-                        <div class="feature-card color-theme-card">
+                        <div class="feature-card color-theme-card" onclick="toggleColorThemePanel()">
                             <div class="feature-icon">
                                 <i class="fas fa-palette"></i>
                             </div>
                             <div class="feature-content">
-                                <h3>Temi Personalizzati</h3>
+                                <h3>Temi Personalizzati <i class="fas fa-chevron-down expand-icon" id="colorThemeExpandIcon"></i></h3>
                                 <p>Personalizza i colori dei blocchi e degli elementi</p>
                                 
-                                <!-- Color Settings Panel -->
-                                <div class="color-settings-panel">
+                                <!-- Color Settings Panel (Initially Hidden) -->
+                                <div class="color-settings-panel" id="colorSettingsPanel" style="display: none;">
                                     <div class="color-group">
                                         <h4><i class="fas fa-cubes"></i> Blocchi Standard</h4>
                                         <div class="color-controls">
@@ -485,16 +485,16 @@
                                     
                                     <!-- Action Buttons -->
                                     <div class="color-actions">
-                                        <button class="preset-btn" onclick="applyPreset('default')">
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyPreset('default')">
                                             <i class="fas fa-undo"></i> Default
                                         </button>
-                                        <button class="preset-btn" onclick="applyPreset('highContrast')">
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyPreset('highContrast')">
                                             <i class="fas fa-adjust"></i> Alto Contrasto
                                         </button>
-                                        <button class="preset-btn" onclick="applyPreset('colorful')">
+                                        <button class="preset-btn" onclick="event.stopPropagation(); applyPreset('colorful')">
                                             <i class="fas fa-rainbow"></i> Colorato
                                         </button>
-                                        <button class="save-btn primary-btn" onclick="saveColorTheme()">
+                                        <button class="save-btn primary-btn" onclick="event.stopPropagation(); saveColorTheme()">
                                             <i class="fas fa-save"></i> Salva Tema
                                         </button>
                                     </div>

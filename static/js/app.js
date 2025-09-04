@@ -1025,6 +1025,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== COLOR THEME SYSTEM =====
 
+// Toggle color theme panel
+function toggleColorThemePanel() {
+    const panel = document.getElementById('colorSettingsPanel');
+    const icon = document.getElementById('colorThemeExpandIcon');
+    
+    if (!panel || !icon) return;
+    
+    const isVisible = panel.style.display !== 'none';
+    
+    if (isVisible) {
+        // Close panel
+        panel.style.display = 'none';
+        icon.classList.remove('expanded');
+        console.log('🎨 Color theme panel closed');
+    } else {
+        // Open panel
+        panel.style.display = 'block';
+        icon.classList.add('expanded');
+        
+        // Initialize panel if not already done
+        if (!window.colorThemeInitialized) {
+            setTimeout(() => {
+                initializeColorTheme();
+                window.colorThemeInitialized = true;
+            }, 100);
+        }
+        
+        console.log('🎨 Color theme panel opened');
+    }
+}
+
 // Color presets
 const colorPresets = {
     default: {
@@ -1095,8 +1126,13 @@ function setupColorInputs(theme) {
             colorPicker.value = value;
             colorText.value = value;
             
+            // Prevent propagation on color controls
+            colorPicker.addEventListener('click', (e) => e.stopPropagation());
+            colorText.addEventListener('click', (e) => e.stopPropagation());
+            
             // Color picker change
             colorPicker.addEventListener('input', (e) => {
+                e.stopPropagation();
                 const color = e.target.value;
                 colorText.value = color;
                 updateColorPreview();
@@ -1104,6 +1140,7 @@ function setupColorInputs(theme) {
             
             // Text input change
             colorText.addEventListener('input', (e) => {
+                e.stopPropagation();
                 const color = e.target.value;
                 if (isValidHexColor(color)) {
                     colorPicker.value = color;
@@ -1117,6 +1154,13 @@ function setupColorInputs(theme) {
     const wallLineWidth = document.getElementById('wallLineWidth');
     if (wallLineWidth) {
         wallLineWidth.value = theme.wallLineWidth || 2;
+        wallLineWidth.addEventListener('click', (e) => e.stopPropagation());
+    }
+    
+    // Prevent propagation on the entire panel
+    const panel = document.getElementById('colorSettingsPanel');
+    if (panel) {
+        panel.addEventListener('click', (e) => e.stopPropagation());
     }
 }
 
@@ -1125,6 +1169,10 @@ function setupRangeSlider() {
     const valueDisplay = document.querySelector('.range-value');
     
     if (slider && valueDisplay) {
+        // Prevent propagation
+        slider.addEventListener('click', (e) => e.stopPropagation());
+        slider.addEventListener('input', (e) => e.stopPropagation());
+        
         const updateValue = () => {
             valueDisplay.textContent = slider.value + 'px';
             updateColorPreview();
