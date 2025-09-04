@@ -337,3 +337,40 @@ def test_block_grouping():
 
 if __name__ == "__main__":
     test_block_grouping()
+
+
+# Funzioni helper per compatibilità con main.py
+def group_blocks_by_category(placed: List[Dict]) -> Dict[str, List[Dict]]:
+    """Raggruppa i blocchi per categoria (compatibilità main.py)."""
+    grouping = BlockGrouping()
+    std_labels, _ = grouping.create_grouped_labels(placed, [])
+    
+    # Raggruppa per categoria
+    categories = defaultdict(list)
+    for i, block in enumerate(placed):
+        if i in std_labels:
+            category = std_labels[i]['category']
+            categories[category].append(block)
+    
+    return dict(categories)
+
+
+def group_custom_blocks_by_category(customs: List[Dict]) -> Dict[str, List[Dict]]:
+    """Raggruppa i blocchi custom per categoria (compatibilità main.py)."""
+    grouping = BlockGrouping()
+    _, custom_labels = grouping.create_grouped_labels([], customs)
+    
+    # Raggruppa per categoria
+    categories = defaultdict(list)
+    for i, block in enumerate(customs):
+        if i in custom_labels:
+            category = custom_labels[i]['category']
+            categories[category].append(block)
+    
+    return dict(categories)
+
+
+def create_grouped_block_labels(placed: List[Dict], customs: List[Dict]) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
+    """Crea le etichette raggruppate (compatibilità main.py)."""
+    grouping = BlockGrouping()
+    return grouping.create_grouped_labels(placed, customs)

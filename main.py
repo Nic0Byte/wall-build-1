@@ -2730,7 +2730,7 @@ def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
 
 # Import del nuovo sistema di raggruppamento
 try:
-    from block_grouping import create_grouped_block_labels, get_block_category_summary, create_block_labels_legacy
+    from block_grouping import create_grouped_block_labels, get_block_category_summary, create_block_labels_legacy, group_blocks_by_category, group_custom_blocks_by_category
 except ImportError:
     # Fallback se il modulo non è disponibile
     print("⚠️ Modulo block_grouping non disponibile, uso sistema legacy")
@@ -3159,8 +3159,8 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
         x, y = wall_polygon.exterior.xy
         ax.plot(x, y, color='blue', linewidth=2, label='Contorno parete')
         
-        # Labels per blocchi
-        std_labels, custom_labels = create_block_labels(placed, customs)
+        # Labels per blocchi con nuovo sistema di raggruppamento
+        std_labels, custom_labels = create_grouped_block_labels(placed, customs)
         
         # Blocchi standard
         for i, blk in enumerate(placed):
@@ -3170,13 +3170,27 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
             )
             ax.add_patch(rect)
             
-            # Label centrata - dimensione adattiva
-            cx = blk['x'] + blk['width'] / 2
-            cy = blk['y'] + blk['height'] / 2
-            fontsize = min(8, max(4, blk['width'] / 200))
-            ax.text(cx, cy, std_labels[i], ha='center', va='center', 
-                   fontsize=fontsize, fontweight='bold',
-                   bbox=dict(boxstyle="round,pad=0.1", facecolor='white', alpha=0.8))
+            # Nuovo layout: lettera in basso a sinistra, numero in alto a destra
+            label_info = std_labels[i]
+            category = label_info['category']
+            number = label_info['number']
+            
+            # Posizioni per lettera e numero
+            margin = 3  # pixel di margine
+            
+            # Lettera in basso a sinistra
+            fontsize_letter = min(10, max(6, blk['width'] / 150))
+            ax.text(blk['x'] + margin, blk['y'] + margin, category, 
+                   ha='left', va='bottom', fontsize=fontsize_letter, 
+                   fontweight='bold', color='black',
+                   bbox=dict(boxstyle="round,pad=0.1", facecolor='white', alpha=0.9))
+            
+            # Numero in alto a destra
+            fontsize_number = min(8, max(5, blk['width'] / 200))
+            ax.text(blk['x'] + blk['width'] - margin, blk['y'] + blk['height'] - margin, 
+                   str(number), ha='right', va='top', fontsize=fontsize_number, 
+                   fontweight='bold', color='red',
+                   bbox=dict(boxstyle="round,pad=0.1", facecolor='white', alpha=0.9))
         
         # Blocchi custom
         for i, cust in enumerate(customs):
@@ -3189,12 +3203,25 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
                 )
                 ax.add_patch(patch)
                 
-                # Label custom
-                cx = cust['x'] + cust['width'] / 2
-                cy = cust['y'] + cust['height'] / 2
-                label = custom_labels[i]
-                ax.text(cx, cy, label, ha='center', va='center', 
-                       fontsize=6, fontweight='bold', color='darkgreen',
+                # Label custom con nuovo layout
+                label_info = custom_labels[i]
+                category = label_info['category']
+                number = label_info['number']
+                
+                margin = 3
+                
+                # Lettera in basso a sinistra
+                fontsize_letter = min(8, max(5, cust['width'] / 150))
+                ax.text(cust['x'] + margin, cust['y'] + margin, category, 
+                       ha='left', va='bottom', fontsize=fontsize_letter, 
+                       fontweight='bold', color='darkgreen',
+                       bbox=dict(boxstyle="round,pad=0.1", facecolor='white', alpha=0.9))
+                
+                # Numero in alto a destra
+                fontsize_number = min(6, max(4, cust['width'] / 200))
+                ax.text(cust['x'] + cust['width'] - margin, cust['y'] + cust['height'] - margin, 
+                       str(number), ha='right', va='top', fontsize=fontsize_number, 
+                       fontweight='bold', color='red',
                        bbox=dict(boxstyle="round,pad=0.1", facecolor='white', alpha=0.9))
             except Exception as e:
                 print(f"⚠️ Errore rendering custom {i}: {e}")
@@ -3229,44 +3256,39 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
 
 
 def _build_standard_blocks_table(summary: Dict[str, int], placed: List[Dict], styles) -> Table:
-    """Costruisce tabella blocchi standard."""
+    """Costruisce tabella blocchi standard con nuovo sistema di raggruppamento."""
     # Header
-    data = [['BLOCCHI STANDARD', 'QUANTITÀ', 'DIMENSIONI (mm)', 'AREA TOT (m²)']]
+    data = [['CATEGORIA', 'QUANTITÀ', 'DIMENSIONI (mm)', 'AREA TOT (m²)']]
     
-    # Raggruppa per tipo
-    type_details = {}
-    for blk in placed:
-        btype = blk['type']
-        if btype not in type_details:
-            type_details[btype] = {
-                'count': 0,
-                'width': blk['width'],
-                'height': blk['height']
-            }
-        type_details[btype]['count'] += 1
-    
-    # Ordina per dimensioni (dal più grande)
-    sorted_types = sorted(type_details.items(), 
-                         key=lambda x: x[1]['width'], reverse=True)
+    # Usa il nuovo sistema di raggruppamento
+    grouped_blocks = group_blocks_by_category(placed)
     
     total_area = 0
-    for btype, details in sorted_types:
-        area_m2 = (details['width'] * details['height'] * details['count']) / 1_000_000
-        total_area += area_m2
+    total_count = 0
+    
+    # Ordina le categorie alfabeticamente
+    for category in sorted(grouped_blocks.keys()):
+        blocks_in_category = grouped_blocks[category]
+        count = len(blocks_in_category)
         
-        # Mappa nome user-friendly
-        letter = SIZE_TO_LETTER.get(details['width'], 'X')
-        friendly_name = f"Tipo {letter} ({btype})"
+        # Prendi le dimensioni dal primo blocco della categoria (sono tutti uguali)
+        first_block = blocks_in_category[0]
+        width = first_block['width']
+        height = first_block['height']
+        
+        area_m2 = (width * height * count) / 1_000_000
+        total_area += area_m2
+        total_count += count
         
         data.append([
-            friendly_name,
-            str(details['count']),
-            f"{details['width']} × {details['height']}",
+            f"Categoria {category}",
+            str(count),
+            f"{width} × {height}",
             f"{area_m2:.2f}"
         ])
     
     # Totale
-    data.append(['TOTALE', str(sum(d['count'] for d in type_details.values())), '', f"{total_area:.2f}"])
+    data.append(['TOTALE', str(total_count), '', f"{total_area:.2f}"])
     
     table = Table(data, colWidths=[60*mm, 25*mm, 40*mm, 25*mm])
     table.setStyle(TableStyle([
@@ -3291,30 +3313,43 @@ def _build_standard_blocks_table(summary: Dict[str, int], placed: List[Dict], st
 
 
 def _build_custom_blocks_table(customs: List[Dict], styles) -> Table:
-    """Costruisce tabella pezzi custom."""
+    """Costruisce tabella pezzi custom con nuovo sistema di raggruppamento."""
     # Header
-    data = [['PEZZI CUSTOM', 'TIPO', 'DIMENSIONI (mm)', 'POSIZIONE (mm)', 'AREA (m²)']]
+    data = [['CATEGORIA CUSTOM', 'QUANTITÀ', 'DIMENSIONI (mm)', 'AREA TOT (m²)']]
     
-    custom_labels = create_block_labels([], customs)[1]
+    # Usa il nuovo sistema di raggruppamento per custom
+    grouped_customs = group_custom_blocks_by_category(customs)
+    
     total_area = 0
+    total_count = 0
     
-    for i, cust in enumerate(customs):
-        area_m2 = (cust['width'] * cust['height']) / 1_000_000
-        total_area += area_m2
+    # Ordina le categorie alfabeticamente
+    for category in sorted(grouped_customs.keys()):
+        blocks_in_category = grouped_customs[category]
+        count = len(blocks_in_category)
         
-        ctype = cust.get('ctype', 2)
+        # Prendi le dimensioni dal primo blocco della categoria
+        first_block = blocks_in_category[0]
+        width = first_block['width']
+        height = first_block['height']
+        
+        area_m2 = (width * height * count) / 1_000_000
+        total_area += area_m2
+        total_count += count
+        
+        # Determina il tipo
+        ctype = first_block.get('ctype', 2)
         type_str = f"CU{ctype}" if ctype in [1, 2] else "CUX"
         
         data.append([
-            custom_labels[i],
-            type_str,
-            f"{cust['width']:.0f} × {cust['height']:.0f}",
-            f"({cust['x']:.0f}, {cust['y']:.0f})",
+            f"Categoria {category} ({type_str})",
+            str(count),
+            f"{width:.0f} × {height:.0f}",
             f"{area_m2:.3f}"
         ])
     
     # Totale
-    data.append(['TOTALE', '', '', '', f"{total_area:.3f}"])
+    data.append(['TOTALE', str(total_count), '', f"{total_area:.3f}"])
     
     table = Table(data, colWidths=[35*mm, 20*mm, 35*mm, 35*mm, 25*mm])
     table.setStyle(TableStyle([
