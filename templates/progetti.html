@@ -1,0 +1,168 @@
+{% extends "base_protected.html" %}
+
+{% block title %}I Miei Progetti{% endblock %}
+
+{% block content %}
+<div class="progetti-container">
+    <header class="page-header">
+        <h1><i class="fas fa-folder"></i> I Miei Progetti</h1>
+        <button class="btn btn-primary" onclick="nuovoProgetto()">
+            <i class="fas fa-plus"></i> Nuovo Progetto
+        </button>
+    </header>
+
+    <div class="progetti-grid" id="progetti-grid">
+        <div class="progetto-card">
+            <div class="progetto-header">
+                <h3>Progetto Demo</h3>
+                <div class="progetto-actions">
+                    <button class="btn-icon" title="Modifica">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon" title="Elimina">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="progetto-info">
+                <p><i class="fas fa-calendar"></i> Creato: 01/01/2025</p>
+                <p><i class="fas fa-file"></i> File: demo.dwg</p>
+                <p><i class="fas fa-user"></i> Proprietario: <span data-user-name>Admin</span></p>
+            </div>
+        </div>
+        
+        <!-- Altri progetti verranno caricati dinamicamente -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function nuovoProgetto() {
+        // Questa funzione sarà implementata per creare un nuovo progetto
+        alert('Funzionalità in sviluppo');
+    }
+    
+    // Carica progetti dell'utente
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📁 Caricamento pagina progetti per utente autenticato');
+        // Qui si potrebbe fare una chiamata API per caricare i progetti dell'utente
+    });
+</script>
+
+<style>
+    .progetti-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .page-header h1 {
+        color: #2c3e50;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .progetti-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .progetto-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .progetto-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    .progetto-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .progetto-header h3 {
+        margin: 0;
+        color: #2c3e50;
+    }
+    
+    .progetto-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-icon {
+        background: none;
+        border: none;
+        padding: 0.25rem;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #6c757d;
+        transition: all 0.2s;
+    }
+    
+    .btn-icon:hover {
+        background: #f8f9fa;
+        color: #007bff;
+    }
+    
+    .progetto-info p {
+        margin: 0.5rem 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .progetto-info i {
+        width: 1rem;
+        text-align: center;
+    }
+    
+    .btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background-color 0.2s;
+    }
+    
+    .btn:hover {
+        background: #0056b3;
+    }
+    
+    .btn-primary {
+        background: #28a745;
+    }
+    
+    .btn-primary:hover {
+        background: #1e7e34;
+    }
+</style>
+{% endblock %}

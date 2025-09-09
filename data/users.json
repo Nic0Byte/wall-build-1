@@ -1,0 +1,14 @@
+{
+  "admin": {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.com",
+    "full_name": "Amministratore",
+    "company": "Wall-Build System",
+    "is_active": true,
+    "is_admin": true,
+    "created_at": "2025-09-09 22:53:08.183707",
+    "last_login": null,
+    "hashed_password": "$2b$12$nwfOg7WI2jxO3f/qIWMwQeQ/x7nNsxQbAxVBwodX7KoHPrnshM2ai"
+  }
+}

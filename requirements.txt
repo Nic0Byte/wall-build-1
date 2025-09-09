@@ -9,6 +9,11 @@ fastapi>=0.110.0,<1.0
 uvicorn[standard]>=0.24.0,<0.30
 python-multipart>=0.0.6
 
+# ==== Autenticazione sicura ====
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
 # ==== Exports (fase 1.5 / 2) ====
 reportlab>=4.0.0,<5.0      # PDF export (puro Python, consigliato su Windows)
 ezdxf>=1.1.4,<2.0          # DXF export

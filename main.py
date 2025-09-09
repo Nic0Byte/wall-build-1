@@ -83,12 +83,19 @@ except ImportError:
 
 # ---- FastAPI (kept in same file as requested) ----
 try:
-    from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
-    from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+    from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect, Request, Response, Depends
+    from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, HTMLResponse, RedirectResponse
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.templating import Jinja2Templates
     from pydantic import BaseModel
     import uvicorn
+    
+    # Import sistema di autenticazione
+    from api.routes import router as auth_router
+    from api.auth import get_current_active_user
+    from database.services import cleanup_expired_sessions
+    from api.models import User
 except Exception:  # pragma: no cover
     FastAPI = None  # type: ignore
 
@@ -3696,26 +3703,84 @@ def calculate_metrics(placed: List[Dict], customs: List[Dict], wall_area: float)
     }
 
 # ────────────────────────────────────────────────────────────────────────────────
-# FastAPI – endpoints ESTESI
+# FastAPI – Sistema con Autenticazione Sicura
 # ────────────────────────────────────────────────────────────────────────────────
-app = FastAPI(title="Costruttore pareti a blocchi", description="Web UI + API per packing automatico pareti") if FastAPI else None
+app = None
+templates = None
 
-if app:
+if FastAPI:
+    # Configurazione FastAPI con sicurezza
+    app = FastAPI(
+        title="Parete TAKTAK® - Sistema Professionale",
+        description="Sistema sicuro per progettazione pareti con autenticazione avanzata",
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc"
+    )
+    
+    # Setup templates
+    templates = Jinja2Templates(directory="templates")
+    
     # CORS middleware per consentire richieste dal frontend
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["*"],  # In produzione specificare domini
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
     
+    # Include authentication routes
+    app.include_router(auth_router, prefix="/api/v1")
+    
+    # Cleanup sessioni scadute all'avvio
+    try:
+        expired_cleaned = cleanup_expired_sessions()
+        print(f"🧹 Pulizia iniziale: {expired_cleaned} sessioni scadute rimosse")
+    except Exception as e:
+        print(f"⚠️ Errore pulizia sessioni: {e}")
+    
     # ===== FRONTEND STATIC FILES =====
     
     @app.get("/")
-    async def serve_frontend():
-        """Serve la pagina principale del frontend."""
-        return FileResponse("templates/index.html")
+    async def serve_frontend(request: Request):
+        """
+        Dashboard principale - la verifica di autenticazione viene gestita dal JavaScript frontend.
+        Il token è memorizzato nel localStorage del browser e non è accessibile lato server.
+        """
+        try:
+            return FileResponse("templates/index.html")
+        except Exception as e:
+            print(f"❌ Errore servendo dashboard: {e}")
+            return RedirectResponse(url="/login", status_code=302)
+    
+    @app.get("/login", response_class=HTMLResponse)
+    async def login_page(request: Request):
+        """Pagina di login del sistema."""
+        return templates.TemplateResponse("login.html", {"request": request})
+    
+    # ===== PAGINE PROTETTE =====
+    
+    @app.get("/progetti", response_class=HTMLResponse)
+    async def progetti_page(request: Request):
+        """Pagina progetti - richiede autenticazione lato client."""
+        try:
+            return templates.TemplateResponse("progetti.html", {"request": request})
+        except Exception as e:
+            print(f"❌ Errore servendo pagina progetti: {e}")
+            return RedirectResponse(url="/login", status_code=302)
+    
+    @app.get("/upload", response_class=HTMLResponse)
+    async def upload_page(request: Request):
+        """Pagina upload - richiede autenticazione lato client."""
+        try:
+            return templates.TemplateResponse("base_protected.html", {
+                "request": request,
+                "title": "Upload File"
+            })
+        except Exception as e:
+            print(f"❌ Errore servendo pagina upload: {e}")
+            return RedirectResponse(url="/login", status_code=302)
     
     # Mount static files - solo se la directory esiste
     import os
@@ -3726,22 +3791,32 @@ if app:
     
     @app.get("/health")
     async def health():
-        return {"status": "ok", "timestamp": datetime.datetime.now()}
+        """Health check pubblico."""
+        return {
+            "status": "ok", 
+            "timestamp": datetime.datetime.now(),
+            "auth_system": "active",
+            "version": "1.0.0"
+        }
     
-    # ===== WEB UI API ENDPOINTS =====
+    # ===== WEB UI API ENDPOINTS PROTETTI =====
     
-    @app.post("/api/upload", response_model=PackingResult)
+    @app.post("/api/upload", response_model=PackingResult, dependencies=[Depends(get_current_active_user)])
     async def upload_and_process(
         file: UploadFile = File(...),
         row_offset: int = Form(826),
         block_widths: str = Form("1239,826,413"),
         project_name: str = Form("Progetto Parete"),
-        color_theme: str = Form("{}")
+        color_theme: str = Form("{}"),
+        current_user: User = Depends(get_current_active_user)
     ):
         """
-        Upload SVG/DWG e processamento completo con preview.
+        Upload SVG/DWG e processamento completo con preview - PROTETTO DA AUTENTICAZIONE.
         """
         try:
+            # Log dell'attività dell'utente
+            print(f"📁 File '{file.filename}' caricato da utente: {current_user.username}")
+            
             # Validazione file
             file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
             supported_formats = ['svg', 'dwg', 'dxf']
@@ -3749,7 +3824,7 @@ if app:
             if file_ext not in supported_formats:
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Formato file non supportato. Formati accettati: {', '.join(supported_formats.upper())}"
+                    detail=f"Formato file non supportato. Formati accettati: {', '.join(supported_formats).upper()}"
                 )
             
             if file.size and file.size > 10 * 1024 * 1024:  # 10MB limit
@@ -3799,7 +3874,7 @@ if app:
             # Genera session ID
             session_id = str(uuid.uuid4())
             
-            # Salva in sessione
+            # Salva in sessione (con info utente)
             SESSIONS[session_id] = {
                 "wall_polygon": wall,
                 "apertures": apertures,
@@ -3814,7 +3889,9 @@ if app:
                     "color_theme": color_config
                 },
                 "metrics": metrics,
-                "timestamp": datetime.datetime.now()
+                "timestamp": datetime.datetime.now(),
+                "user_id": current_user.id,
+                "username": current_user.username
             }
             
             # Formatta response
@@ -4234,13 +4311,20 @@ if __name__ == "__main__":
             print("🚀 Avvio server Web UI...")
             print("🌐 Apri il browser su: http://localhost:8000")
             print("🛑 Premi Ctrl+C per fermare il server")
-            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+            
+            # Reload solo se richiesto esplicitamente con --dev
+            use_reload = len(sys.argv) > 2 and sys.argv[2] == "--dev"
+            if use_reload:
+                print("🔧 Modalità sviluppo: auto-reload attivo")
+            
+            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=use_reload)
         else:
             print("❌ FastAPI non disponibile")
     else:
-        print("Uso: python main.py [demo|server]")
-        print("  demo   - Esegui demo CLI")
-        print("  server - Avvia server web")
+        print("Uso: python main.py [demo|server] [--dev]")
+        print("  demo     - Esegui demo CLI")
+        print("  server   - Avvia server web")
+        print("  --dev    - Modalità sviluppo con auto-reload (solo con server)")
         print("\n🧱 MIGLIORAMENTI DXF:")
         print("  ✅ Layout intelligente con DXFLayoutManager")
         print("  ✅ Zone calcolate automaticamente senza sovrapposizioni")

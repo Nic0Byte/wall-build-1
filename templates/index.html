@@ -1,5 +1,8 @@
-<!DOCTYPE html>
-<html lang="it">
+<!DOCTYPE html    <!-- ✅ SISTEMA DI AUTENTICAZIONE GLOBALE -->
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/protected-page.js"></script>
+
+    <div id="app">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +15,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
+    <!-- ✅ SISTEMA DI AUTENTICAZIONE GLOBALE -->
+    <script src="/static/js/auth.js"></script>
+    <script>
+        // Inizializza l'autenticazione per questa pagina (protetta)
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('� Verifica autenticazione per dashboard...');
+            
+            // Verifica che l'utente sia autenticato
+            if (!window.authManager.isLoggedIn()) {
+                console.log('❌ Utente non autenticato - redirect al login');
+                window.location.href = '/login';
+                return;
+            }
+            
+            console.log('✅ Utente autenticato - caricamento dashboard');
+        });
+    </script>
+
     <div id="app">
         <!-- Header with Navigation -->
         <header class="header">
