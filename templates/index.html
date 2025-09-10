@@ -565,13 +565,54 @@
                                 <p>Organizza i progetti con etichette personalizzate</p>
                             </div>
                         </div>
-                        <div class="feature-card">
+                        <div class="feature-card past-projects-card" onclick="togglePastProjectsPanel()">
                             <div class="feature-icon">
                                 <i class="fas fa-history"></i>
                             </div>
                             <div class="feature-content">
-                                <h3>Cronologia Versioni</h3>
-                                <p>Tieni traccia delle modifiche nel tempo</p>
+                                <h3>
+                                    Progetti Passati 
+                                    <span class="projects-count-badge" id="projectsCountBadge" style="display: none;">0</span>
+                                    <i class="fas fa-chevron-down expand-icon" id="pastProjectsExpandIcon"></i>
+                                </h3>
+                                <p>Riutilizza progetti precedenti con le stesse configurazioni</p>
+                                
+                                <!-- Past Projects Panel (Initially Hidden) -->
+                                <div class="past-projects-panel" id="pastProjectsPanel" style="display: none;">
+                                    <div class="past-projects-header">
+                                        <div class="search-bar">
+                                            <i class="fas fa-search"></i>
+                                            <input type="text" id="projectSearchInput" placeholder="Cerca progetti..." class="search-input">
+                                        </div>
+                                        <div class="filter-buttons">
+                                            <button class="filter-btn active" data-filter="all">Tutti</button>
+                                            <button class="filter-btn" data-filter="recent">Recenti</button>
+                                            <button class="filter-btn" data-filter="efficient">Più Efficienti</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Projects List Container -->
+                                    <div class="past-projects-list" id="pastProjectsList">
+                                        <div class="loading-placeholder">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                            <span>Caricamento progetti...</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Empty State -->
+                                    <div class="empty-projects-state" id="emptyProjectsState" style="display: none;">
+                                        <i class="fas fa-folder-open"></i>
+                                        <h4>Nessun progetto presente</h4>
+                                        <p>Completa un progetto per salvarlo e poterlo riutilizzare in futuro</p>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="past-projects-actions">
+                                        <button class="refresh-btn" onclick="event.stopPropagation(); refreshPastProjects()">
+                                            <i class="fas fa-sync-alt"></i> Aggiorna Lista
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

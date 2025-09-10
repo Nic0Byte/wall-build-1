@@ -619,6 +619,9 @@ class WallPackingApp {
         
         // Update metrics
         this.updateMetrics(data.metrics);
+        
+        // Auto-save project when results are shown
+        this.autoSaveProject(data);
     }
     
     updateHeaderStats(data) {
@@ -928,6 +931,54 @@ class WallPackingApp {
         });
         
         this.showToast('Applicazione ripristinata', 'info');
+    }
+    
+    // Auto-save project when processing is complete
+    autoSaveProject(data) {
+        if (!this.currentFile || !data) {
+            return;
+        }
+        
+        // Extract project information
+        const filename = this.currentFile.name;
+        const projectName = filename.replace(/\.(dwg|dxf)$/i, '');
+        
+        // Calculate totals
+        const totalStandard = Object.values(data.summary || {}).reduce((a, b) => a + b, 0);
+        const totalCustom = (data.blocks_custom || []).length;
+        const totalBlocks = totalStandard + totalCustom;
+        
+        // Get efficiency
+        const efficiency = data.metrics?.efficiency ? 
+            `${Math.round(data.metrics.efficiency * 100)}%` : 'N/A';
+        
+        // Extract wall dimensions from data if available
+        const wallDimensions = data.wall_info ? 
+            `${data.wall_info.width}×${data.wall_info.height}mm` : 'N/A';
+        
+        // Prepare project data for saving
+        const projectData = {
+            name: projectName,
+            filename: filename,
+            file_path: data.file_path || '', // This would come from the backend
+            results: {
+                summary: data.summary,
+                blocks_custom: data.blocks_custom,
+                metrics: data.metrics
+            },
+            wall_dimensions: wallDimensions,
+            total_blocks: totalBlocks,
+            efficiency: efficiency,
+            svg_path: data.svg_path || null,
+            pdf_path: data.pdf_path || null,
+            json_path: data.json_path || null
+        };
+        
+        // Save asynchronously (don't wait for result to avoid blocking UI)
+        saveCurrentProject(projectData).catch(error => {
+            console.warn('Auto-save project failed:', error);
+            // Don't show error toast for auto-save failures to avoid annoying user
+        });
     }
 }
 
@@ -1714,3 +1765,417 @@ function resetToSystemDefaults() {
         window.wallPackingApp.showToast('Ripristinate dimensioni sistema (A: 1239×495, B: 826×495, C: 413×495)', 'info');
     }
 }
+
+// ===== PAST PROJECTS MANAGEMENT =====
+
+let pastProjectsData = [];
+
+// Toggle Past Projects Panel
+function togglePastProjectsPanel() {
+    const panel = document.getElementById('pastProjectsPanel');
+    const icon = document.getElementById('pastProjectsExpandIcon');
+    
+    if (!panel || !icon) {
+        console.error('Past projects panel elements not found');
+        return;
+    }
+    
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        panel.style.display = 'block';
+        icon.style.transform = 'rotate(180deg)';
+        
+        // Load projects when opening
+        loadPastProjects();
+    } else {
+        panel.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Load Past Projects from API
+async function loadPastProjects() {
+    const listContainer = document.getElementById('pastProjectsList');
+    const emptyState = document.getElementById('emptyProjectsState');
+    const countBadge = document.getElementById('projectsCountBadge');
+    
+    if (!listContainer || !emptyState || !countBadge) {
+        console.error('Past projects elements not found in DOM');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        listContainer.innerHTML = `
+            <div class="loading-placeholder">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Caricamento progetti...</span>
+            </div>
+        `;
+        emptyState.style.display = 'none';
+        
+        // Check if user is authenticated
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            console.log('No auth token found, showing empty state');
+            showEmptyProjectsState(listContainer, emptyState, countBadge, 'Effettua il login per vedere i tuoi progetti');
+            return;
+        }
+        
+        const response = await fetch('/api/v1/saved-projects/list', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.log('Authentication failed, showing login message');
+                showEmptyProjectsState(listContainer, emptyState, countBadge, 'Sessione scaduta, effettua nuovamente il login');
+                return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Handle successful response
+        if (data.success) {
+            pastProjectsData = data.projects || [];
+            
+            // Update count badge
+            if (pastProjectsData.length > 0) {
+                countBadge.textContent = pastProjectsData.length;
+                countBadge.style.display = 'inline-block';
+            } else {
+                countBadge.style.display = 'none';
+            }
+            
+            renderPastProjects(pastProjectsData);
+        } else {
+            console.log('API returned success=false, showing empty state');
+            showEmptyProjectsState(listContainer, emptyState, countBadge, 'Nessun progetto presente');
+        }
+        
+    } catch (error) {
+        console.error('Error loading past projects:', error);
+        showEmptyProjectsState(listContainer, emptyState, countBadge, 'Errore nel caricamento progetti');
+        
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore nel caricamento progetti passati', 'error');
+        }
+    }
+}
+
+// Helper function to show empty state
+function showEmptyProjectsState(listContainer, emptyState, countBadge, message = 'Nessun progetto presente') {
+    listContainer.innerHTML = '';
+    emptyState.style.display = 'block';
+    countBadge.style.display = 'none';
+    
+    // Update empty state message if needed
+    const emptyMessage = emptyState.querySelector('p');
+    if (emptyMessage && message !== 'Nessun progetto presente') {
+        emptyMessage.textContent = message;
+    }
+}
+
+// Render Past Projects List
+function renderPastProjects(projects) {
+    const listContainer = document.getElementById('pastProjectsList');
+    const emptyState = document.getElementById('emptyProjectsState');
+    
+    if (!listContainer || !emptyState) {
+        console.error('Required DOM elements not found');
+        return;
+    }
+    
+    if (!projects || projects.length === 0) {
+        console.log('No projects to display, showing empty state');
+        listContainer.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    console.log(`Rendering ${projects.length} projects`);
+    emptyState.style.display = 'none';
+    
+    try {
+        const projectsHTML = projects.map(project => {
+            // Safely parse dates
+            let createdDate = 'Data non disponibile';
+            let lastUsed = 'Mai utilizzato';
+            
+            try {
+                if (project.created_at) {
+                    createdDate = new Date(project.created_at).toLocaleDateString('it-IT');
+                }
+                if (project.last_used) {
+                    lastUsed = new Date(project.last_used).toLocaleDateString('it-IT');
+                }
+            } catch (dateError) {
+                console.warn('Error parsing dates for project:', project.id, dateError);
+            }
+            
+            // Determine efficiency class
+            let efficiencyClass = 'efficiency-low';
+            let efficiencyValue = 0;
+            if (project.efficiency) {
+                try {
+                    efficiencyValue = parseFloat(project.efficiency.toString().replace('%', '')) || 0;
+                    if (efficiencyValue >= 85) efficiencyClass = 'efficiency-high';
+                    else if (efficiencyValue >= 70) efficiencyClass = 'efficiency-medium';
+                } catch (effError) {
+                    console.warn('Error parsing efficiency for project:', project.id, effError);
+                }
+            }
+            
+            // Safely get project name
+            const projectName = project.name || project.filename || `Progetto ${project.id}`;
+            
+            return `
+                <div class="project-item" data-project-id="${project.id}">
+                    <div class="project-info">
+                        <div class="project-name">${projectName}</div>
+                        <div class="project-meta">
+                            <span><i class="fas fa-calendar"></i> ${createdDate}</span>
+                            <span><i class="fas fa-clock"></i> ${lastUsed}</span>
+                            <span><i class="fas fa-expand-arrows-alt"></i> ${project.wall_dimensions || 'N/A'}</span>
+                            <span><i class="fas fa-cubes"></i> ${project.total_blocks || 0} blocchi</span>
+                            ${project.efficiency ? `<span class="efficiency-badge ${efficiencyClass}">
+                                <i class="fas fa-chart-line"></i> ${project.efficiency}
+                            </span>` : ''}
+                        </div>
+                    </div>
+                    <div class="project-actions">
+                        <button class="reuse-btn" onclick="reuseProject(${project.id})">
+                            <i class="fas fa-redo"></i> Riusa
+                        </button>
+                        <button class="delete-project-btn" onclick="deleteProject(${project.id})" title="Elimina progetto">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        listContainer.innerHTML = projectsHTML;
+        console.log('Projects rendered successfully');
+        
+    } catch (error) {
+        console.error('Error rendering projects:', error);
+        listContainer.innerHTML = `
+            <div class="error-state" style="text-align: center; padding: 20px; color: var(--gray-500);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 10px;"></i>
+                <div>Errore nella visualizzazione dei progetti</div>
+            </div>
+        `;
+    }
+}
+
+// Reuse Project
+async function reuseProject(projectId) {
+    try {
+        const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const project = data.project;
+        
+        // Restore block dimensions
+        if (project.block_dimensions) {
+            localStorage.setItem('blockDimensions', JSON.stringify(project.block_dimensions));
+            loadBlockDimensions();
+        }
+        
+        // Restore color theme
+        if (project.color_theme) {
+            localStorage.setItem('colorTheme', JSON.stringify(project.color_theme));
+            loadColorTheme();
+        }
+        
+        // Show success message
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast(
+                `Progetto "${project.name}" caricato. Carica il file DWG/DXF per iniziare.`, 
+                'success'
+            );
+        }
+        
+        // Switch to main application section
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showMainSection('app');
+            window.wallPackingApp.showSection('upload');
+        }
+        
+        // Close the past projects panel
+        const panel = document.getElementById('pastProjectsPanel');
+        const icon = document.getElementById('pastProjectsExpandIcon');
+        panel.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+        
+    } catch (error) {
+        console.error('Error reusing project:', error);
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore nel caricamento progetto', 'error');
+        }
+    }
+}
+
+// Delete Project
+async function deleteProject(projectId) {
+    if (!confirm('Sei sicuro di voler eliminare questo progetto? L\'azione non può essere annullata.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Reload projects list
+        loadPastProjects();
+        
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Progetto eliminato con successo', 'success');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore nell\'eliminazione progetto', 'error');
+        }
+    }
+}
+
+// Refresh Past Projects
+function refreshPastProjects() {
+    loadPastProjects();
+}
+
+// Save Current Project (called when project is completed)
+async function saveCurrentProject(projectData) {
+    if (!projectData || !projectData.name) {
+        console.warn('Cannot save project: missing project data or name');
+        return false;
+    }
+    
+    try {
+        const saveData = {
+            name: projectData.name,
+            filename: projectData.filename,
+            file_path: projectData.file_path,
+            block_dimensions: getCurrentBlockDimensions(),
+            color_theme: getCurrentColorTheme(),
+            packing_config: {
+                // Add any packing configuration here
+            },
+            results: projectData.results,
+            wall_dimensions: projectData.wall_dimensions,
+            total_blocks: projectData.total_blocks,
+            efficiency: projectData.efficiency,
+            svg_path: projectData.svg_path,
+            pdf_path: projectData.pdf_path,
+            json_path: projectData.json_path
+        };
+        
+        const response = await fetch('/api/v1/saved-projects/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify(saveData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Progetto salvato per riutilizzo futuro!', 'success');
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('Error saving project:', error);
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore nel salvataggio progetto', 'error');
+        }
+        return false;
+    }
+}
+
+// Setup search and filters for past projects
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality
+    const searchInput = document.getElementById('projectSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const filteredProjects = pastProjectsData.filter(project => 
+                (project.name || project.filename).toLowerCase().includes(searchTerm)
+            );
+            renderPastProjects(filteredProjects);
+        });
+    }
+    
+    // Filter buttons
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active state
+            filterButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Apply filter
+            const filter = this.getAttribute('data-filter');
+            let filteredProjects = [...pastProjectsData];
+            
+            switch (filter) {
+                case 'recent':
+                    // Last 30 days
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    filteredProjects = pastProjectsData.filter(project => 
+                        new Date(project.created_at) >= thirtyDaysAgo
+                    );
+                    break;
+                case 'efficient':
+                    // Efficiency >= 80%
+                    filteredProjects = pastProjectsData.filter(project => {
+                        const efficiency = parseFloat(project.efficiency?.replace('%', '')) || 0;
+                        return efficiency >= 80;
+                    });
+                    break;
+                case 'all':
+                default:
+                    // No filtering
+                    break;
+            }
+            
+            renderPastProjects(filteredProjects);
+        });
+    });
+});

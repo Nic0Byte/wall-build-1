@@ -59,3 +59,37 @@ class Project(Base):
     
     def __repr__(self):
         return f"<Project(name='{self.name}', user_id={self.user_id})>"
+
+class SavedProject(Base):
+    """Modello per progetti passati salvati con configurazioni complete."""
+    __tablename__ = 'saved_projects'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    project_name = Column(String(200), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)  # Path al file DWG/DXF originale
+    
+    # Configurazioni progetto (JSON serializzato)
+    block_dimensions = Column(Text, nullable=True)  # Dimensioni blocchi personalizzate
+    color_theme = Column(Text, nullable=True)       # Tema colori utilizzato
+    packing_config = Column(Text, nullable=True)    # Configurazioni di packing
+    results_summary = Column(Text, nullable=True)   # Riassunto risultati ottenuti
+    
+    # Metadata
+    wall_dimensions = Column(String(100), nullable=True)  # Es: "10000x3000mm"
+    total_blocks = Column(Integer, nullable=True)
+    efficiency_percentage = Column(String(10), nullable=True)  # Es: "94.5%"
+    
+    # Percorsi ai file generati
+    svg_path = Column(String(500), nullable=True)
+    pdf_path = Column(String(500), nullable=True) 
+    json_path = Column(String(500), nullable=True)
+    
+    # Timestamping
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    last_used = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    def __repr__(self):
+        return f"<SavedProject(name='{self.project_name}', user_id={self.user_id})>"

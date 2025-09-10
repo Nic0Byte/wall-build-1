@@ -290,6 +290,197 @@ async def process_packing(
     return result
 
 # ────────────────────────────────────────────────────────────────────────────────
+# Routes Progetti Salvati
+# ────────────────────────────────────────────────────────────────────────────────
+
+@router.post("/saved-projects/save")
+async def save_project(
+    project_data: dict,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Salva un progetto completato per riutilizzo futuro."""
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        import json
+        
+        with get_db_session() as db:
+            # Crea nuovo progetto salvato
+            saved_project = SavedProject(
+                user_id=current_user.id,
+                project_name=project_data.get("name"),
+                original_filename=project_data.get("filename"),
+                file_path=project_data.get("file_path"),
+                block_dimensions=json.dumps(project_data.get("block_dimensions")),
+                color_theme=json.dumps(project_data.get("color_theme")),
+                packing_config=json.dumps(project_data.get("packing_config")),
+                results_summary=json.dumps(project_data.get("results")),
+                wall_dimensions=project_data.get("wall_dimensions"),
+                total_blocks=project_data.get("total_blocks"),
+                efficiency_percentage=project_data.get("efficiency"),
+                svg_path=project_data.get("svg_path"),
+                pdf_path=project_data.get("pdf_path"),
+                json_path=project_data.get("json_path")
+            )
+            
+            db.add(saved_project)
+            db.commit()
+            db.refresh(saved_project)
+            
+            return {
+                "success": True,
+                "message": "Progetto salvato con successo",
+                "project_id": saved_project.id
+            }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nel salvataggio progetto: {str(e)}"
+        )
+
+@router.get("/saved-projects/list")
+async def get_saved_projects(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Recupera la lista dei progetti salvati dell'utente."""
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        import json
+        
+        with get_db_session() as db:
+            projects = db.query(SavedProject)\
+                        .filter(SavedProject.user_id == current_user.id)\
+                        .filter(SavedProject.is_active == True)\
+                        .order_by(SavedProject.created_at.desc())\
+                        .all()
+            
+            projects_list = []
+            for project in projects:
+                project_data = {
+                    "id": project.id,
+                    "name": project.project_name,
+                    "filename": project.original_filename,
+                    "wall_dimensions": project.wall_dimensions,
+                    "total_blocks": project.total_blocks,
+                    "efficiency": project.efficiency_percentage,
+                    "created_at": project.created_at.isoformat(),
+                    "last_used": project.last_used.isoformat() if project.last_used else None,
+                    "has_svg": bool(project.svg_path),
+                    "has_pdf": bool(project.pdf_path)
+                }
+                projects_list.append(project_data)
+            
+            return {
+                "success": True,
+                "projects": projects_list,
+                "count": len(projects_list)
+            }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nel recupero progetti: {str(e)}"
+        )
+
+@router.get("/saved-projects/{project_id}")
+async def get_saved_project(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Recupera i dettagli completi di un progetto salvato."""
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        import json
+        
+        with get_db_session() as db:
+            project = db.query(SavedProject)\
+                       .filter(SavedProject.id == project_id)\
+                       .filter(SavedProject.user_id == current_user.id)\
+                       .filter(SavedProject.is_active == True)\
+                       .first()
+            
+            if not project:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Progetto non trovato"
+                )
+            
+            # Aggiorna last_used
+            project.last_used = datetime.now()
+            db.commit()
+            
+            return {
+                "success": True,
+                "project": {
+                    "id": project.id,
+                    "name": project.project_name,
+                    "filename": project.original_filename,
+                    "file_path": project.file_path,
+                    "block_dimensions": json.loads(project.block_dimensions) if project.block_dimensions else None,
+                    "color_theme": json.loads(project.color_theme) if project.color_theme else None,
+                    "packing_config": json.loads(project.packing_config) if project.packing_config else None,
+                    "results": json.loads(project.results_summary) if project.results_summary else None,
+                    "wall_dimensions": project.wall_dimensions,
+                    "total_blocks": project.total_blocks,
+                    "efficiency": project.efficiency_percentage,
+                    "svg_path": project.svg_path,
+                    "pdf_path": project.pdf_path,
+                    "json_path": project.json_path,
+                    "created_at": project.created_at.isoformat(),
+                    "last_used": project.last_used.isoformat()
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nel recupero progetto: {str(e)}"
+        )
+
+@router.delete("/saved-projects/{project_id}")
+async def delete_saved_project(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Elimina (disattiva) un progetto salvato."""
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        
+        with get_db_session() as db:
+            project = db.query(SavedProject)\
+                       .filter(SavedProject.id == project_id)\
+                       .filter(SavedProject.user_id == current_user.id)\
+                       .first()
+            
+            if not project:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Progetto non trovato"
+                )
+            
+            project.is_active = False
+            db.commit()
+            
+            return {
+                "success": True,
+                "message": "Progetto eliminato con successo"
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nell'eliminazione progetto: {str(e)}"
+        )
+
+# ────────────────────────────────────────────────────────────────────────────────
 # Routes Utilities
 # ────────────────────────────────────────────────────────────────────────────────
 

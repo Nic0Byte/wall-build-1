@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from contextlib import contextmanager
 from typing import Generator
 
-from .models import Base, User, Session, Project
+from .models import Base, User, Session, Project, SavedProject
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Configurazione Database
@@ -137,10 +137,12 @@ def get_database_info():
         user_count = db.query(User).count()
         session_count = db.query(Session).count()  
         project_count = db.query(Project).count()
+        saved_project_count = db.query(SavedProject).count()
         
         return {
             "database_file": DATABASE_FILE,
             "users": user_count,
             "sessions": session_count,
-            "projects": project_count
+            "projects": project_count,
+            "saved_projects": saved_project_count
         }
