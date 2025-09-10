@@ -1,8 +1,5 @@
-<!DOCTYPE html    <!-- ✅ SISTEMA DI AUTENTICAZIONE GLOBALE -->
-    <script src="/static/js/auth.js"></script>
-    <script src="/static/js/protected-page.js"></script>
-
-    <div id="app">
+<!DOCTYPE html>
+<head>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,6 +61,27 @@
                             <span>Impostazioni Globali</span>
                         </div>
                     </nav>
+                    
+                    <!-- User Section - Semplice -->
+                    <div class="user-section-simple" id="userSectionSimple">
+                        <div class="user-info-simple" id="userInfoSimple">
+                            <div class="user-avatar-simple">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <span class="user-name-simple" id="userNameSimple">Caricamento...</span>
+                            <div class="user-menu-toggle" id="userMenuToggle">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Menu Semplice -->
+                        <div class="user-menu-simple" id="userMenuSimple" style="display: none;">
+                            <button class="logout-btn-simple" id="logoutBtnSimple">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Disconnetti
+                            </button>
+                        </div>
+                    </div>
                     
                     <!-- Header Stats (shown only in app section) -->
                     <div class="header-stats" id="headerStats" style="display: none;">
@@ -802,5 +820,6 @@
     </div>
 
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/user-section.js"></script>
 </body>
 </html>
