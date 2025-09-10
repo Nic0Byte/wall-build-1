@@ -298,9 +298,12 @@ class WallPackingApp {
         this.showToast('File rimosso', 'info');
     }
     
-    showFileInfo(file) {
-        // Reset project saved flag when new file is loaded
-        this.projectSaved = false;
+    showFileInfo(file, resetFlags = true) {
+        // Reset project saved flag when new file is loaded (only if not reusing)
+        if (resetFlags) {
+            this.projectSaved = false;
+            this.isReusedProject = false;
+        }
         
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
@@ -889,6 +892,7 @@ class WallPackingApp {
         this.currentSessionId = null;
         this.currentData = null;
         this.projectSaved = false; // Reset save flag
+        this.isReusedProject = false; // Reset reuse flag
         
         // Reset forms
         const fileInput = document.getElementById('fileInput');
@@ -939,8 +943,8 @@ class WallPackingApp {
     
     // Auto-save project when processing is complete
     autoSaveProject(data) {
-        if (!this.currentFile || !data || this.projectSaved) {
-            return; // Don't save if already saved
+        if (!this.currentFile || !data || this.projectSaved || this.isReusedProject) {
+            return; // Don't save if already saved or if this is a reused project
         }
         
         // Extract project information
@@ -1971,10 +1975,10 @@ function renderPastProjects(projects) {
                         </div>
                     </div>
                     <div class="project-actions">
-                        <button class="reuse-btn" onclick="reuseProject(${project.id})">
+                        <button class="reuse-btn" onclick="reuseProject(${project.id}, event)">
                             <i class="fas fa-redo"></i> Riusa
                         </button>
-                        <button class="delete-project-btn" onclick="deleteProject(${project.id})" title="Elimina progetto">
+                        <button class="delete-project-btn" onclick="deleteProject(${project.id}, event)" title="Elimina progetto">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1997,7 +2001,13 @@ function renderPastProjects(projects) {
 }
 
 // Reuse Project - NEW LOGIC: Load and process automatically to go directly to results
-async function reuseProject(projectId) {
+async function reuseProject(projectId, event) {
+    // Prevent event propagation to avoid closing the panel
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
     console.log(`🔄 Riutilizzo progetto ID: ${projectId}`);
     
     try {
@@ -2125,7 +2135,8 @@ async function loadAndProcessProjectFile(projectId, project) {
         // Set the file in the app
         if (window.wallPackingApp) {
             window.wallPackingApp.currentFile = file;
-            window.wallPackingApp.showFileInfo(file);
+            window.wallPackingApp.isReusedProject = true; // Mark as reused project to prevent saving
+            window.wallPackingApp.showFileInfo(file, false); // false = don't reset flags since we're reusing
         }
         
         // Now automatically process the file to go directly to results
@@ -2212,7 +2223,13 @@ function formatFileSize(bytes) {
 }
 
 // Delete Project - NO CONFIRMATION, KEEP CARD OPEN
-async function deleteProject(projectId) {
+async function deleteProject(projectId, event) {
+    // Prevent event propagation to avoid closing the panel
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
     try {
         const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
             method: 'DELETE',
@@ -2306,7 +2323,7 @@ async function saveCurrentProject(projectData) {
     }
 }
 
-// Setup search and filters for past projects
+// Setup search for past projects
 document.addEventListener('DOMContentLoaded', function() {
     // Search functionality
     const searchInput = document.getElementById('projectSearchInput');
@@ -2319,42 +2336,4 @@ document.addEventListener('DOMContentLoaded', function() {
             renderPastProjects(filteredProjects);
         });
     }
-    
-    // Filter buttons
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Update active state
-            filterButtons.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Apply filter
-            const filter = this.getAttribute('data-filter');
-            let filteredProjects = [...pastProjectsData];
-            
-            switch (filter) {
-                case 'recent':
-                    // Last 30 days
-                    const thirtyDaysAgo = new Date();
-                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                    filteredProjects = pastProjectsData.filter(project => 
-                        new Date(project.created_at) >= thirtyDaysAgo
-                    );
-                    break;
-                case 'efficient':
-                    // Efficiency >= 80%
-                    filteredProjects = pastProjectsData.filter(project => {
-                        const efficiency = parseFloat(project.efficiency?.replace('%', '')) || 0;
-                        return efficiency >= 80;
-                    });
-                    break;
-                case 'all':
-                default:
-                    // No filtering
-                    break;
-            }
-            
-            renderPastProjects(filteredProjects);
-        });
-    });
 });
