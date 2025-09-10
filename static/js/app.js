@@ -2325,9 +2325,22 @@ async function saveCurrentProject(projectData) {
 
 // Setup search for past projects
 document.addEventListener('DOMContentLoaded', function() {
+    // Prevent the past projects panel from closing when clicked inside
+    const pastProjectsPanel = document.getElementById('pastProjectsPanel');
+    if (pastProjectsPanel) {
+        pastProjectsPanel.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    }
+    
     // Search functionality
     const searchInput = document.getElementById('projectSearchInput');
     if (searchInput) {
+        // Prevent search input from closing the panel when clicked
+        searchInput.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+        
         searchInput.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
             const filteredProjects = pastProjectsData.filter(project => 
