@@ -293,6 +293,44 @@ async def process_packing(
 # Routes Progetti Salvati
 # ────────────────────────────────────────────────────────────────────────────────
 
+async def save_project_file_from_session(session_id: str, username: str, filename: str) -> str:
+    """Salva il file dal session_id nella cartella appropriata."""
+    try:
+        from pathlib import Path
+        import os
+        
+        # Ottieni i file_bytes dalla sessione
+        from main import SESSIONS
+        
+        if session_id not in SESSIONS:
+            raise ValueError(f"Session ID {session_id} non trovato")
+        
+        session = SESSIONS[session_id]
+        if 'file_bytes' not in session:
+            raise ValueError(f"File bytes non trovati nella sessione {session_id}")
+        
+        # Crea la directory per l'utente
+        output_dir = Path("output/saved_projects") / username
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Genera nome file univoco con timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_ext = Path(filename).suffix
+        safe_filename = f"{timestamp}_{filename.replace(' ', '_')}"
+        file_path = output_dir / safe_filename
+        
+        # Scrivi il file
+        with open(file_path, 'wb') as f:
+            f.write(session['file_bytes'])
+        
+        print(f"💾 File salvato: {file_path}")
+        return str(file_path)
+        
+    except Exception as e:
+        print(f"❌ Errore nel salvataggio file: {e}")
+        return None
+
 @router.post("/saved-projects/save")
 async def save_project(
     project_data: dict,
@@ -303,6 +341,17 @@ async def save_project(
         from database.models import SavedProject
         from database.config import get_db_session
         import json
+        import os
+        from pathlib import Path
+        
+        # Salva il file dal session_id se fornito
+        file_path = None
+        if project_data.get("session_id"):
+            file_path = await save_project_file_from_session(
+                project_data["session_id"], 
+                current_user.username,
+                project_data.get("filename", "project_file")
+            )
         
         with get_db_session() as db:
             # Crea nuovo progetto salvato
@@ -310,7 +359,7 @@ async def save_project(
                 user_id=current_user.id,
                 project_name=project_data.get("name"),
                 original_filename=project_data.get("filename"),
-                file_path=project_data.get("file_path"),
+                file_path=file_path,
                 block_dimensions=json.dumps(project_data.get("block_dimensions")),
                 color_theme=json.dumps(project_data.get("color_theme")),
                 packing_config=json.dumps(project_data.get("packing_config")),
@@ -330,7 +379,8 @@ async def save_project(
             return {
                 "success": True,
                 "message": "Progetto salvato con successo",
-                "project_id": saved_project.id
+                "project_id": saved_project.id,
+                "file_path": file_path
             }
             
     except Exception as e:
@@ -478,6 +528,70 @@ async def delete_saved_project(
         raise HTTPException(
             status_code=500,
             detail=f"Errore nell'eliminazione progetto: {str(e)}"
+        )
+
+@router.get("/saved-projects/{project_id}/file")
+async def get_saved_project_file(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Recupera il file originale di un progetto salvato."""
+    from fastapi.responses import FileResponse
+    from pathlib import Path
+    from database.models import SavedProject
+    from database.config import get_db_session
+    
+    try:
+        with get_db_session() as db:
+            project = db.query(SavedProject)\
+                       .filter(SavedProject.id == project_id)\
+                       .filter(SavedProject.user_id == current_user.id)\
+                       .filter(SavedProject.is_active == True)\
+                       .first()
+            
+            if not project:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Progetto non trovato"
+                )
+            
+            if not project.file_path:
+                raise HTTPException(
+                    status_code=404,
+                    detail="File del progetto non disponibile"
+                )
+            
+            file_path = Path(project.file_path)
+            
+            if not file_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail="File del progetto non trovato sul filesystem"
+                )
+            
+            # Determina il media type basandosi sull'estensione
+            file_ext = file_path.suffix.lower()
+            media_type = "application/octet-stream"
+            
+            if file_ext == ".svg":
+                media_type = "image/svg+xml"
+            elif file_ext == ".dwg":
+                media_type = "application/acad"
+            elif file_ext == ".dxf":
+                media_type = "application/dxf"
+            
+            return FileResponse(
+                path=str(file_path),
+                filename=project.original_filename,
+                media_type=media_type
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nel recupero file progetto: {str(e)}"
         )
 
 # ────────────────────────────────────────────────────────────────────────────────

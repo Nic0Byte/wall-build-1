@@ -299,6 +299,9 @@ class WallPackingApp {
     }
     
     showFileInfo(file) {
+        // Reset project saved flag when new file is loaded
+        this.projectSaved = false;
+        
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
         const fileMeta = document.getElementById('fileMeta');
@@ -885,6 +888,7 @@ class WallPackingApp {
         this.currentFile = null;
         this.currentSessionId = null;
         this.currentData = null;
+        this.projectSaved = false; // Reset save flag
         
         // Reset forms
         const fileInput = document.getElementById('fileInput');
@@ -935,8 +939,8 @@ class WallPackingApp {
     
     // Auto-save project when processing is complete
     autoSaveProject(data) {
-        if (!this.currentFile || !data) {
-            return;
+        if (!this.currentFile || !data || this.projectSaved) {
+            return; // Don't save if already saved
         }
         
         // Extract project information
@@ -956,11 +960,25 @@ class WallPackingApp {
         const wallDimensions = data.wall_info ? 
             `${data.wall_info.width}×${data.wall_info.height}mm` : 'N/A';
         
+        // Get configuration data
+        const config = this.getConfiguration();
+        
+        // Get saved file path from session data (this comes from backend after upload)
+        const savedFilePath = data.saved_file_path || '';
+        console.log('💾 Percorso file salvato per progetto:', savedFilePath);
+        
         // Prepare project data for saving
         const projectData = {
             name: projectName,
             filename: filename,
-            file_path: data.file_path || '', // This would come from the backend
+            file_path: savedFilePath, // This is the path where the file was saved on server
+            block_dimensions: getCurrentBlockDimensions(),
+            color_theme: getCurrentColorTheme(),
+            packing_config: {
+                row_offset: config.rowOffset,
+                block_widths: config.blockWidths,
+                project_name: config.projectName
+            },
             results: {
                 summary: data.summary,
                 blocks_custom: data.blocks_custom,
@@ -974,10 +992,14 @@ class WallPackingApp {
             json_path: data.json_path || null
         };
         
+        // Mark as saving to prevent duplicates
+        this.projectSaved = true;
+        console.log('💾 Salvataggio automatico progetto:', projectName);
+        
         // Save asynchronously (don't wait for result to avoid blocking UI)
         saveCurrentProject(projectData).catch(error => {
             console.warn('Auto-save project failed:', error);
-            // Don't show error toast for auto-save failures to avoid annoying user
+            this.projectSaved = false; // Reset on failure to allow retry
         });
     }
 }
@@ -1974,9 +1996,18 @@ function renderPastProjects(projects) {
     }
 }
 
-// Reuse Project
+// Reuse Project - NEW LOGIC: Load and process automatically to go directly to results
 async function reuseProject(projectId) {
+    console.log(`🔄 Riutilizzo progetto ID: ${projectId}`);
+    
     try {
+        // Show loading state
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Ripristino progetto...', 'info');
+            window.wallPackingApp.showLoading('Caricamento progetto salvato...', 'Ripristino file e rielaborazione automatica');
+        }
+        
+        // Step 1: Get project data
         const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
             method: 'GET',
             headers: {
@@ -1992,52 +2023,196 @@ async function reuseProject(projectId) {
         const data = await response.json();
         const project = data.project;
         
-        // Restore block dimensions
-        if (project.block_dimensions) {
-            localStorage.setItem('blockDimensions', JSON.stringify(project.block_dimensions));
-            loadBlockDimensions();
-        }
+        console.log('📦 Progetto recuperato:', project.name);
         
-        // Restore color theme
-        if (project.color_theme) {
-            localStorage.setItem('colorTheme', JSON.stringify(project.color_theme));
-            loadColorTheme();
-        }
+        // Step 2: Restore all configurations first
+        await restoreProjectConfigurations(project);
         
-        // Show success message
-        if (window.wallPackingApp) {
-            window.wallPackingApp.showToast(
-                `Progetto "${project.name}" caricato. Carica il file DWG/DXF per iniziare.`, 
-                'success'
-            );
-        }
-        
-        // Switch to main application section
-        if (window.wallPackingApp) {
-            window.wallPackingApp.showMainSection('app');
-            window.wallPackingApp.showSection('upload');
-        }
-        
-        // Close the past projects panel
-        const panel = document.getElementById('pastProjectsPanel');
-        const icon = document.getElementById('pastProjectsExpandIcon');
-        panel.style.display = 'none';
-        icon.style.transform = 'rotate(0deg)';
+        // Step 3: Load file and process automatically to go directly to results
+        console.log('🚀 Caricamento file e rielaborazione automatica...');
+        await loadAndProcessProjectFile(projectId, project);
         
     } catch (error) {
-        console.error('Error reusing project:', error);
+        console.error('❌ Errore riutilizzo progetto:', error);
         if (window.wallPackingApp) {
+            window.wallPackingApp.hideLoading();
             window.wallPackingApp.showToast('Errore nel caricamento progetto', 'error');
         }
     }
 }
 
-// Delete Project
-async function deleteProject(projectId) {
-    if (!confirm('Sei sicuro di voler eliminare questo progetto? L\'azione non può essere annullata.')) {
-        return;
+// Restore project configurations
+async function restoreProjectConfigurations(project) {
+    console.log('⚙️ Ripristino configurazioni...');
+    
+    // Restore block dimensions
+    if (project.block_dimensions) {
+        localStorage.setItem('blockDimensions', JSON.stringify(project.block_dimensions));
+        window.currentBlockDimensions = project.block_dimensions;
+        updateActiveBlocksDisplay();
+        console.log('📏 Dimensioni blocchi ripristinate');
     }
     
+    // Restore color theme  
+    if (project.color_theme) {
+        localStorage.setItem('wallTheme', JSON.stringify(project.color_theme));
+        window.currentColorTheme = project.color_theme;
+        console.log('🎨 Tema colori ripristinato');
+    }
+    
+    // Restore packing configuration in UI
+    if (project.packing_config) {
+        const config = project.packing_config;
+        
+        // Project name
+        const projectNameInput = document.getElementById('projectName');
+        if (projectNameInput && config.project_name) {
+            projectNameInput.value = config.project_name;
+        }
+        
+        // Row offset
+        if (config.row_offset) {
+            const rowOffsetSlider = document.getElementById('rowOffset');
+            const rowOffsetValue = document.getElementById('rowOffsetValue');
+            if (rowOffsetSlider && rowOffsetValue) {
+                rowOffsetSlider.value = config.row_offset;
+                rowOffsetValue.textContent = `${config.row_offset} mm`;
+                if (window.wallPackingApp && window.wallPackingApp.updatePresetButtons) {
+                    window.wallPackingApp.updatePresetButtons(config.row_offset.toString());
+                }
+            }
+        }
+        
+        // Block widths
+        if (config.block_widths) {
+            const blockWidthsInput = document.getElementById('blockWidths');
+            if (blockWidthsInput) {
+                blockWidthsInput.value = config.block_widths;
+            }
+        }
+        
+        console.log('⚙️ Configurazioni UI ripristinate');
+    }
+}
+
+// Load file and automatically process to show results immediately
+async function loadAndProcessProjectFile(projectId, project) {
+    try {
+        console.log('📂 Recupero file salvato...');
+        
+        // Get the saved file from the backend
+        const fileResponse = await fetch(`/api/v1/saved-projects/${projectId}/file`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+        });
+        
+        if (!fileResponse.ok) {
+            throw new Error(`Errore nel recupero file: ${fileResponse.status}`);
+        }
+        
+        // Get file as blob
+        const fileBlob = await fileResponse.blob();
+        
+        // Create a File object with the original name
+        const file = new File([fileBlob], project.filename, {
+            type: getFileTypeFromExtension(project.filename)
+        });
+        
+        console.log(`📄 File recuperato: ${file.name} (${formatFileSize(file.size)})`);
+        
+        // Set the file in the app
+        if (window.wallPackingApp) {
+            window.wallPackingApp.currentFile = file;
+            window.wallPackingApp.showFileInfo(file);
+        }
+        
+        // Now automatically process the file to go directly to results
+        console.log('🔄 Rielaborazione automatica con configurazioni ripristinate...');
+        
+        if (window.wallPackingApp) {
+            // Update loading message
+            const loadingTitle = document.getElementById('loadingTitle');
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingTitle) loadingTitle.textContent = 'Rielaborazione in corso...';
+            if (loadingMessage) loadingMessage.textContent = 'Applicazione configurazioni salvate e calcolo packing automatico';
+            
+            // Directly call processFile to get results
+            await window.wallPackingApp.processFile();
+            
+            // Go to application view (main app section) instead of closing everything
+            window.wallPackingApp.showMainSection('app');
+            window.wallPackingApp.showSection('results'); // Show results section in app
+            
+            // Close the past projects panel
+            const panel = document.getElementById('pastProjectsPanel');
+            const icon = document.getElementById('pastProjectsExpandIcon');
+            if (panel && icon) {
+                panel.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+            
+            // Show success message
+            window.wallPackingApp.showToast(
+                `Progetto "${project.name}" ripristinato con successo!`, 
+                'success',
+                6000
+            );
+        }
+        
+    } catch (error) {
+        console.error('❌ Errore elaborazione automatica:', error);
+        
+        // Fallback: show config section with file loaded
+        if (window.wallPackingApp) {
+            window.wallPackingApp.hideLoading();
+            window.wallPackingApp.showToast(
+                `Configurazioni ripristinate. Il file è stato caricato, clicca "Calcola Packing" per continuare.`, 
+                'warning'
+            );
+            
+            // Switch to config section
+            window.wallPackingApp.showMainSection('app');
+            window.wallPackingApp.showSection('config');
+        }
+        
+        // Close the past projects panel anyway
+        const panel = document.getElementById('pastProjectsPanel');
+        const icon = document.getElementById('pastProjectsExpandIcon');
+        if (panel && icon) {
+            panel.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// Helper function to get MIME type from file extension
+function getFileTypeFromExtension(filename) {
+    const ext = filename.toLowerCase().split('.').pop();
+    switch (ext) {
+        case 'dwg':
+            return 'application/acad';
+        case 'dxf':
+            return 'application/dxf';
+        case 'svg':
+            return 'image/svg+xml';
+        default:
+            return 'application/octet-stream';
+    }
+}
+
+// Helper function to format file size (already exists but ensuring it's available)
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Delete Project - NO CONFIRMATION, KEEP CARD OPEN
+async function deleteProject(projectId) {
     try {
         const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
             method: 'DELETE',
@@ -2051,11 +2226,11 @@ async function deleteProject(projectId) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Reload projects list
+        // Reload projects list BUT keep the card open
         loadPastProjects();
         
         if (window.wallPackingApp) {
-            window.wallPackingApp.showToast('Progetto eliminato con successo', 'success');
+            window.wallPackingApp.showToast('Progetto eliminato', 'success');
         }
         
     } catch (error) {
@@ -2079,14 +2254,16 @@ async function saveCurrentProject(projectData) {
     }
     
     try {
+        // Add session_id to access file bytes on server
         const saveData = {
+            session_id: window.wallPackingApp ? window.wallPackingApp.currentSessionId : null,
             name: projectData.name,
             filename: projectData.filename,
-            file_path: projectData.file_path,
+            file_path: projectData.file_path || '', // Will be set by backend
             block_dimensions: getCurrentBlockDimensions(),
             color_theme: getCurrentColorTheme(),
-            packing_config: {
-                // Add any packing configuration here
+            packing_config: projectData.packing_config || {
+                // Fallback configuration
             },
             results: projectData.results,
             wall_dimensions: projectData.wall_dimensions,
@@ -2096,6 +2273,8 @@ async function saveCurrentProject(projectData) {
             pdf_path: projectData.pdf_path,
             json_path: projectData.json_path
         };
+        
+        console.log('💾 Salvando progetto con session_id:', saveData.session_id);
         
         const response = await fetch('/api/v1/saved-projects/save', {
             method: 'POST',

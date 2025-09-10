@@ -119,6 +119,7 @@ class PackingResult(BaseModel):
     summary: Dict
     config: Dict
     metrics: Dict
+    saved_file_path: Optional[str] = None  # Path to saved project file
 
 def build_run_params(row_offset: Optional[int] = None) -> Dict:
     """Raccoglie i parametri di run da serializzare nel JSON."""
@@ -3799,6 +3800,66 @@ if FastAPI:
             "version": "1.0.0"
         }
     
+    # ===== PROJECT FILE MANAGEMENT =====
+    
+    async def save_project_file(file: UploadFile, session_id: str, user_id: int) -> str:
+        """
+        Salva fisicamente il file caricato per permettere il riutilizzo futuro.
+        """
+        import os
+        import shutil
+        from pathlib import Path
+        
+        # Crea directory per i progetti salvati
+        base_dir = Path("output/saved_projects")
+        user_dir = base_dir / f"user_{user_id}"
+        user_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Nome file con session_id per unicità
+        file_extension = Path(file.filename).suffix
+        saved_filename = f"{session_id}_{file.filename}"
+        saved_path = user_dir / saved_filename
+        
+        # Reset del file pointer
+        await file.seek(0)
+        
+        # Salva il file
+        with open(saved_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        print(f"💾 File salvato: {saved_path}")
+        return str(saved_path)
+    
+    def get_saved_project_file_path(project_id: int, user_id: int, filename: str) -> Optional[str]:
+        """
+        Recupera il percorso del file salvato per un progetto specifico.
+        """
+        from pathlib import Path
+        from database.models import SavedProject
+        from database.config import get_db_session
+        
+        try:
+            with get_db_session() as db:
+                project = db.query(SavedProject)\
+                           .filter(SavedProject.id == project_id)\
+                           .filter(SavedProject.user_id == user_id)\
+                           .filter(SavedProject.is_active == True)\
+                           .first()
+                
+                if project and project.file_path:
+                    file_path = Path(project.file_path)
+                    if file_path.exists():
+                        return str(file_path)
+                    else:
+                        print(f"⚠️ File del progetto non trovato: {file_path}")
+                        return None
+                        
+        except Exception as e:
+            print(f"❌ Errore nel recupero file progetto: {e}")
+            return None
+        
+        return None
+    
     # ===== WEB UI API ENDPOINTS PROTETTI =====
     
     @app.post("/api/upload", response_model=PackingResult, dependencies=[Depends(get_current_active_user)])
@@ -3874,7 +3935,7 @@ if FastAPI:
             # Genera session ID
             session_id = str(uuid.uuid4())
             
-            # Salva in sessione (con info utente)
+            # Salva in sessione (con info utente e file bytes per salvare dopo)
             SESSIONS[session_id] = {
                 "wall_polygon": wall,
                 "apertures": apertures,
@@ -3891,7 +3952,9 @@ if FastAPI:
                 "metrics": metrics,
                 "timestamp": datetime.datetime.now(),
                 "user_id": current_user.id,
-                "username": current_user.username
+                "username": current_user.username,
+                "original_filename": file.filename,
+                "file_bytes": file_bytes  # Store file bytes for later saving
             }
             
             # Formatta response
@@ -3938,7 +4001,8 @@ if FastAPI:
                     "row_offset": row_offset,
                     "project_name": project_name
                 },
-                metrics=metrics
+                metrics=metrics,
+                saved_file_path=None  # Will be set when project is actually saved
             )
             
         except Exception as e:
