@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120mm" height="30mm" viewBox="0 0 12000 3000" xmlns="http://www.w3.org/2000/svg">
+    <!-- Layer MURO: Parete principale -->
+    <g id="MURO" inkscape:label="MURO">
+        <rect x="0" y="0" width="12000" height="3000" 
+              fill="none" stroke="black" stroke-width="50"/>
+    </g>
+    
+    <!-- Layer BUCHI: Aperture (porte e finestre) -->
+    <g id="BUCHI" inkscape:label="BUCHI">
+        <!-- Porta 1 -->
+        <rect x="2000" y="0" width="1200" height="2200" 
+              fill="none" stroke="red" stroke-width="30"/>
+        
+        <!-- Finestra -->
+        <rect x="5000" y="800" width="1500" height="1200" 
+              fill="none" stroke="red" stroke-width="30"/>
+        
+        <!-- Porta 2 -->
+        <rect x="8500" y="0" width="1200" height="2200" 
+              fill="none" stroke="red" stroke-width="30"/>
+    </g>
+</svg>

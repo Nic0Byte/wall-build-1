@@ -172,7 +172,7 @@
                                 <label>
                                     <i class="fas fa-cubes"></i>
                                     Blocchi Configurati
-                                    <button type="button" class="edit-blocks-btn" onclick="openBlockLibrary()">
+                                    <button type="button" class="edit-blocks-btn" id="editBlocksBtn" onclick="openBlockLibrary()" style="display: none;">
                                         <i class="fas fa-edit"></i> Modifica in Libreria
                                     </button>
                                 </label>
@@ -200,7 +200,8 @@
                                     </div>
                                 </div>
                                 <div class="blocks-usage-info">
-                                    <small><i class="fas fa-info-circle"></i> Questi blocchi verranno utilizzati per il packing della parete</small>
+                                    <small id="blocksUsageInfo"><i class="fas fa-info-circle"></i> Questi blocchi verranno utilizzati per il packing della parete</small>
+                                    <small id="blocksLockInfo" style="display: none;"><i class="fas fa-lock"></i> Le dimensioni dei blocchi non possono essere modificate dopo aver caricato un file. Per cambiarle, inizia un nuovo progetto.</small>
                                 </div>
                             </div>
                             

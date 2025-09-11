@@ -25,6 +25,9 @@ class WallPackingApp {
         this.setupNavigation();
         this.showMainSection('app');
         this.showSection('upload');
+        
+        // Ensure blocks are unlocked at startup (no file loaded)
+        this.unlockBlockDimensionsEditing();
     }
     
     // ===== NAVIGATION SETUP =====
@@ -75,6 +78,14 @@ class WallPackingApp {
         if (targetSection) {
             targetSection.classList.add('active');
         }
+        
+        // Update navigation menu to reflect current section
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.section === sectionName) {
+                item.classList.add('active');
+            }
+        });
         
         this.currentSection = sectionName;
         
@@ -294,6 +305,9 @@ class WallPackingApp {
         const fileInfo = document.getElementById('fileInfo');
         if (fileInfo) fileInfo.style.display = 'none';
         
+        // Unlock block dimensions editing when file is removed
+        this.unlockBlockDimensionsEditing();
+        
         this.showSection('upload');
         this.showToast('File rimosso', 'info');
     }
@@ -324,6 +338,9 @@ class WallPackingApp {
             fileMeta.textContent = `${this.formatFileSize(file.size)} • ${fileType}`;
             fileInfo.style.display = 'block';
         }
+        
+        // Hide edit blocks button and show lock message when file is loaded
+        this.lockBlockDimensionsEditing();
     }
     
     formatFileSize(bytes) {
@@ -332,6 +349,48 @@ class WallPackingApp {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // ===== BLOCK DIMENSIONS LOCKING =====
+    
+    lockBlockDimensionsEditing() {
+        const editBlocksBtn = document.getElementById('editBlocksBtn');
+        const blocksUsageInfo = document.getElementById('blocksUsageInfo');
+        const blocksLockInfo = document.getElementById('blocksLockInfo');
+        
+        if (editBlocksBtn) {
+            editBlocksBtn.style.display = 'none';
+        }
+        
+        if (blocksUsageInfo) {
+            blocksUsageInfo.style.display = 'none';
+        }
+        
+        if (blocksLockInfo) {
+            blocksLockInfo.style.display = 'block';
+        }
+        
+        console.log('🔒 Dimensioni blocchi bloccate - file caricato');
+    }
+    
+    unlockBlockDimensionsEditing() {
+        const editBlocksBtn = document.getElementById('editBlocksBtn');
+        const blocksUsageInfo = document.getElementById('blocksUsageInfo');
+        const blocksLockInfo = document.getElementById('blocksLockInfo');
+        
+        if (editBlocksBtn) {
+            editBlocksBtn.style.display = 'inline-block';
+        }
+        
+        if (blocksUsageInfo) {
+            blocksUsageInfo.style.display = 'block';
+        }
+        
+        if (blocksLockInfo) {
+            blocksLockInfo.style.display = 'none';
+        }
+        
+        console.log('🔓 Dimensioni blocchi sbloccate - nessun file caricato');
     }
     
     // ===== API COMMUNICATION =====
@@ -1044,17 +1103,12 @@ class WallPackingApp {
             processBtn.onclick = () => this.processFile();
         }
         
+        // Unlock block dimensions editing when app is reset
+        this.unlockBlockDimensionsEditing();
+        
         // Show upload section and switch to app
         this.showMainSection('app');
         this.showSection('upload');
-        
-        // Update navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.remove('active');
-            if (item.dataset.section === 'app') {
-                item.classList.add('active');
-            }
-        });
         
         this.showToast('Applicazione ripristinata', 'info');
     }
@@ -1269,9 +1323,19 @@ function updateMiniPreviews(dimensions) {
 function openBlockLibrary() {
     console.log('📚 Opening block library');
     
+    // Check if a file is loaded - if so, prevent access to library
+    if (window.wallPackingApp && window.wallPackingApp.currentFile) {
+        window.wallPackingApp.showToast(
+            'Non puoi modificare i blocchi dopo aver caricato un file. Inizia un nuovo progetto per modificare le dimensioni.',
+            'warning',
+            5000
+        );
+        return;
+    }
+    
     // Switch to library section
     if (window.wallPackingApp) {
-        window.wallPackingApp.showSection('library');
+        window.wallPackingApp.showMainSection('library');
         
         // Show toast to guide user
         setTimeout(() => {

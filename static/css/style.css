@@ -554,6 +554,15 @@ body {
     gap: var(--spacing-2);
 }
 
+.blocks-usage-info #blocksLockInfo {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-2);
+    color: #dc2626;
+    font-weight: 500;
+}
+
 /* ===== Responsive for Active Blocks ===== */
 @media (max-width: 768px) {
     .active-blocks-preview {
