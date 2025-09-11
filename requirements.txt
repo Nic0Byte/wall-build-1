@@ -4,20 +4,50 @@ numpy>=1.26.0,<3.0
 matplotlib>=3.8.0,<3.10
 svgpathtools>=1.6.0,<2.0
 
-# ==== API server ====
+# ==== API server & Web Framework ====
 fastapi>=0.110.0,<1.0
 uvicorn[standard]>=0.24.0,<0.30
 python-multipart>=0.0.6
+jinja2>=3.1.0,<4.0          # Template engine per FastAPI
+
+# ==== Database & ORM ====
+sqlalchemy>=2.0.0,<2.1
+alembic>=1.13.0,<2.0        # Database migrations (opzionale)
 
 # ==== Autenticazione sicura ====
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-python-multipart>=0.0.6
 
-# ==== Exports (fase 1.5 / 2) ====
-reportlab>=4.0.0,<5.0      # PDF export (puro Python, consigliato su Windows)
-ezdxf>=1.1.4,<2.0          # DXF export
+# ==== Modelli dati & validazione ====
+pydantic>=2.0.0,<3.0
+pydantic[email]>=2.0.0,<3.0  # EmailStr support
 
-# ==== Extra utili (opzionali) ====
-orjson>=3.9.10,<4.0        # FastAPI userà ORJSON se presente (più veloce)
-Pillow>=10.0.0,<11.0       # esplicito (già requisito di matplotlib/reportlab)
+# ==== Exports & File Processing ====
+reportlab>=4.0.0,<5.0       # PDF export
+ezdxf>=1.1.4,<2.0           # DXF export
+dxfgrabber>=1.0.6,<2.0      # DWG parser avanzato (opzionale)
+
+# ==== HTTP Client (per test) ====
+requests>=2.31.0,<3.0       # Test e comunicazione HTTP
+
+# ==== Utility & Performance ====
+orjson>=3.9.10,<4.0         # JSON veloce (FastAPI userà se presente)
+Pillow>=10.0.0,<11.0        # Elaborazione immagini
+pathlib2>=2.3.7;python_version<"3.4"  # Backport pathlib per Python < 3.4
+
+# ==== Development & Testing (opzionali) ====
+pytest>=7.4.0,<8.0
+pytest-asyncio>=0.21.0,<1.0
+httpx>=0.24.0,<1.0          # Test client async per FastAPI
+
+# ==== Linux compatibility & Security ====
+cryptography>=41.0.0,<42.0  # Crittografia sicura cross-platform
+keyring>=24.0.0,<25.0       # Gestione credenziali sicura (opzionale)
+
+# ==== Production deployment (opzionali) ====
+gunicorn>=21.2.0,<22.0      # WSGI server per produzione Linux
+supervisor>=4.2.5,<5.0      # Process manager (opzionale)
+
+# ==== Monitoring & Logging (opzionali) ====
+python-multipart>=0.0.6     # Form data handling
+python-dotenv>=1.0.0,<2.0   # .env file support
