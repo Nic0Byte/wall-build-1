@@ -2965,19 +2965,31 @@ def split_out_of_spec(customs: List[Dict], max_w: int = 413, max_h: int = 495) -
     return out
 
 def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
-    """Regole custom: Type 1 ("larghezza"), Type 2 ("flex")."""
+    """
+    Regole custom: Type 1 ("larghezza"), Type 2 ("flex").
+    AGGIORNATO: i blocchi custom possono nascere da tutti i tipi di blocco standard.
+    """
     out = []
+    max_standard_width = max(BLOCK_WIDTHS)  # 1239mm (blocco grande)
+    
     for c in custom:
         w = int(round(c["width"]))
         h = int(round(c["height"]))
-        if w >= 413 + SCARTO_CUSTOM_MM or h > 495 + SCARTO_CUSTOM_MM:
+        
+        # Controlla se supera i limiti massimi (fuori specifica)
+        if w >= max_standard_width + SCARTO_CUSTOM_MM or h > 495 + SCARTO_CUSTOM_MM:
             c["ctype"] = "out_of_spec"
             out.append(c)
             continue
-        if abs(h - 495) <= SCARTO_CUSTOM_MM and w < 413 + SCARTO_CUSTOM_MM:
+        
+        # Type 1: blocchi derivati da qualsiasi blocco standard (altezza ≈ 495mm)
+        # Ora può essere tagliato da blocchi piccoli, medi, grandi o standard
+        if abs(h - 495) <= SCARTO_CUSTOM_MM and w <= max_standard_width + SCARTO_CUSTOM_MM:
             c["ctype"] = 1
         else:
+            # Type 2: blocchi con altezza diversa (flex)
             c["ctype"] = 2
+        
         out.append(c)
     return out
 

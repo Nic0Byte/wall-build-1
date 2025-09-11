@@ -22,7 +22,7 @@ DISPLAY_MM_PER_M = 1000.0     # conversione mm per metro
 
 MICRO_REST_MM = 15.0          # soglia per attivare backtrack del resto finale (coda riga)
 KEEP_OUT_MM = 2.0             # margine attorno ad aperture per evitare micro-sfridi
-SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido)
+SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido) - limite tecnico taglio
 
 
 # ────────────────────────────────────────────────────────────────────────────────
