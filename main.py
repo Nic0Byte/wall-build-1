@@ -38,7 +38,8 @@ from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_poly
 from utils.config import (
     SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
     MICRO_REST_MM, KEEP_OUT_MM, SPLIT_MAX_WIDTH_MM,
-    BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS
+    BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS,
+    get_block_schema_from_frontend, get_default_block_schema  # NEW: Block customization functions
 )
 
 # Optional PDF generation
@@ -3094,10 +3095,62 @@ def _create_block_labels_legacy_impl(placed: List[Dict], custom: List[Dict]) -> 
 # ────────────────────────────────────────────────────────────────────────────────
 # Summary & export
 # ────────────────────────────────────────────────────────────────────────────────
-def summarize_blocks(placed: List[Dict]) -> Dict[str, int]:
+def summarize_blocks(placed: List[Dict], size_to_letter: Optional[Dict[int, str]] = None) -> Dict[str, int]:
+    """
+    Riassume blocchi standard raggruppando per tipo, con supporto per mapping personalizzato.
+    
+    Args:
+        placed: Lista blocchi piazzati
+        size_to_letter: Mapping opzionale da larghezza a lettera per dimensioni personalizzate
+    """
     summary: Dict[str, int] = {}
+    
+    # Se abbiamo un mapping personalizzato, usa quello per correggere i tipi
+    if size_to_letter:
+        # Crea mapping intelligente: da larghezza effettiva a larghezza logica
+        logical_widths = [int(w) for w in size_to_letter.keys()]
+        logical_widths.sort(reverse=True)  # Ordina per dimensione decrescente [1500, 826, 413]
+        
+        # Trova tutte le larghezze effettive usate nei blocchi
+        actual_widths = set()
+        for blk in placed:
+            if blk["type"].startswith("std_"):
+                try:
+                    parts = blk["type"].split("_")[1].split("x")
+                    actual_width = int(parts[0])
+                    actual_widths.add(actual_width)
+                except (ValueError, IndexError):
+                    pass
+        
+        actual_widths = sorted(actual_widths, reverse=True)  # Ordina per dimensione decrescente
+        
+        # Crea mapping: associa la larghezza effettiva più grande con quella logica più grande, etc.
+        width_mapping = {}
+        for i, actual_width in enumerate(actual_widths):
+            if i < len(logical_widths):
+                width_mapping[actual_width] = logical_widths[i]
+                print(f"🔗 Mapping: {actual_width}mm → {logical_widths[i]}mm (logica)")
+    
     for blk in placed:
-        summary[blk["type"]] = summary.get(blk["type"], 0) + 1
+        block_type = blk["type"]
+        
+        # Se abbiamo mapping personalizzato, correggi il tipo
+        if size_to_letter and block_type.startswith("std_"):
+            try:
+                # Estrai larghezza dal tipo esistente (es. "std_1239x495" -> 1239)
+                parts = block_type.split("_")[1].split("x")
+                actual_width = int(parts[0])
+                height = int(parts[1])
+                
+                # Usa il mapping per trovare la larghezza logica
+                if actual_width in width_mapping:
+                    logical_width = width_mapping[actual_width]
+                    block_type = f"std_{logical_width}x{height}"
+            except (ValueError, IndexError):
+                pass  # Mantieni tipo originale se parsing fallisce
+        
+        summary[block_type] = summary.get(block_type, 0) + 1
+    
     return summary
 
 def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Dict], out_path: str = "distinta_wall.json", params: Optional[Dict] = None) -> str:
@@ -3881,6 +3934,7 @@ if FastAPI:
         block_widths: str = Form("1239,826,413"),
         project_name: str = Form("Progetto Parete"),
         color_theme: str = Form("{}"),
+        block_dimensions: str = Form("{}"),  # NEW: Block dimensions from frontend
         current_user: User = Depends(get_current_active_user)
     ):
         """
@@ -3908,7 +3962,7 @@ if FastAPI:
             if not file_bytes:
                 raise HTTPException(status_code=400, detail="File vuoto")
             
-            # Parse parametri
+            # Parse parametri blocchi (backward compatibility)
             try:
                 widths = [int(w.strip()) for w in block_widths.split(',') if w.strip()]
                 if not widths:
@@ -3916,9 +3970,33 @@ if FastAPI:
             except ValueError:
                 widths = BLOCK_WIDTHS
             
-            # Parse tema colori
+            # 🔧 NEW: Parse dimensioni blocchi personalizzate (implementazione della tua idea!)
             try:
                 import json
+                block_config = json.loads(block_dimensions) if block_dimensions else {}
+                print(f"📦 [DEBUG] Block dimensions received: {block_config}")
+                
+                # Determina schema blocchi da usare (standard vs custom)
+                block_schema = get_block_schema_from_frontend(block_config)
+                
+                # Estrai dimensioni effettive da usare
+                final_widths = block_schema["block_widths"]
+                final_height = block_schema["block_height"]
+                final_size_to_letter = block_schema["size_to_letter"]
+                
+                print(f"🎯 Schema blocchi scelto: {block_schema['schema_type']}")
+                print(f"   📏 Dimensioni: {final_widths}×{final_height}")
+                print(f"   🔤 Mappatura: {final_size_to_letter}")
+                
+            except (ValueError, json.JSONDecodeError):
+                print("⚠️ Block dimensions parsing failed, using defaults")
+                block_schema = get_default_block_schema()
+                final_widths = BLOCK_WIDTHS
+                final_height = BLOCK_HEIGHT
+                final_size_to_letter = SIZE_TO_LETTER
+            
+            # Parse tema colori
+            try:
                 color_config = json.loads(color_theme) if color_theme else {}
                 print(f"🎨 [DEBUG] Color theme received: {color_config}")
             except (ValueError, json.JSONDecodeError):
@@ -3928,20 +4006,20 @@ if FastAPI:
             # Parse file (SVG o DWG)
             wall, apertures = parse_wall_file(file_bytes, file.filename)
             
-            # Packing
+            # Packing con dimensioni personalizzate
             placed, custom = pack_wall(
                 wall, 
-                widths, 
-                BLOCK_HEIGHT, 
+                final_widths,  # 🔧 USA LE DIMENSIONI PERSONALIZZATE!
+                final_height,  # 🔧 USA L'ALTEZZA PERSONALIZZATA!
                 row_offset=row_offset,
                 apertures=apertures if apertures else None
             )
             
             # Ottimizzazione
-            placed, custom = opt_pass(placed, custom, widths)
+            placed, custom = opt_pass(placed, custom, final_widths)  # 🔧 ANCHE QUI!
             
             # Calcola metriche
-            summary = summarize_blocks(placed)
+            summary = summarize_blocks(placed, final_size_to_letter)  # 🔧 Passa mapping personalizzato
             metrics = calculate_metrics(placed, custom, wall.area)
             
             # Genera session ID
@@ -3955,8 +4033,10 @@ if FastAPI:
                 "customs": custom,
                 "summary": summary,
                 "config": {
-                    "block_widths": widths,
-                    "block_height": BLOCK_HEIGHT,
+                    "block_widths": final_widths,  # 🔧 USA DIMENSIONI PERSONALIZZATE
+                    "block_height": final_height,  # 🔧 USA ALTEZZA PERSONALIZZATA  
+                    "size_to_letter": final_size_to_letter,  # 🔧 USA MAPPATURA PERSONALIZZATA
+                    "block_schema": block_schema,  # 🔧 SALVA SCHEMA COMPLETO
                     "row_offset": row_offset,
                     "project_name": project_name,
                     "color_theme": color_config
@@ -4008,8 +4088,10 @@ if FastAPI:
                 ],
                 summary=summary,
                 config={
-                    "block_widths": widths,
-                    "block_height": BLOCK_HEIGHT,
+                    "block_widths": final_widths,  # 🔧 Dimensioni personalizzate
+                    "block_height": final_height,  # 🔧 Altezza personalizzata
+                    "size_to_letter": final_size_to_letter,  # 🔧 Mappatura personalizzata
+                    "block_schema": block_schema,  # 🔧 Schema completo
                     "row_offset": row_offset,
                     "project_name": project_name
                 },
@@ -4025,7 +4107,8 @@ if FastAPI:
     async def reconfigure_packing(
         session_id: str = Form(...),
         row_offset: int = Form(826),
-        block_widths: str = Form("1239,826,413")
+        block_widths: str = Form("1239,826,413"),
+        block_dimensions: str = Form("{}")  # NEW: Block dimensions for reconfigure
     ):
         """
         Riconfigurazione parametri su sessione esistente.
@@ -4036,7 +4119,7 @@ if FastAPI:
             
             session = SESSIONS[session_id]
             
-            # Parse parametri
+            # Parse parametri blocchi (backward compatibility)
             try:
                 widths = [int(w.strip()) for w in block_widths.split(',') if w.strip()]
                 if not widths:
@@ -4044,22 +4127,46 @@ if FastAPI:
             except ValueError:
                 widths = BLOCK_WIDTHS
             
-            # Re-packing con nuovi parametri
+            # 🔧 NEW: Parse dimensioni blocchi personalizzate per riconfigurazione
+            try:
+                import json
+                block_config = json.loads(block_dimensions) if block_dimensions else {}
+                print(f"📦 [RECONFIG] Block dimensions received: {block_config}")
+                
+                # Determina schema blocchi da usare (standard vs custom)
+                block_schema = get_block_schema_from_frontend(block_config)
+                
+                # Estrai dimensioni effettive da usare
+                final_widths = block_schema["block_widths"]
+                final_height = block_schema["block_height"]
+                final_size_to_letter = block_schema["size_to_letter"]
+                
+                print(f"🎯 [RECONFIG] Schema blocchi scelto: {block_schema['schema_type']}")
+                print(f"   📏 Dimensioni: {final_widths}×{final_height}")
+                
+            except (ValueError, json.JSONDecodeError):
+                print("⚠️ [RECONFIG] Block dimensions parsing failed, using defaults")
+                block_schema = get_default_block_schema()
+                final_widths = BLOCK_WIDTHS
+                final_height = BLOCK_HEIGHT
+                final_size_to_letter = SIZE_TO_LETTER
+            
+            # Re-packing con dimensioni personalizzate
             wall = session["wall_polygon"]
             apertures = session["apertures"]
             
             placed, custom = pack_wall(
                 wall, 
-                widths, 
-                BLOCK_HEIGHT, 
+                final_widths,  # 🔧 USA DIMENSIONI PERSONALIZZATE!
+                final_height,  # 🔧 USA ALTEZZA PERSONALIZZATA!
                 row_offset=row_offset,
                 apertures=apertures if apertures else None
             )
             
-            placed, custom = opt_pass(placed, custom, widths)
+            placed, custom = opt_pass(placed, custom, final_widths)  # 🔧 ANCHE QUI!
             
-            # Aggiorna sessione
-            summary = summarize_blocks(placed)
+            # Aggiorna sessione con dimensioni personalizzate
+            summary = summarize_blocks(placed, final_size_to_letter)  # 🔧 Passa mapping personalizzato
             metrics = calculate_metrics(placed, custom, wall.area)
             
             session.update({
@@ -4069,7 +4176,10 @@ if FastAPI:
                 "metrics": metrics,
                 "config": {
                     **session["config"],
-                    "block_widths": widths,
+                    "block_widths": final_widths,  # 🔧 USA DIMENSIONI PERSONALIZZATE
+                    "block_height": final_height,  # 🔧 USA ALTEZZA PERSONALIZZATA
+                    "size_to_letter": final_size_to_letter,  # 🔧 USA MAPPATURA PERSONALIZZATA
+                    "block_schema": block_schema,  # 🔧 SALVA SCHEMA COMPLETO
                     "row_offset": row_offset
                 }
             })

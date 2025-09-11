@@ -360,6 +360,10 @@ class WallPackingApp {
             const colorTheme = getCurrentColorTheme();
             formData.append('color_theme', JSON.stringify(colorTheme));
             
+            // Add block dimensions configuration
+            const blockDimensions = getBlockDimensionsForBackend();
+            formData.append('block_dimensions', JSON.stringify(blockDimensions));
+            
             // Make API call
             const response = await fetch('/api/upload', {
                 method: 'POST',
@@ -407,6 +411,10 @@ class WallPackingApp {
             formData.append('session_id', this.currentSessionId);
             formData.append('row_offset', config.rowOffset);
             formData.append('block_widths', config.blockWidths);
+            
+            // Add block dimensions configuration for recalculation
+            const blockDimensions = getBlockDimensionsForBackend();
+            formData.append('block_dimensions', JSON.stringify(blockDimensions));
             
             const response = await fetch('/api/reconfigure', {
                 method: 'POST',
@@ -620,7 +628,7 @@ class WallPackingApp {
         this.updateHeaderStats(data);
         
         // Update tables CON NUOVO SISTEMA RAGGRUPPAMENTO
-        this.updateGroupedStandardTable(data.summary, data.blocks_standard || []);
+        this.updateGroupedStandardTable(data.summary, data.blocks_standard || [], data.config);
         this.updateGroupedCustomTable(data.blocks_custom || []);
         
         // Update metrics
@@ -652,22 +660,51 @@ class WallPackingApp {
         }
     }
     
-    updateGroupedStandardTable(summary, standardBlocks) {
+    updateGroupedStandardTable(summary, standardBlocks, sessionConfig = null) {
         const tbody = document.querySelector('#standardTable tbody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
         
-        // Simula raggruppamento per categoria (usa i mapping esistenti per ora)
-        const typeMap = {
-            'std_1239x495': { name: 'Categoria A', size: '1239 × 495', category: 'A' },
-            'std_826x495': { name: 'Categoria B', size: '826 × 495', category: 'B' },
-            'std_413x495': { name: 'Categoria C', size: '413 × 495', category: 'C' }
-        };
+        // 🧪 DEBUG: Vedere cosa arriva dal backend
+        console.log('� [DEBUG] SessionConfig received:', sessionConfig);
+        console.log('🔍 [DEBUG] Summary received:', summary);
         
-        // Raggruppa per categoria mostrando il nuovo formato
+        // �🔧 NEW: Usa le informazioni del backend se disponibili, altrimenti calcola localmente
+        let typeMap;
+        let blockDimensionsForBackend;
+        
+        if (sessionConfig && sessionConfig.block_schema) {
+            // Usa le informazioni dal backend (più affidabile)
+            console.log('📦 Using backend block schema:', sessionConfig.block_schema);
+            typeMap = this.createTypeMapFromBackend(sessionConfig.block_schema);
+            blockDimensionsForBackend = {
+                block_widths: sessionConfig.block_widths,
+                block_height: sessionConfig.block_height
+            };
+        } else {
+            // Fallback: calcola localmente (per compatibilità)
+            console.log('📦 Fallback: calculating locally');
+            console.log('🔍 [DEBUG] SessionConfig structure:', sessionConfig);
+            const currentBlockDimensions = getCurrentBlockDimensions();
+            blockDimensionsForBackend = getBlockDimensionsForBackend();
+            typeMap = this.createDynamicTypeMap(blockDimensionsForBackend);
+        }
+        
+        console.log('📦 [DEBUG] Final type mapping for standard blocks:', typeMap);
+        
+        // 🔧 NEW: Aggiorna il titolo e mostra indicatore se si usano dimensioni personalizzate
+        this.updateStandardBlocksTitle(blockDimensionsForBackend);
+        
+        // Raggruppa per categoria mostrando le dimensioni personalizzate
         for (const [type, count] of Object.entries(summary || {})) {
-            const typeInfo = typeMap[type] || { name: `Categoria ${type}`, size: 'N/A', category: 'X' };
+            const typeInfo = typeMap[type] || { 
+                name: `Categoria ${type}`, 
+                size: 'N/A', 
+                category: 'X',
+                width: 0,
+                height: 0
+            };
             
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -693,6 +730,87 @@ class WallPackingApp {
             row.innerHTML = '<td colspan="4" class="text-center text-gray-500">Nessun blocco standard</td>';
             tbody.appendChild(row);
         }
+    }
+    
+    createTypeMapFromBackend(blockSchema) {
+        const typeMap = {};
+        const sizeToLetter = blockSchema.size_to_letter;
+        const height = blockSchema.block_height;
+        
+        // Crea mapping basato sulle informazioni del backend
+        for (const [width, letter] of Object.entries(sizeToLetter)) {
+            const widthInt = parseInt(width);
+            const typeKey = `std_${widthInt}x${height}`;
+            typeMap[typeKey] = {
+                name: `Categoria ${letter}`,
+                size: `${widthInt} × ${height}`,
+                category: letter,
+                width: widthInt,
+                height: height
+            };
+        }
+        
+        return typeMap;
+    }
+    
+    createDynamicTypeMap(blockDimensionsForBackend) {
+        const typeMap = {};
+        const widths = blockDimensionsForBackend.block_widths;
+        const height = blockDimensionsForBackend.block_height;
+        
+        // Ordina per dimensione decrescente e assegna lettere A, B, C...
+        const sortedWidths = [...widths].sort((a, b) => b - a);
+        
+        sortedWidths.forEach((width, index) => {
+            const letter = String.fromCharCode(65 + index); // A, B, C...
+            const typeKey = `std_${width}x${height}`;
+            typeMap[typeKey] = {
+                name: `Categoria ${letter}`,
+                size: `${width} × ${height}`,
+                category: letter,
+                width: width,
+                height: height
+            };
+        });
+        
+        return typeMap;
+    }
+    
+    updateStandardBlocksTitle(blockDimensions) {
+        const titleElement = document.getElementById('standardBlocksTitle');
+        const indicatorElement = document.getElementById('customBlocksIndicator');
+        
+        if (!titleElement || !indicatorElement) return;
+        
+        // Controlla se le dimensioni sono personalizzate
+        const defaultWidths = [1239, 826, 413];
+        const defaultHeight = 495;
+        
+        const currentWidths = blockDimensions.block_widths.sort((a, b) => b - a);
+        const currentHeight = blockDimensions.block_height;
+        
+        const isCustom = (
+            !this.arraysEqual(currentWidths, defaultWidths.sort((a, b) => b - a)) ||
+            currentHeight !== defaultHeight
+        );
+        
+        if (isCustom) {
+            titleElement.textContent = 'Blocchi Standard (Dimensioni Personalizzate)';
+            indicatorElement.style.display = 'inline-flex';
+            indicatorElement.title = `Dimensioni personalizzate: ${currentWidths.join('×')}×${currentHeight}mm`;
+        } else {
+            titleElement.textContent = 'Blocchi Standard (Raggruppati)';
+            indicatorElement.style.display = 'none';
+        }
+    }
+    
+    // Helper function to compare arrays
+    arraysEqual(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
     }
 
     updateGroupedCustomTable(customBlocks) {
@@ -770,7 +888,7 @@ class WallPackingApp {
     // FUNZIONI LEGACY PER COMPATIBILITA'
     updateStandardTable(summary) {
         console.log('⚠️ Usando funzione legacy updateStandardTable');
-        return this.updateGroupedStandardTable(summary, []);
+        return this.updateGroupedStandardTable(summary, [], null);
     }
 
     updateCustomTable(customBlocks) {
