@@ -56,7 +56,7 @@ try:
     from reportlab.lib import colors
     reportlab_available = True
 except ImportError:
-    print("⚠️ reportlab non installato. Export PDF non disponibile.")
+    print(" reportlab non installato. Export PDF non disponibile.")
     reportlab_available = False
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ try:
     from ezdxf.enums import TextEntityAlignment
     ezdxf_available = True
 except ImportError:
-    print("⚠️ ezdxf non installato. Export DXF non disponibile.")
+    print(" ezdxf non installato. Export DXF non disponibile.")
     ezdxf_available = False
 
 # Alternative DWG parser
@@ -158,17 +158,17 @@ def parse_dwg_wall(dwg_bytes: bytes, layer_wall: str = "MURO", layer_holes: str 
         try:
             return _parse_dwg_with_dxfgrabber(dwg_bytes, layer_wall, layer_holes)
         except Exception as e:
-            print(f"⚠️ dxfgrabber fallito: {e}")
+            print(f" dxfgrabber fallito: {e}")
     
     # Tentativo 2: ezdxf (originale)  
     if ezdxf_available:
         try:
             return _parse_dwg_with_ezdxf(dwg_bytes, layer_wall, layer_holes)
         except Exception as e:
-            print(f"⚠️ ezdxf fallito: {e}")
+            print(f" ezdxf fallito: {e}")
     
     # Tentativo 3: fallback
-    print("🔄 Usando fallback parser...")
+    print(" Usando fallback parser...")
     return _fallback_parse_dwg(dwg_bytes)
 
 
@@ -182,8 +182,8 @@ def _parse_dwg_with_dxfgrabber(dwg_bytes: bytes, layer_wall: str, layer_holes: s
         # Apri con dxfgrabber
         dwg = dxfgrabber.readfile(tmp_file_path)
         
-        print(f"📁 DWG version: {dwg.header.get('$ACADVER', 'Unknown')}")
-        print(f"🗂️ Layers trovati: {len(dwg.layers)}")
+        print(f" DWG version: {dwg.header.get('$ACADVER', 'Unknown')}")
+        print(f" Layers trovati: {len(dwg.layers)}")
         
         # Estrai geometrie per layer
         wall_geometries = _extract_dxfgrabber_geometries_by_layer(dwg, layer_wall)
@@ -193,7 +193,7 @@ def _parse_dwg_with_dxfgrabber(dwg_bytes: bytes, layer_wall: str, layer_holes: s
         wall_polygon = _dwg_geometries_to_polygon(wall_geometries, is_wall=True)
         aperture_polygons = _dwg_geometries_to_apertures(hole_geometries)
         
-        print(f"✅ DWG parsed con dxfgrabber: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
+        print(f" DWG parsed con dxfgrabber: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
         return wall_polygon, aperture_polygons
         
     finally:
@@ -209,7 +209,7 @@ def _extract_dxfgrabber_geometries_by_layer(dwg, layer_name: str) -> List[List[T
     
     # Lista tutti i layer disponibili per debug
     layer_names = [layer.name for layer in dwg.layers]
-    print(f"🗂️ Layer disponibili: {layer_names}")
+    print(f" Layer disponibili: {layer_names}")
     
     # Cerca entità nel layer specificato
     entities_found = 0
@@ -220,11 +220,11 @@ def _extract_dxfgrabber_geometries_by_layer(dwg, layer_name: str) -> List[List[T
             if coords and len(coords) >= 3:
                 geometries.append(coords)
     
-    print(f"🔍 Layer '{layer_name}': {entities_found} entità trovate, {len(geometries)} geometrie valide")
+    print(f" Layer '{layer_name}': {entities_found} entità trovate, {len(geometries)} geometrie valide")
     
     # Se non trova il layer specifico, cerca qualsiasi geometria chiusa
     if not geometries:
-        print(f"⚠️ Layer '{layer_name}' non trovato o vuoto, cercando geometrie generiche...")
+        print(f" Layer '{layer_name}' non trovato o vuoto, cercando geometrie generiche...")
         for entity in dwg.entities:
             coords = _extract_coords_from_dxfgrabber_entity(entity)
             if coords and len(coords) >= 3:
@@ -288,7 +288,7 @@ def _extract_coords_from_dxfgrabber_entity(entity) -> Optional[List[Tuple[float,
             return None
             
     except Exception as e:
-        print(f"⚠️ Errore estrazione coordinate da {entity_type}: {e}")
+        print(f" Errore estrazione coordinate da {entity_type}: {e}")
         return None
 
 
@@ -311,7 +311,7 @@ def _parse_dwg_with_ezdxf(dwg_bytes: bytes, layer_wall: str, layer_holes: str) -
         wall_polygon = _dwg_geometries_to_polygon(wall_geometries, is_wall=True)
         aperture_polygons = _dwg_geometries_to_apertures(hole_geometries)
         
-        print(f"✅ DWG parsed con ezdxf: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
+        print(f" DWG parsed con ezdxf: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
         return wall_polygon, aperture_polygons
         
     finally:
@@ -335,7 +335,7 @@ def _extract_dwg_geometries_by_layer(msp, layer_name: str) -> List[List[Tuple[fl
     
     # Se non trova il layer specifico, cerca entità generiche
     if not geometries:
-        print(f"⚠️ Layer '{layer_name}' non trovato, cercando geometrie generiche...")
+        print(f" Layer '{layer_name}' non trovato, cercando geometrie generiche...")
         for entity in msp:
             coords = _extract_coords_from_dwg_entity(entity)
             if coords and len(coords) >= 3:
@@ -425,7 +425,7 @@ def _extract_coords_from_dwg_entity(entity) -> Optional[List[Tuple[float, float]
             return None
             
     except Exception as e:
-        print(f"⚠️ Errore estrazione coordinate da {entity.dxftype()}: {e}")
+        print(f" Errore estrazione coordinate da {entity.dxftype()}: {e}")
         return None
 
 
@@ -449,7 +449,7 @@ def _dwg_geometries_to_polygon(geometries: List[List[Tuple[float, float]]], is_w
             if polygon.is_valid and polygon.area > AREA_EPS:
                 valid_polygons.append(polygon)
         except Exception as e:
-            print(f"⚠️ Geometria DWG invalida: {e}")
+            print(f" Geometria DWG invalida: {e}")
             continue
     
     if not valid_polygons:
@@ -490,7 +490,7 @@ def _dwg_geometries_to_apertures(geometries: List[List[Tuple[float, float]]]) ->
             if polygon.is_valid and polygon.area > AREA_EPS:
                 apertures.append(sanitize_polygon(polygon))
         except Exception as e:
-            print(f"⚠️ Apertura DWG invalida: {e}")
+            print(f" Apertura DWG invalida: {e}")
             continue
     
     return apertures
@@ -522,7 +522,7 @@ def _fallback_parse_dwg(dwg_bytes: bytes) -> Tuple[Polygon, List[Polygon]]:
             wall_polygon = _dwg_geometries_to_polygon([all_geometries[0]], is_wall=True)
             apertures = _dwg_geometries_to_apertures(all_geometries[1:]) if len(all_geometries) > 1 else []
             
-            print(f"✅ DWG fallback parsing: parete {wall_polygon.area:.1f} mm², {len(apertures)} aperture")
+            print(f" DWG fallback parsing: parete {wall_polygon.area:.1f} mm², {len(apertures)} aperture")
             return wall_polygon, apertures
             
         finally:
@@ -532,7 +532,7 @@ def _fallback_parse_dwg(dwg_bytes: bytes) -> Tuple[Polygon, List[Polygon]]:
                 pass
                 
     except Exception as e:
-        print(f"❌ Errore fallback DWG: {e}")
+        print(f" Errore fallback DWG: {e}")
         # Ultimo fallback: crea una parete di esempio
         example_wall = box(0, 0, 5000, 2500)  # 5m x 2.5m
         return example_wall, []
@@ -572,11 +572,11 @@ def parse_svg_wall(svg_bytes: bytes, layer_wall: str = "MURO", layer_holes: str 
         wall_polygon = _geometries_to_polygon(wall_geometries, is_wall=True)
         aperture_polygons = _geometries_to_apertures(hole_geometries)
         
-        print(f"✅ SVG parsed: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
+        print(f" SVG parsed: parete {wall_polygon.area:.1f} mm², {len(aperture_polygons)} aperture")
         return wall_polygon, aperture_polygons
         
     except Exception as e:
-        print(f"❌ Errore parsing SVG: {e}")
+        print(f" Errore parsing SVG: {e}")
         # Fallback: cerca qualsiasi geometria chiusa
         return _fallback_parse_svg(svg_bytes)
 
@@ -611,7 +611,7 @@ def _extract_scale_factor(root: ET.Element, ns: Dict[str, str]) -> float:
             return 1.0
             
     except Exception:
-        print("⚠️ Impossibile determinare scala, usando 1:1")
+        print(" Impossibile determinare scala, usando 1:1")
         return 1.0
 
 
@@ -635,12 +635,12 @@ def _extract_geometries_by_layer(root: ET.Element, ns: Dict[str, str], layer_nam
         )
         
         if layer_match:
-            print(f"🔍 Trovato layer '{layer_name}' nel gruppo: {group_id}")
+            print(f" Trovato layer '{layer_name}' nel gruppo: {group_id}")
             geometries.extend(_extract_paths_from_group(group, ns, scale))
             
     # Se non trova layer specifici, cerca elementi top-level
     if not geometries:
-        print(f"⚠️ Layer '{layer_name}' non trovato, cercando geometrie generiche...")
+        print(f" Layer '{layer_name}' non trovato, cercando geometrie generiche...")
         geometries.extend(_extract_paths_from_group(root, ns, scale))
     
     return geometries
@@ -659,7 +659,7 @@ def _extract_paths_from_group(group: ET.Element, ns: Dict[str, str], scale: floa
                 if coords and len(coords) >= 3:
                     geometries.append(coords)
             except Exception as e:
-                print(f"⚠️ Errore parsing path: {e}")
+                print(f" Errore parsing path: {e}")
     
     # Polygon elements (aggiunti per i nostri SVG convertiti)
     for polygon in group.findall('.//svg:polygon', ns):
@@ -669,9 +669,9 @@ def _extract_paths_from_group(group: ET.Element, ns: Dict[str, str], scale: floa
                 coords = _parse_svg_polygon_points(points, scale)
                 if coords and len(coords) >= 3:
                     geometries.append(coords)
-                    print(f"✅ Polygon trovato: {len(coords)} punti")
+                    print(f" Polygon trovato: {len(coords)} punti")
             except Exception as e:
-                print(f"⚠️ Errore parsing polygon: {e}")
+                print(f" Errore parsing polygon: {e}")
     
     # Polyline elements
     for polyline in group.findall('.//svg:polyline', ns):
@@ -681,9 +681,9 @@ def _extract_paths_from_group(group: ET.Element, ns: Dict[str, str], scale: floa
                 coords = _parse_svg_polygon_points(points, scale)
                 if coords and len(coords) >= 2:
                     geometries.append(coords)
-                    print(f"✅ Polyline trovata: {len(coords)} punti")
+                    print(f" Polyline trovata: {len(coords)} punti")
             except Exception as e:
-                print(f"⚠️ Errore parsing polyline: {e}")
+                print(f" Errore parsing polyline: {e}")
     
     # Rectangle elements  
     for rect in group.findall('.//svg:rect', ns):
@@ -696,7 +696,7 @@ def _extract_paths_from_group(group: ET.Element, ns: Dict[str, str], scale: floa
             coords = [(x, y), (x+w, y), (x+w, y+h), (x, y+h), (x, y)]
             geometries.append(coords)
         except Exception as e:
-            print(f"⚠️ Errore parsing rect: {e}")
+            print(f" Errore parsing rect: {e}")
     
     # Circle elements
     for circle in group.findall('.//svg:circle', ns):
@@ -714,7 +714,7 @@ def _extract_paths_from_group(group: ET.Element, ns: Dict[str, str], scale: floa
                 coords.append((x, y))
             geometries.append(coords)
         except Exception as e:
-            print(f"⚠️ Errore parsing circle: {e}")
+            print(f" Errore parsing circle: {e}")
     
     return geometries
 
@@ -744,7 +744,7 @@ def _parse_svg_path(path_data: str, scale: float) -> List[Tuple[float, float]]:
             return coords
             
     except Exception as e:
-        print(f"⚠️ svgpathtools fallito: {e}")
+        print(f" svgpathtools fallito: {e}")
     
     # Fallback: parser manuale semplificato
     return _parse_path_manual(path_data, scale)
@@ -808,7 +808,7 @@ def _parse_svg_polygon_points(points_data: str, scale: float) -> List[Tuple[floa
             coords.append(coords[0])
             
     except Exception as e:
-        print(f"⚠️ Errore parsing points '{points_data}': {e}")
+        print(f" Errore parsing points '{points_data}': {e}")
     
     return coords
 
@@ -839,7 +839,7 @@ def _geometries_to_polygon(geometries: List[List[Tuple[float, float]]], is_wall:
                 valid_polygons.append(poly)
                 
         except Exception as e:
-            print(f"⚠️ Geometria scartata: {e}")
+            print(f" Geometria scartata: {e}")
     
     if not valid_polygons:
         raise ValueError("Nessuna geometria valida trovata")
@@ -851,7 +851,7 @@ def _geometries_to_polygon(geometries: List[List[Tuple[float, float]]], is_wall:
         else:
             # Prendi il poligono più grande come parete principale
             largest = max(valid_polygons, key=lambda p: p.area)
-            print(f"⚠️ Trovati {len(valid_polygons)} poligoni, usando il più grande")
+            print(f" Trovati {len(valid_polygons)} poligoni, usando il più grande")
             return largest
     else:
         # Per aperture, restituisci l'unione
@@ -878,7 +878,7 @@ def _geometries_to_apertures(geometries: List[List[Tuple[float, float]]]) -> Lis
                 apertures.append(poly)
                 
         except Exception as e:
-            print(f"⚠️ Apertura scartata: {e}")
+            print(f" Apertura scartata: {e}")
     
     return apertures
 
@@ -904,50 +904,50 @@ def parse_wall_file(file_bytes: bytes, filename: str,
     
     # 1. SVG - sempre supportato
     if file_ext == 'svg':
-        print(f"📁 Parsing file SVG: {filename}")
+        print(f" Parsing file SVG: {filename}")
         return parse_svg_wall(file_bytes, layer_wall, layer_holes)
     
     # 2. DWG/DXF - prova multiple strategie
     elif file_ext in ['dwg', 'dxf']:
-        print(f"📁 Parsing file DWG/DXF: {filename}")
+        print(f" Parsing file DWG/DXF: {filename}")
         
         # Analizza header per determinare compatibilità
         header_info = _analyze_dwg_header(file_bytes)
-        print(f"🔍 Formato rilevato: {header_info['format']} {header_info['version']}")
+        print(f" Formato rilevato: {header_info['format']} {header_info['version']}")
         
         # Strategia 1: Parser diretto se compatibile
         if header_info['compatible']:
             try:
                 return parse_dwg_wall(file_bytes, layer_wall, layer_holes)
             except Exception as e:
-                print(f"⚠️ Parser diretto fallito: {e}")
+                print(f" Parser diretto fallito: {e}")
         
         # Strategia 2: Tentativo conversione ODA (se disponibile)
         if not header_info['compatible']:
             try:
                 return _try_oda_conversion(file_bytes, filename, layer_wall, layer_holes)
             except Exception as e:
-                print(f"⚠️ Conversione ODA fallita: {e}")
+                print(f" Conversione ODA fallita: {e}")
         
         # Strategia 3: Fallback intelligente con stima dimensioni
         return _intelligent_fallback(file_bytes, filename, header_info)
     
     else:
         # Auto-detection per formati senza estensione
-        print(f"⚠️ Formato non riconosciuto ({file_ext}), tentativo auto-detection...")
+        print(f" Formato non riconosciuto ({file_ext}), tentativo auto-detection...")
         
         # Controlla se inizia come XML/SVG
         try:
             content_start = file_bytes[:1000].decode('utf-8', errors='ignore').strip()
             if content_start.startswith('<?xml') or '<svg' in content_start:
-                print("🔍 Auto-detected: SVG")
+                print(" Auto-detected: SVG")
                 return parse_svg_wall(file_bytes, layer_wall, layer_holes)
         except Exception:
             pass
         
         # Prova come DWG/DXF
         try:
-            print("🔍 Auto-detection: tentativo DWG/DXF...")
+            print(" Auto-detection: tentativo DWG/DXF...")
             header_info = _analyze_dwg_header(file_bytes)
             if header_info['is_cad']:
                 return parse_dwg_wall(file_bytes, layer_wall, layer_holes)
@@ -1021,7 +1021,7 @@ def _try_oda_conversion(file_bytes: bytes, filename: str, layer_wall: str, layer
         if not oda_converter.is_oda_available():
             raise ValueError("ODA File Converter non installato")
         
-        print("🔄 Tentativo conversione con ODA File Converter...")
+        print(" Tentativo conversione con ODA File Converter...")
         dxf_bytes = oda_converter.convert_dwg_to_dxf(file_bytes)
         
         # Prova il parsing del DXF convertito
@@ -1033,7 +1033,7 @@ def _try_oda_conversion(file_bytes: bytes, filename: str, layer_wall: str, layer
 
 def _intelligent_fallback(file_bytes: bytes, filename: str, header_info: Dict) -> Tuple[Polygon, List[Polygon]]:
     """Fallback intelligente che stima dimensioni realistiche basate sul file."""
-    print("🔄 Attivazione fallback intelligente...")
+    print(" Attivazione fallback intelligente...")
     
     # Stima dimensioni basata su dimensione file e nome
     file_size = len(file_bytes)
@@ -1074,8 +1074,8 @@ def _intelligent_fallback(file_bytes: bytes, filename: str, header_info: Dict) -
             finestra1 = box(wall_width - 3000, 800, wall_width - 1500, 2000)
             apertures.append(finestra1)
     
-    print(f"📐 Fallback: parete {wall_width}×{wall_height}mm, {len(apertures)} aperture stimate")
-    print(f"⚠️  NOTA: Questo è un layout di esempio. Per risultati accurati, converti il file in DXF R14.")
+    print(f" Fallback: parete {wall_width}×{wall_height}mm, {len(apertures)} aperture stimate")
+    print(f"  NOTA: Questo è un layout di esempio. Per risultati accurati, converti il file in DXF R14.")
     
     return example_wall, apertures
 
@@ -1115,11 +1115,11 @@ def _fallback_parse_svg(svg_bytes: bytes) -> Tuple[Polygon, List[Polygon]]:
         wall = valid_polygons[0]
         apertures = valid_polygons[1:] if len(valid_polygons) > 1 else []
         
-        print(f"✅ Fallback parse: parete {wall.area:.1f} mm², {len(apertures)} aperture")
+        print(f" Fallback parse: parete {wall.area:.1f} mm², {len(apertures)} aperture")
         return wall, apertures
         
     except Exception as e:
-        print(f"❌ Anche il fallback è fallito: {e}")
+        print(f" Anche il fallback è fallito: {e}")
         # Ultimo fallback: parete rettangolare di esempio
         wall = Polygon([(0, 0), (5000, 0), (5000, 3000), (0, 3000)])
         return wall, []
@@ -1181,12 +1181,12 @@ def export_to_dxf(summary: Dict[str, int],
         
         # Salva documento
         doc.saveas(organized_path)
-        print(f"✅ DXF con layout SOPRA+SOTTO generato: {organized_path}")
-        print(f"📐 Layout totale: {layout.get_total_width():.0f} x {layout.get_total_height():.0f} mm")
+        print(f" DXF con layout SOPRA+SOTTO generato: {organized_path}")
+        print(f" Layout totale: {layout.get_total_width():.0f} x {layout.get_total_height():.0f} mm")
         return organized_path
         
     except Exception as e:
-        print(f"❌ Errore generazione DXF: {e}")
+        print(f" Errore generazione DXF: {e}")
         raise
 
 
@@ -1253,7 +1253,7 @@ class DXFLayoutManager:
         self.zones[name] = zone
         self._update_total_bounds(zone)
         
-        print(f"📍 Zona '{name}': {width:.0f}x{height:.0f} @ ({x:.0f}, {y:.0f})")
+        print(f" Zona '{name}': {width:.0f}x{height:.0f} @ ({x:.0f}, {y:.0f})")
         return zone
     
     def _update_total_bounds(self, zone: Dict):
@@ -1474,7 +1474,7 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
         
         # Ora ottieni il riassunto completo
         all_categories = grouping.get_category_summary()
-        print(f"📦 Categorie create: {len(all_categories)}")
+        print(f" Categorie create: {len(all_categories)}")
         
         # Converte il formato summary in formato compatibile
         category_data = {}
@@ -1508,7 +1508,7 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
         all_categories = category_data
         
     except Exception as e:
-        print(f"⚠️ Errore creazione categorie: {e}")
+        print(f" Errore creazione categorie: {e}")
         # Fallback: raggruppa solo i custom
         all_categories = {}
         for i, custom in enumerate(customs):
@@ -2053,7 +2053,7 @@ def _setup_dxf_layers(doc, color_theme: Optional[Dict] = None):
         ("LEGENDA", dxf_colors.BLACK, "CONTINUOUS", 0.20),
     ]
     
-    print(f"🎨 [DEBUG] Setting up DXF layers with theme colors: {color_theme}")
+    print(f" [DEBUG] Setting up DXF layers with theme colors: {color_theme}")
     
     for name, color, linetype, lineweight in layer_config:
         layer = doc.layers.add(name)
@@ -2230,7 +2230,7 @@ def _draw_custom_blocks(msp, customs: List[Dict], offset_x: float, offset_y: flo
                 }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
             
         except Exception as e:
-            print(f"⚠️ Errore disegno custom {i}: {e}")
+            print(f" Errore disegno custom {i}: {e}")
 
 
 def _add_main_dimensions(msp, wall_polygon: Polygon, offset_x: float, offset_y: float):
@@ -2361,7 +2361,7 @@ def _try_fill(comp: Polygon, y: float, stripe_top: float, widths: List[int], sta
 
 def choose_optimal_block_for_space(remaining_width: float, widths_order: List[int], tolerance: float = 5.0) -> Optional[int]:
     """
-    🧠 CONTROLLO DINAMICO: Sceglie il blocco ottimale per lo spazio rimanente.
+     CONTROLLO DINAMICO: Sceglie il blocco ottimale per lo spazio rimanente.
     
     Args:
         remaining_width: Spazio disponibile in mm
@@ -2378,7 +2378,7 @@ def choose_optimal_block_for_space(remaining_width: float, widths_order: List[in
         # Conviene creare un custom piece
         return None
     
-    # 🔮 ALGORITMO PREDITTIVO: Valuta tutte le combinazioni possibili
+    #  ALGORITMO PREDITTIVO: Valuta tutte le combinazioni possibili
     best_option = None
     min_total_waste = float('inf')
     
@@ -2393,23 +2393,23 @@ def choose_optimal_block_for_space(remaining_width: float, widths_order: List[in
                 best_option = width
                 
     if best_option:
-        print(f"   🔮 Predittivo: Spazio {remaining_width:.0f}mm → Blocco {best_option}mm (spreco totale: {min_total_waste:.0f}mm)")
+        print(f"    Predittivo: Spazio {remaining_width:.0f}mm → Blocco {best_option}mm (spreco totale: {min_total_waste:.0f}mm)")
         return best_option
     
     # Fallback: usa il più piccolo se entra
     smallest = min(widths_order)
     if remaining_width >= smallest:
         waste = remaining_width - smallest
-        print(f"   🧠 Fallback: Spazio {remaining_width:.0f}mm → Blocco minimo {smallest}mm (spreco: {waste:.0f}mm)")
+        print(f"    Fallback: Spazio {remaining_width:.0f}mm → Blocco minimo {smallest}mm (spreco: {waste:.0f}mm)")
         return smallest
     
     # Spazio troppo piccolo
-    print(f"   🗑️ Spazio {remaining_width:.0f}mm troppo piccolo → Custom piece")
+    print(f"    Spazio {remaining_width:.0f}mm troppo piccolo → Custom piece")
     return None
 
 def simulate_future_placement(total_space: float, first_block: int, widths_order: List[int], tolerance: float) -> dict:
     """
-    🔮 SIMULAZIONE PREDITTIVA: Simula il piazzamento futuro per minimizzare spreco totale.
+     SIMULAZIONE PREDITTIVA: Simula il piazzamento futuro per minimizzare spreco totale.
     
     Args:
         total_space: Spazio totale disponibile
@@ -2455,7 +2455,7 @@ def simulate_future_placement(total_space: float, first_block: int, widths_order
 
 def choose_optimal_sequence_advanced(remaining_width: float, widths_order: List[int], tolerance: float = 5.0, max_look_ahead: int = 3) -> Optional[int]:
     """
-    🚀 ALGORITMO PREDITTIVO AVANZATO: Considera sequenze multiple per ottimizzazione globale.
+     ALGORITMO PREDITTIVO AVANZATO: Considera sequenze multiple per ottimizzazione globale.
     
     Args:
         remaining_width: Spazio disponibile
@@ -2490,7 +2490,7 @@ def choose_optimal_sequence_advanced(remaining_width: float, widths_order: List[
     
     if best_sequence:
         first_block = best_sequence['sequence'][0]
-        print(f"   🚀 Avanzato: Spazio {remaining_width:.0f}mm → Sequenza {best_sequence['sequence']} (spreco: {min_waste:.0f}mm)")
+        print(f"    Avanzato: Spazio {remaining_width:.0f}mm → Sequenza {best_sequence['sequence']} (spreco: {min_waste:.0f}mm)")
         return first_block
     
     return None
@@ -2604,10 +2604,10 @@ def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_
     while cursor < seg_maxx - COORD_EPS:
         history.append((cursor, len(placed), len(custom)))
         
-        # 🧠 CONTROLLO DINAMICO: Calcola spazio rimanente e scegli blocco ottimale
+        #  CONTROLLO DINAMICO: Calcola spazio rimanente e scegli blocco ottimale
         remaining_width = seg_maxx - cursor
         
-        # 🚀 USA ALGORITMO PREDITTIVO AVANZATO
+        #  USA ALGORITMO PREDITTIVO AVANZATO
         optimal_width = choose_optimal_sequence_advanced(remaining_width, widths_order, tolerance=5.0, max_look_ahead=3)
         
         # Fallback al controllo dinamico semplice se l'avanzato non trova soluzioni
@@ -2746,10 +2746,10 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
     x = minx + offset
     
     while x < maxx:
-        # 🧠 CONTROLLO DINAMICO ADATTIVO: Calcola spazio rimanente
+        #  CONTROLLO DINAMICO ADATTIVO: Calcola spazio rimanente
         remaining_width = maxx - x
         
-        # 🚀 USA ALGORITMO PREDITTIVO AVANZATO ANCHE PER BLOCCHI ADATTIVI
+        #  USA ALGORITMO PREDITTIVO AVANZATO ANCHE PER BLOCCHI ADATTIVI
         optimal_width = choose_optimal_sequence_advanced(remaining_width, widths_order, tolerance=5.0, max_look_ahead=3)
         
         # Fallback al controllo dinamico semplice
@@ -2833,7 +2833,7 @@ def pack_wall(polygon: Polygon,
     complete_rows = int(total_height / block_height)
     remaining_space = total_height - (complete_rows * block_height)
     
-    print(f"📊 Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
+    print(f" Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
 
     y = miny
     row = 0
@@ -2879,7 +2879,7 @@ def pack_wall(polygon: Polygon,
     # FASE 2: Riga adattiva se spazio sufficiente
     if remaining_space >= 150:  # Minimo ragionevole per blocchi
         adaptive_height = min(remaining_space, block_height)
-        print(f"🔄 Riga adattiva {row}: altezza={adaptive_height:.0f}mm")
+        print(f" Riga adattiva {row}: altezza={adaptive_height:.0f}mm")
         
         stripe_top = y + adaptive_height
         stripe = box(minx, y, maxx, stripe_top)
@@ -2916,7 +2916,7 @@ def pack_wall(polygon: Polygon,
             placed_all.extend(best_placed)
             custom_all.extend(best_custom)
     else:
-        print(f"⚠️ Spazio rimanente {remaining_space:.0f}mm insufficiente per riga adattiva")
+        print(f" Spazio rimanente {remaining_space:.0f}mm insufficiente per riga adattiva")
 
     custom_all = merge_customs_row_aware(custom_all, tol=SCARTO_CUSTOM_MM, row_height=BLOCK_HEIGHT)
     custom_all = split_out_of_spec(custom_all, max_w=SPLIT_MAX_WIDTH_MM)
