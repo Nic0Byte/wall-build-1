@@ -2657,7 +2657,8 @@ def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_
                 placed = placed[:p_len]
                 custom = custom[:c_len]
                 cursor = cursor_prev
-                alt_order = [413, 826, 1239]
+                # Use reversed order of current widths_order for backtracking
+                alt_order = list(reversed(widths_order))
                 p2, c2 = _try_fill(comp, y, stripe_top, alt_order, cursor)
                 baseline_custom_area = 0.0
                 if not remaining.is_empty and remaining.area > AREA_EPS:
@@ -2689,7 +2690,14 @@ def _pack_segment(comp: Polygon, y: float, stripe_top: float, widths: List[int],
     best_placed = []
     best_custom = []
     best_score = (10**9, float("inf"))
-    for order in BLOCK_ORDERS:
+    
+    # Genera ordini dinamici dalle dimensioni passate
+    orders = [
+        sorted(widths, reverse=True),  # Prima grandi, poi medi, poi piccoli
+        sorted(widths)[1:] + [sorted(widths)[0]]  # Prima medi, poi grandi, poi piccoli (se ci sono almeno 2 elementi)
+    ]
+    
+    for order in orders:
         p_try, c_try = _pack_segment_with_order(comp, y, stripe_top, order, offset=offset)
         score = _score_solution(p_try, c_try)
         if score < best_score:
@@ -2706,7 +2714,14 @@ def _pack_segment_adaptive(comp: Polygon, y: float, stripe_top: float, widths: L
     best_placed = []
     best_custom = []
     best_score = (10**9, float("inf"))
-    for order in BLOCK_ORDERS:
+    
+    # Genera ordini dinamici dalle dimensioni passate
+    orders = [
+        sorted(widths, reverse=True),  # Prima grandi, poi medi, poi piccoli
+        sorted(widths)[1:] + [sorted(widths)[0]]  # Prima medi, poi grandi, poi piccoli (se ci sono almeno 2 elementi)
+    ]
+    
+    for order in orders:
         p_try, c_try = _pack_segment_with_order_adaptive(comp, y, stripe_top, order, 
                                                         adaptive_height, offset=offset)
         score = _score_solution(p_try, c_try)
@@ -2849,7 +2864,7 @@ def pack_wall(polygon: Polygon,
             best_score = (10**9, float("inf"))
 
             for off in offset_candidates:
-                p_try, c_try = _pack_segment(comp, y, stripe_top, BLOCK_WIDTHS, offset=off)
+                p_try, c_try = _pack_segment(comp, y, stripe_top, block_widths, offset=off)
                 score = _score_solution(p_try, c_try)
                 if score < best_score:
                     best_score = score
@@ -2891,7 +2906,7 @@ def pack_wall(polygon: Polygon,
 
             for off in offset_candidates:
                 # MODIFICA: Usa pack_segment specializzato per altezza adattiva
-                p_try, c_try = _pack_segment_adaptive(comp, y, stripe_top, BLOCK_WIDTHS, 
+                p_try, c_try = _pack_segment_adaptive(comp, y, stripe_top, block_widths, 
                                                      adaptive_height, offset=off)
                 score = _score_solution(p_try, c_try)
                 if score < best_score:
