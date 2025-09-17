@@ -11,6 +11,9 @@ from contextlib import contextmanager
 from typing import Generator
 
 from .models import Base, User, Session, Project, SavedProject
+from .material_models import (
+    Material, Guide, ProjectMaterialConfig, MaterialRule, ProjectTemplate
+)
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Configurazione Database
@@ -50,7 +53,17 @@ SessionLocal = sessionmaker(
 def create_tables():
     """Crea tutte le tabelle del database."""
     print("🗄️ Creazione tabelle database...")
-    Base.metadata.create_all(bind=engine)
+    
+    # Import tutti i modelli per assicurarsi che siano registrati
+    from .models import Base as MainBase
+    from .material_models import Base as MaterialBase
+    
+    # Crea tabelle principali
+    MainBase.metadata.create_all(bind=engine)
+    
+    # Crea tabelle materiali
+    MaterialBase.metadata.create_all(bind=engine)
+    
     print("✅ Tabelle create con successo")
 
 def get_db() -> Generator[DBSession, None, None]:
@@ -117,6 +130,14 @@ def init_database():
             print("   ⚠️  CAMBIARE LA PASSWORD AL PRIMO ACCESSO!")
         else:
             print("👤 Utente admin già esistente")
+    
+    # Inizializza il sistema materiali
+    try:
+        from .material_services import initialize_material_system
+        initialize_material_system()
+        print("🔧 Sistema materiali inizializzato")
+    except Exception as e:
+        print(f"⚠️ Errore inizializzazione materiali: {e}")
     
     print("🗄️ Database inizializzato correttamente")
 

@@ -42,6 +42,21 @@ from utils.config import (
     get_block_schema_from_frontend, get_default_block_schema  # NEW: Block customization functions
 )
 
+# NEW: Enhanced packing with automatic measurements
+try:
+    from core.enhanced_packing import (
+        EnhancedPackingCalculator,
+        enhance_packing_with_automatic_measurements,
+        calculate_automatic_project_parameters
+    )
+    ENHANCED_PACKING_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Enhanced packing non disponibile: {e}")
+    EnhancedPackingCalculator = None
+    enhance_packing_with_automatic_measurements = None
+    calculate_automatic_project_parameters = None
+    ENHANCED_PACKING_AVAILABLE = False
+
 # Optional PDF generation
 try:
     from reportlab.pdfgen import canvas
@@ -121,6 +136,33 @@ class PackingResult(BaseModel):
     config: Dict
     metrics: Dict
     saved_file_path: Optional[str] = None  # Path to saved project file
+    # NEW: Enhanced measurements
+    automatic_measurements: Optional[Dict] = None
+    production_parameters: Optional[Dict] = None
+
+class EnhancedPackingConfig(BaseModel):
+    """Configurazione estesa con parametri automatici misure"""
+    # Parametri standard
+    block_widths: List[int] = BLOCK_WIDTHS
+    block_height: int = BLOCK_HEIGHT
+    row_offset: Optional[int] = 826
+    snap_mm: float = SNAP_MM
+    keep_out_mm: float = KEEP_OUT_MM
+    
+    # NEW: Parametri materiali automatici
+    material_thickness_mm: Optional[int] = 18
+    guide_width_mm: Optional[int] = 75
+    guide_type: Optional[str] = "75mm"
+    
+    # NEW: Parametri parete
+    wall_position: Optional[str] = "new"  # "new", "attached"
+    is_attached_to_existing: Optional[bool] = False
+    ceiling_height_mm: Optional[int] = 2700
+    
+    # NEW: Parametri avanzati
+    enable_automatic_calculations: bool = True
+    enable_moretti_calculation: bool = True
+    enable_cost_estimation: bool = True
 
 def build_run_params(row_offset: Optional[int] = None) -> Dict:
     """Raccoglie i parametri di run da serializzare nel JSON."""
@@ -4437,6 +4479,144 @@ if FastAPI:
             return JSONResponse({"summary": summary, "custom_count": len(custom), "json_path": out_path})
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=400)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Enhanced Packing Endpoints (NEW)
+# ────────────────────────────────────────────────────────────────────────────────
+
+    @app.post("/pack-enhanced")
+    async def pack_with_automatic_measurements(payload: Dict, current_user: User = Depends(get_current_active_user)):
+        """
+        Packing potenziato con calcolo automatico delle misure.
+        Implementa la logica del documento: materiale + guide = chiusura.
+        """
+        try:
+            # Estrai geometria parete
+            poly = Polygon(payload["polygon"])
+            poly = sanitize_polygon(poly)
+
+            apertures = []
+            for ap in payload.get("apertures", []):
+                apertures.append(Polygon(ap))
+
+            # Parametri packing standard
+            widths = payload.get("block_widths", BLOCK_WIDTHS)
+            height = int(payload.get("block_height", BLOCK_HEIGHT))
+            row_offset = payload.get("row_offset", 826)
+
+            # Configurazione materiali e calcoli automatici
+            material_config = payload.get("material_config", {})
+            enable_enhanced = material_config.get("enable_automatic_calculations", True)
+
+            # Esegui packing standard
+            placed, custom = pack_wall(poly, widths, height, row_offset=row_offset,
+                                     apertures=apertures if apertures else None)
+            placed, custom = opt_pass(placed, custom, widths)
+            summary = summarize_blocks(placed)
+
+            # Prepara risultato base
+            session_id = str(uuid.uuid4())
+            wall_bounds = list(poly.bounds)
+            
+            result = {
+                "session_id": session_id,
+                "status": "success", 
+                "wall_bounds": wall_bounds,
+                "blocks_standard": placed,
+                "blocks_custom": custom,
+                "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
+                "summary": summary,
+                "config": {
+                    "block_widths": widths,
+                    "block_height": height,
+                    "row_offset": row_offset,
+                    "material_config": material_config
+                },
+                "metrics": {
+                    "total_blocks": len(placed) + len(custom),
+                    "wall_area_m2": poly.area / 1_000_000,
+                    "coverage_percent": _calculate_coverage_percentage(poly, placed, custom)
+                }
+            }
+
+            # NUOVO: Aggiungi calcoli automatici se abilitati e disponibili
+            if enable_enhanced and ENHANCED_PACKING_AVAILABLE:
+                try:
+                    print("🧮 Calcolo automatico misure in corso...")
+                    enhanced_result = enhance_packing_with_automatic_measurements(result, material_config)
+                    
+                    # Aggiungi parametri automatici al risultato
+                    result.update(enhanced_result)
+                    
+                    print(f"✅ Spessore chiusura calcolato: {enhanced_result.get('automatic_measurements', {}).get('closure_calculation', {}).get('closure_thickness_mm', 'N/A')}mm")
+                    
+                except Exception as e:
+                    print(f"⚠️ Errore calcoli automatici: {e}")
+                    result["automatic_measurements_error"] = str(e)
+
+            # Export risultati
+            params = build_run_params(row_offset=row_offset)
+            if enable_enhanced and "automatic_measurements" in result:
+                params.update({
+                    "automatic_measurements": result["automatic_measurements"],
+                    "enhanced_packing": True
+                })
+
+            out_path = export_to_json(summary, custom, placed, out_path="enhanced_packing_result.json", params=params)
+            result["saved_file_path"] = out_path
+
+            return JSONResponse(result)
+            
+        except Exception as e:
+            print(f"❌ Errore pack-enhanced: {e}")
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.post("/calculate-measurements")
+    async def calculate_automatic_measurements(payload: Dict, current_user: User = Depends(get_current_active_user)):
+        """Calcola solo le misure automatiche senza eseguire il packing."""
+        try:
+            if not ENHANCED_PACKING_AVAILABLE:
+                return JSONResponse({"error": "Calcoli automatici non disponibili"}, status_code=503)
+
+            poly = Polygon(payload["polygon"])
+            poly = sanitize_polygon(poly) 
+            material_config = payload.get("material_config", {})
+
+            result = calculate_automatic_project_parameters(poly, material_config)
+            
+            return JSONResponse({
+                "status": "success",
+                "measurements": result,
+                "wall_dimensions": {
+                    "width_mm": poly.bounds[2] - poly.bounds[0],
+                    "height_mm": poly.bounds[3] - poly.bounds[1],
+                    "area_m2": poly.area / 1_000_000
+                }
+            })
+            
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+def _calculate_coverage_percentage(wall_polygon: Polygon, standard_blocks: List[Dict], custom_blocks: List[Dict]) -> float:
+    """Calcola percentuale di copertura dei blocchi sulla parete."""
+    
+    try:
+        wall_area = wall_polygon.area
+        if wall_area == 0:
+            return 0.0
+        
+        total_block_area = 0
+        
+        for block in standard_blocks + custom_blocks:
+            block_width = block.get("width", 0)
+            block_height = block.get("height", 0)
+            total_block_area += block_width * block_height
+        
+        coverage = (total_block_area / wall_area) * 100
+        return min(100.0, max(0.0, coverage))  # Clamp tra 0 e 100
+        
+    except Exception:
+        return 0.0
 
 # ────────────────────────────────────────────────────────────────────────────────
 # CLI demo (mantenuto per test)

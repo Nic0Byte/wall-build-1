@@ -16,6 +16,7 @@ from .auth import (
     get_current_user, get_current_active_user, get_current_admin_user, 
     create_access_token, login_user, create_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
+from .material_routes import materials_router  # NEW: Import delle route materiali
 from database.services import cleanup_expired_sessions
 from database.config import get_database_info
 
@@ -25,6 +26,9 @@ from database.config import get_database_info
 
 router = APIRouter()
 security = HTTPBearer()
+
+# Include il router materiali
+router.include_router(materials_router)
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Routes Autenticazione
