@@ -191,7 +191,8 @@ def export_to_dxf(summary: Dict[str, int],
                   project_name: str = "Progetto Parete",
                   out_path: str = "schema_taglio.dxf",
                   params: Optional[Dict] = None,
-                  color_theme: Optional[Dict] = None) -> str:
+                  color_theme: Optional[Dict] = None,
+                  block_config: Optional[Dict] = None) -> str:
     """
     Genera DXF con layout: SOPRA assemblato completo + SOTTO schema taglio raggruppato.
     """
@@ -219,7 +220,7 @@ def export_to_dxf(summary: Dict[str, int],
         
         # 1. LAYOUT PRINCIPALE assemblato (zona superiore)
         main_zone = layout.add_zone("main", wall_width, wall_height)
-        _draw_main_layout(msp, wall_polygon, placed, customs, apertures, main_zone)
+        _draw_main_layout(msp, wall_polygon, placed, customs, apertures, main_zone, block_config)
         
         # 2. SCHEMA TAGLIO raggruppato (zona inferiore con separazione)
         cutting_width = wall_width  # Stessa larghezza del main
@@ -468,7 +469,7 @@ def _calculate_tables_height(summary: Dict[str, int], customs: List[Dict]) -> fl
 
 
 def _draw_main_layout(msp, wall_polygon: Polygon, placed: List[Dict], customs: List[Dict], 
-                     apertures: Optional[List[Polygon]], zone: Dict):
+                     apertures: Optional[List[Polygon]], zone: Dict, block_config: Optional[Dict] = None):
     """Disegna il layout principale della parete."""
     offset_x = zone['x']
     offset_y = zone['y']
@@ -481,7 +482,7 @@ def _draw_main_layout(msp, wall_polygon: Polygon, placed: List[Dict], customs: L
         _draw_apertures(msp, apertures, offset_x, offset_y)
     
     # Blocchi
-    _draw_standard_blocks(msp, placed, offset_x, offset_y)
+    _draw_standard_blocks(msp, placed, offset_x, offset_y, block_config)
     _draw_custom_blocks(msp, customs, offset_x, offset_y)
     
     # Quote principali
@@ -1156,10 +1157,16 @@ def _draw_apertures(msp, apertures: List[Polygon], offset_x: float, offset_y: fl
         }).set_placement((center_x, center_y), align=TextEntityAlignment.MIDDLE_CENTER)
 
 
-def _draw_standard_blocks(msp, placed: List[Dict], offset_x: float, offset_y: float):
+def _draw_standard_blocks(msp, placed: List[Dict], offset_x: float, offset_y: float, block_config: Optional[Dict] = None):
     """Disegna blocchi standard con etichette raggruppate."""
-    # Usa il nuovo sistema di etichettatura dettagliata
-    detailed_labels, _ = create_detailed_block_labels(placed, [])
+    # Usa il sistema di etichettatura avanzato con mapping personalizzato
+    # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente (indipendentemente da use_custom_dimensions)
+    if block_config and block_config.get('size_to_letter'):
+        print(f"🔧 [DEBUG] DXF using custom size_to_letter: {block_config.get('size_to_letter')}")
+        detailed_labels, _ = create_detailed_block_labels(placed, [], block_config.get('size_to_letter'))
+    else:
+        print(f"⚠️ [DEBUG] DXF using default system")
+        detailed_labels, _ = create_detailed_block_labels(placed, [])
     
     for i, block in enumerate(placed):
         x1 = block['x'] + offset_x
@@ -1199,11 +1206,16 @@ def _draw_standard_blocks(msp, placed: List[Dict], offset_x: float, offset_y: fl
             }).set_placement((number_x, number_y), align=TextEntityAlignment.TOP_RIGHT)
             
         else:
-            # Fallback: etichetta centrata
+            # Fallback: etichetta centrata con mapping personalizzato se disponibile
             center_x = x1 + block['width'] / 2
             center_y = y1 + block['height'] / 2
             
-            std_labels, _ = create_block_labels(placed, [])
+            # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente
+            if block_config and block_config.get('size_to_letter'):
+                std_labels_detailed, _ = create_detailed_block_labels(placed, [], block_config.get('size_to_letter'))
+                std_labels = {i: label['full_label'] for i, label in std_labels_detailed.items()}
+            else:
+                std_labels, _ = create_block_labels(placed, [])
             label = std_labels.get(i, f"STD{i+1}")
             
             msp.add_text(label, height=120, dxfattribs={
@@ -2072,6 +2084,7 @@ def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
 # Import del nuovo sistema di raggruppamento
 try:
     from block_grouping import create_grouped_block_labels, get_block_category_summary, create_block_labels_legacy, group_blocks_by_category, group_custom_blocks_by_category
+    print("✅ Modulo block_grouping importato correttamente")
 except ImportError:
     # Fallback se il modulo non è disponibile
     print("⚠️ Modulo block_grouping non disponibile, uso sistema legacy")
@@ -2091,16 +2104,25 @@ def create_block_labels(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[in
         # Fallback sistema legacy
         return _create_block_labels_legacy_impl(placed, custom)
 
-def create_detailed_block_labels(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
+def create_detailed_block_labels(placed: List[Dict], custom: List[Dict], size_to_letter: Optional[Dict[int, str]] = None) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
     """
     Versione avanzata che restituisce informazioni dettagliate per il layout.
     Ogni etichetta include info per posizionamento layout (categoria BL + numero TR).
     """
     if create_grouped_block_labels is not None:
-        return create_grouped_block_labels(placed, custom)
+        print(f"🔧 [DEBUG] Using new grouped block labels system")
+        if size_to_letter:
+            print(f"🔧 [DEBUG] Passing custom size_to_letter: {size_to_letter}")
+        return create_grouped_block_labels(placed, custom, size_to_letter)
     else:
         # Fallback: converti etichette legacy in formato dettagliato
-        std_labels, custom_labels = _create_block_labels_legacy_impl(placed, custom)
+        # Usa il size_to_letter personalizzato se fornito
+        if size_to_letter:
+            print(f"🔧 [DEBUG] create_detailed_block_labels using custom size_to_letter: {size_to_letter}")
+            std_labels, custom_labels = _create_block_labels_legacy_with_custom_mapping(placed, custom, size_to_letter)
+        else:
+            print(f"⚠️ [DEBUG] create_detailed_block_labels using default mapping")  
+            std_labels, custom_labels = _create_block_labels_legacy_impl(placed, custom)
         
         # Converti in formato dettagliato per compatibilità
         detailed_std = {}
@@ -2139,6 +2161,50 @@ def create_detailed_block_labels(placed: List[Dict], custom: List[Dict]) -> Tupl
             }
         
         return detailed_std, detailed_custom
+
+
+def _create_block_labels_legacy_with_custom_mapping(placed: List[Dict], custom: List[Dict], size_to_letter: Dict[int, str]) -> Tuple[Dict[int, str], Dict[int, str]]:
+    """Implementazione legacy del sistema di etichettatura con mapping personalizzato."""
+    std_counters = {}
+    for letter in size_to_letter.values():
+        std_counters[letter] = 0
+    
+    std_labels: Dict[int, str] = {}
+
+    for i, blk in enumerate(placed):
+        width = int(blk["width"])
+        letter = size_to_letter.get(width, "X")
+        
+        if letter == "X":
+            # Trova la larghezza più vicina se non c'è match esatto
+            candidates = [(abs(width - k), v) for k, v in size_to_letter.items()]
+            letter = sorted(candidates, key=lambda t: t[0])[0][1] if candidates else "X"
+        
+        if letter not in std_counters:
+            std_counters[letter] = 0
+        std_counters[letter] += 1
+        std_labels[i] = f"{letter}{std_counters[letter]}"
+
+    # Custom labels rimangono uguali
+    custom_labels: Dict[int, str] = {}
+    counts = defaultdict(int)  # keys: 1, 2, 'X'
+
+    for i, c in enumerate(custom):
+        ctype = c.get("ctype", 2)
+        if ctype == "out_of_spec":
+            label_base = "CUX"
+            key = "X"
+        elif ctype in [1, 2]:
+            label_base = f"CU{ctype}"
+            key = ctype
+        else:
+            label_base = "CUX"
+            key = "X"
+        counts[key] += 1
+        custom_labels[i] = f"{label_base}({counts[key]})"
+
+    return std_labels, custom_labels
+
 
 def _create_block_labels_legacy_impl(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, str], Dict[int, str]]:
     """Implementazione legacy del sistema di etichettatura."""
@@ -2224,11 +2290,21 @@ def summarize_blocks(placed: List[Dict], size_to_letter: Optional[Dict[int, str]
     
     return summary
 
-def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Dict], out_path: str = "distinta_wall.json", params: Optional[Dict] = None) -> str:
+def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Dict], out_path: str = "distinta_wall.json", params: Optional[Dict] = None, block_config: Optional[Dict] = None) -> str:
     # Usa il sistema di organizzazione automatica
     organized_path = get_organized_output_path(out_path, 'json')
     
-    std_labels, custom_labels = create_block_labels(placed, customs)
+    # Usa il sistema di etichettatura avanzato con mapping personalizzato
+    # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente (indipendentemente da use_custom_dimensions)
+    if block_config and block_config.get('size_to_letter'):
+        print(f"🔧 [DEBUG] Export JSON using custom size_to_letter: {block_config.get('size_to_letter')}")
+        std_labels_detailed, custom_labels_detailed = create_detailed_block_labels(placed, customs, block_config.get('size_to_letter'))
+        # Converti in formato legacy per compatibilità
+        std_labels = {i: label['full_label'] for i, label in std_labels_detailed.items()}
+        custom_labels = {i: label['full_label'] for i, label in custom_labels_detailed.items()}
+    else:
+        print(f"⚠️ [DEBUG] Export JSON using default system")
+        std_labels, custom_labels = create_block_labels(placed, customs)
 
     data = {
         "schema_version": "1.0",
@@ -2274,6 +2350,7 @@ def generate_preview_image(wall_polygon: Polygon,
                           customs: List[Dict],
                           apertures: Optional[List[Polygon]] = None,
                           color_theme: Optional[Dict] = None,
+                          block_config: Optional[Dict] = None,
                           width: int = 800,
                           height: int = 600) -> str:
     """Genera immagine preview come base64 string."""
@@ -2283,6 +2360,14 @@ def generate_preview_image(wall_polygon: Polygon,
     # Default colors se theme non fornito
     if not color_theme:
         color_theme = {}
+    
+    # Extract block configuration for custom dimensions
+    if block_config:
+        size_to_letter = block_config.get("size_to_letter", {})
+        print(f"🔧 [DEBUG] Using custom block config: {block_config.get('block_widths', 'N/A')}×{block_config.get('block_height', 'N/A')}")
+    else:
+        size_to_letter = {}
+        print(f"⚠️ [DEBUG] No block config provided - using defaults")
     
     # Extract colors with fallbacks
     wall_color = color_theme.get('wallOutlineColor', '#1E40AF')
@@ -2312,7 +2397,13 @@ def generate_preview_image(wall_polygon: Polygon,
         ax.plot(x, y, color=wall_color, linewidth=wall_line_width, label='Parete')
         
         # Labels per blocchi - NUOVO SISTEMA RAGGRUPPATO
-        detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
+        # Usa le dimensioni personalizzate se disponibili
+        if block_config and size_to_letter:
+            detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs, size_to_letter)
+            print(f"🔧 [DEBUG] Using custom size_to_letter mapping: {size_to_letter}")
+        else:
+            detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
+            print(f"⚠️ [DEBUG] Using default size_to_letter mapping")
         
         # Blocchi standard con nuovo layout
         for i, blk in enumerate(placed):
@@ -2344,8 +2435,13 @@ def generate_preview_image(wall_polygon: Polygon,
                 ax.text(tr_x, tr_y, number, ha='right', va='top',
                        fontsize=fontsize_num, fontweight='normal', color='#2563eb')
             else:
-                # Fallback: etichetta centrata
-                std_labels, _ = create_block_labels(placed, customs)
+                # Fallback: etichetta centrata con mapping personalizzato se disponibile
+                # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente
+                if block_config and block_config.get('size_to_letter'):
+                    std_labels_detailed, _ = create_detailed_block_labels(placed, customs, block_config.get('size_to_letter'))
+                    std_labels = {i: label['full_label'] for i, label in std_labels_detailed.items()}
+                else:
+                    std_labels, _ = create_block_labels(placed, customs)
                 cx = blk['x'] + blk['width'] / 2
                 cy = blk['y'] + blk['height'] / 2
                 fontsize = min(8, max(4, blk['width'] / 200))
@@ -2432,7 +2528,8 @@ def export_to_pdf(summary: Dict[str, int],
                   apertures: Optional[List[Polygon]] = None,
                   project_name: str = "Progetto Parete",
                   out_path: str = "report_parete.pdf",
-                  params: Optional[Dict] = None) -> str:
+                  params: Optional[Dict] = None,
+                  block_config: Optional[Dict] = None) -> str:
     """
     Genera un PDF completo con schema parete + tabelle riassuntive.
     """
@@ -2462,7 +2559,7 @@ def export_to_pdf(summary: Dict[str, int],
         story.append(Spacer(1, 10*mm))
         
         # Schema grafico principale  
-        schema_image = _generate_wall_schema_image(wall_polygon, placed, customs, apertures)
+        schema_image = _generate_wall_schema_image(wall_polygon, placed, customs, apertures, block_config)
         if schema_image:
             story.append(schema_image)
         
@@ -2470,7 +2567,7 @@ def export_to_pdf(summary: Dict[str, int],
         
         # === TABELLA BLOCCHI STANDARD ===
         if summary:
-            story.append(_build_standard_blocks_table(summary, placed, styles))
+            story.append(_build_standard_blocks_table(summary, placed, styles, block_config))
             story.append(Spacer(1, 8*mm))
         
         # === PAGINA 2: TABELLA CUSTOM (se presente) ===
@@ -2549,7 +2646,8 @@ def _build_pdf_header(project_name: str, summary: Dict[str, int], customs: List[
 def _generate_wall_schema_image(wall_polygon: Polygon, 
                                placed: List[Dict], 
                                customs: List[Dict],
-                               apertures: Optional[List[Polygon]] = None) -> Optional[Image]:
+                               apertures: Optional[List[Polygon]] = None,
+                               block_config: Optional[Dict] = None) -> Optional[Image]:
     """Genera immagine dello schema parete per il PDF."""
     if not plt or not patches:
         return None
@@ -2570,7 +2668,18 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
         ax.plot(x, y, color='blue', linewidth=2, label='Contorno parete')
         
         # Labels per blocchi con nuovo sistema di raggruppamento
-        std_labels, custom_labels = create_grouped_block_labels(placed, customs)
+        print(f"🔍 [DEBUG] _generate_wall_schema_image block_config: {block_config}")
+        if block_config:
+            print(f"🔍 [DEBUG] use_custom_dimensions: {block_config.get('use_custom_dimensions')}")
+            print(f"🔍 [DEBUG] size_to_letter: {block_config.get('size_to_letter')}")
+        
+        # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente (indipendentemente da use_custom_dimensions)
+        if block_config and block_config.get('size_to_letter'):
+            print(f"🔧 [DEBUG] PDF chart using custom size_to_letter: {block_config.get('size_to_letter')}")
+            std_labels, custom_labels = create_grouped_block_labels(placed, customs, block_config.get('size_to_letter'))
+        else:
+            print(f"⚠️ [DEBUG] PDF chart using default system")
+            std_labels, custom_labels = create_grouped_block_labels(placed, customs)
         
         # Blocchi standard
         for i, blk in enumerate(placed):
@@ -2665,13 +2774,19 @@ def _generate_wall_schema_image(wall_polygon: Polygon,
         return None
 
 
-def _build_standard_blocks_table(summary: Dict[str, int], placed: List[Dict], styles) -> Table:
+def _build_standard_blocks_table(summary: Dict[str, int], placed: List[Dict], styles, block_config: Optional[Dict] = None) -> Table:
     """Costruisce tabella blocchi standard con nuovo sistema di raggruppamento."""
     # Header
     data = [['CATEGORIA', 'QUANTITÀ', 'DIMENSIONI (mm)', 'AREA TOT (m²)']]
     
-    # Usa il nuovo sistema di raggruppamento
-    grouped_blocks = group_blocks_by_category(placed)
+    # Usa il nuovo sistema di raggruppamento con mapping personalizzato se disponibile
+    # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente (indipendentemente da use_custom_dimensions)
+    if block_config and block_config.get('size_to_letter'):
+        print(f"🔧 [DEBUG] PDF table using custom size_to_letter: {block_config.get('size_to_letter')}")
+        grouped_blocks = group_blocks_by_category(placed, block_config.get('size_to_letter'))
+    else:
+        print(f"⚠️ [DEBUG] PDF table using default system")
+        grouped_blocks = group_blocks_by_category(placed)
     
     total_area = 0
     total_count = 0
@@ -3278,7 +3393,8 @@ if FastAPI:
                 session["placed"],
                 session["customs"],
                 session["apertures"],
-                session["config"].get("color_theme", {})
+                session["config"].get("color_theme", {}),
+                session["config"]  # 🔧 Passa la configurazione blocchi personalizzati
             )
             
             if not preview_base64:
@@ -3310,7 +3426,8 @@ if FastAPI:
                     session["customs"],
                     session["placed"],
                     out_path=filename,
-                    params=build_run_params(session["config"]["row_offset"])
+                    params=build_run_params(session["config"]["row_offset"]),
+                    block_config=session["config"]  # 🔧 Passa la configurazione blocchi personalizzati
                 )
                 
                 return FileResponse(
@@ -3333,7 +3450,8 @@ if FastAPI:
                     session["apertures"],
                     project_name=session["config"]["project_name"],
                     out_path=filename,
-                    params=build_run_params(session["config"]["row_offset"])
+                    params=build_run_params(session["config"]["row_offset"]),
+                    block_config=session["config"]  # 🔧 Passa la configurazione blocchi personalizzati
                 )
                 
                 return FileResponse(
@@ -3357,7 +3475,8 @@ if FastAPI:
                     project_name=session["config"]["project_name"],
                     out_path=filename,
                     params=build_run_params(session["config"]["row_offset"]),
-                    color_theme=session["config"].get("color_theme", {})
+                    color_theme=session["config"].get("color_theme", {}),
+                    block_config=session["config"]  # 🔧 Passa la configurazione blocchi personalizzati
                 )
                 
                 return FileResponse(

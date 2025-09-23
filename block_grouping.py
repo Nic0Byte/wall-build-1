@@ -18,7 +18,8 @@ import string
 class BlockGrouping:
     """Gestisce il raggruppamento e categorizzazione dei blocchi."""
     
-    def __init__(self):
+    def __init__(self, custom_size_to_letter: Dict[int, str] = None):
+        self.custom_size_to_letter = custom_size_to_letter
         self.reset()
     
     def reset(self):
@@ -110,30 +111,62 @@ class BlockGrouping:
     def _assign_categories(self, std_groups: Dict, custom_groups: Dict) -> Dict[str, str]:
         """
         Assegna lettere categoria ai gruppi.
-        A, B, C riservate per standard, D+ per custom.
+        Se custom_size_to_letter è fornito, usa quel mapping per i blocchi standard.
+        Altrimenti usa A, B, C per standard e D+ per custom.
         """
         category_map = {}
         
-        # PRIMA: Assegna A, B, C ai gruppi standard (ordinati per quantità)
-        std_sorted = sorted(std_groups.items(), key=lambda x: len(x[1]), reverse=True)
-        for i, (group_key, indices) in enumerate(std_sorted):
-            if i < 3:  # Solo A, B, C per standard
-                letter = chr(ord('A') + i)
-                category_map[group_key] = letter
-                
-                # Salva definizione categoria
-                self.category_definitions[letter] = {
-                    'group_key': group_key,
-                    'count': len(indices),
-                    'type': 'standard',
-                    'priority': len(indices) * 1000
-                }
-                
-                print(f"📋 Categoria {letter} → {group_key} ({len(indices)} blocchi, tipo: standard)")
+        if self.custom_size_to_letter:
+            print(f"🔧 Uso mapping personalizzato: {self.custom_size_to_letter}")
+            
+            # Con mapping personalizzato: assegna lettere in base alla larghezza del blocco
+            for group_key, indices in std_groups.items():
+                # Estrai larghezza dalla chiave gruppo (es. "std_1500x495" -> 1500)
+                try:
+                    width_str = group_key.replace("std_", "").split("x")[0]
+                    width = int(width_str)
+                    letter = self.custom_size_to_letter.get(width, "X")
+                    
+                    category_map[group_key] = letter
+                    
+                    # Salva definizione categoria
+                    self.category_definitions[letter] = {
+                        'group_key': group_key,
+                        'count': len(indices),
+                        'type': 'standard',
+                        'priority': len(indices) * 1000
+                    }
+                    
+                    print(f"📋 Categoria {letter} → {group_key} ({len(indices)} blocchi, larghezza: {width})")
+                except (ValueError, IndexError) as e:
+                    print(f"⚠️ Errore parsing gruppo {group_key}: {e}")
+                    category_map[group_key] = "X"
+                    
+            # Custom blocks iniziano dalla lettera successiva a quella usata
+            used_letters = set(self.custom_size_to_letter.values())
+            custom_letter_start = len(used_letters)
+        else:
+            # Sistema originale: A, B, C per standard (ordinati per quantità)
+            std_sorted = sorted(std_groups.items(), key=lambda x: len(x[1]), reverse=True)
+            for i, (group_key, indices) in enumerate(std_sorted):
+                if i < 3:  # Solo A, B, C per standard
+                    letter = chr(ord('A') + i)
+                    category_map[group_key] = letter
+                    
+                    # Salva definizione categoria
+                    self.category_definitions[letter] = {
+                        'group_key': group_key,
+                        'count': len(indices),
+                        'type': 'standard',
+                        'priority': len(indices) * 1000
+                    }
+                    
+                    print(f"📋 Categoria {letter} → {group_key} ({len(indices)} blocchi, tipo: standard)")
+            
+            custom_letter_start = 3  # D, E, F...
         
-        # SECONDA: Assegna D, E, F... ai gruppi custom (ordinati per quantità)
+        # Assegna lettere ai gruppi custom (ordinati per quantità)
         custom_sorted = sorted(custom_groups.items(), key=lambda x: len(x[1]), reverse=True)
-        custom_letter_start = 3  # Inizia da D (indice 3)
         
         for i, (group_key, indices) in enumerate(custom_sorted):
             letter_index = custom_letter_start + i
@@ -267,13 +300,23 @@ class BlockGrouping:
 # Istanza globale per mantenere stato
 _block_grouping = BlockGrouping()
 
-def create_grouped_block_labels(placed: List[Dict], customs: List[Dict]) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
+def create_grouped_block_labels(placed: List[Dict], customs: List[Dict], custom_size_to_letter: Dict[int, str] = None) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
     """
     Funzione principale per creare etichette raggruppate.
     
+    Args:
+        placed: Lista blocchi standard
+        customs: Lista blocchi custom  
+        custom_size_to_letter: Mapping opzionale larghezza->lettera (es. {3000: 'A', 1500: 'B', 413: 'C'})
+    
     Sostituisce create_block_labels() con il nuovo sistema di raggruppamento.
     """
-    return _block_grouping.create_grouped_labels(placed, customs)
+    # Usa un'istanza dedicata se abbiamo mapping personalizzato
+    if custom_size_to_letter:
+        grouping_instance = BlockGrouping(custom_size_to_letter)
+        return grouping_instance.create_grouped_labels(placed, customs)
+    else:
+        return _block_grouping.create_grouped_labels(placed, customs)
 
 def get_block_category_summary() -> Dict[str, Dict]:
     """Ottieni riassunto categorie per tabelle/export."""
@@ -343,9 +386,12 @@ if __name__ == "__main__":
 
 
 # Funzioni helper per compatibilità con main.py
-def group_blocks_by_category(placed: List[Dict]) -> Dict[str, List[Dict]]:
+def group_blocks_by_category(placed: List[Dict], custom_size_to_letter: Dict[int, str] = None) -> Dict[str, List[Dict]]:
     """Raggruppa i blocchi per categoria (compatibilità main.py)."""
-    grouping = BlockGrouping()
+    if custom_size_to_letter:
+        grouping = BlockGrouping(custom_size_to_letter)
+    else:
+        grouping = BlockGrouping()
     std_labels, _ = grouping.create_grouped_labels(placed, [])
     
     # Raggruppa per categoria
@@ -371,9 +417,3 @@ def group_custom_blocks_by_category(customs: List[Dict]) -> Dict[str, List[Dict]
             categories[category].append(block)
     
     return dict(categories)
-
-
-def create_grouped_block_labels(placed: List[Dict], customs: List[Dict]) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
-    """Crea le etichette raggruppate (compatibilità main.py)."""
-    grouping = BlockGrouping()
-    return grouping.create_grouped_labels(placed, customs)
