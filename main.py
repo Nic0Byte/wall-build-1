@@ -35,6 +35,7 @@ except Exception:  # pragma: no cover
 # Local imports
 from parsers import parse_dwg_wall, parse_svg_wall, parse_wall_file
 from utils.file_manager import setup_output_directories, get_organized_output_path, generate_unique_filename
+from exporters.json_exporter import export_to_json
 from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_polygon, ensure_multipolygon, SNAP_MM
 from utils.config import (
     SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
@@ -2083,155 +2084,23 @@ def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
 
 # Import del nuovo sistema di raggruppamento
 try:
-    from block_grouping import create_grouped_block_labels, get_block_category_summary, create_block_labels_legacy, group_blocks_by_category, group_custom_blocks_by_category
-    print("✅ Modulo block_grouping importato correttamente")
+    from block_grouping import (
+        create_grouped_block_labels,
+        get_block_category_summary,
+        group_blocks_by_category,
+        group_custom_blocks_by_category,
+    )
+    print("[INFO] Modulo block_grouping importato correttamente")
 except ImportError:
-    # Fallback se il modulo non è disponibile
-    print("⚠️ Modulo block_grouping non disponibile, uso sistema legacy")
+    print("[WARN] Modulo block_grouping non disponibile, uso sistema legacy")
     create_grouped_block_labels = None
     get_block_category_summary = None
-    create_block_labels_legacy = None
+    group_blocks_by_category = None
+    group_custom_blocks_by_category = None
 
-def create_block_labels(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, str], Dict[int, str]]:
-    """
-    Funzione principale per creare etichette blocchi.
-    Usa il nuovo sistema di raggruppamento se disponibile, altrimenti fallback legacy.
-    """
-    if create_block_labels_legacy is not None:
-        # Usa nuovo sistema raggruppato
-        return create_block_labels_legacy(placed, custom)
-    else:
-        # Fallback sistema legacy
-        return _create_block_labels_legacy_impl(placed, custom)
-
-def create_detailed_block_labels(placed: List[Dict], custom: List[Dict], size_to_letter: Optional[Dict[int, str]] = None) -> Tuple[Dict[int, Dict], Dict[int, Dict]]:
-    """
-    Versione avanzata che restituisce informazioni dettagliate per il layout.
-    Ogni etichetta include info per posizionamento layout (categoria BL + numero TR).
-    """
-    if create_grouped_block_labels is not None:
-        print(f"🔧 [DEBUG] Using new grouped block labels system")
-        if size_to_letter:
-            print(f"🔧 [DEBUG] Passing custom size_to_letter: {size_to_letter}")
-        return create_grouped_block_labels(placed, custom, size_to_letter)
-    else:
-        # Fallback: converti etichette legacy in formato dettagliato
-        # Usa il size_to_letter personalizzato se fornito
-        if size_to_letter:
-            print(f"🔧 [DEBUG] create_detailed_block_labels using custom size_to_letter: {size_to_letter}")
-            std_labels, custom_labels = _create_block_labels_legacy_with_custom_mapping(placed, custom, size_to_letter)
-        else:
-            print(f"⚠️ [DEBUG] create_detailed_block_labels using default mapping")  
-            std_labels, custom_labels = _create_block_labels_legacy_impl(placed, custom)
-        
-        # Converti in formato dettagliato per compatibilità
-        detailed_std = {}
-        detailed_custom = {}
-        
-        for i, label in std_labels.items():
-            # Estrai categoria e numero da etichetta legacy (es: "A1" -> "A", "1")
-            category = label[0] if len(label) > 0 else "X"
-            number = label[1:] if len(label) > 1 else "1"
-            
-            detailed_std[i] = {
-                'category': category,
-                'number': int(number) if number.isdigit() else 1,
-                'full_label': label,
-                'display': {
-                    'bottom_left': category,
-                    'top_right': number,
-                    'type': 'standard'
-                }
-            }
-        
-        for i, label in custom_labels.items():
-            # Custom labels hanno formato "CU1(1)" -> categoria "D", numero "1"
-            category = "D"  # Default per custom
-            number = "1"
-            
-            detailed_custom[i] = {
-                'category': category,
-                'number': int(number),
-                'full_label': label,
-                'display': {
-                    'bottom_left': category,
-                    'top_right': number,
-                    'type': 'custom'
-                }
-            }
-        
-        return detailed_std, detailed_custom
+from exporters.labels import create_block_labels, create_detailed_block_labels
 
 
-def _create_block_labels_legacy_with_custom_mapping(placed: List[Dict], custom: List[Dict], size_to_letter: Dict[int, str]) -> Tuple[Dict[int, str], Dict[int, str]]:
-    """Implementazione legacy del sistema di etichettatura con mapping personalizzato."""
-    std_counters = {}
-    for letter in size_to_letter.values():
-        std_counters[letter] = 0
-    
-    std_labels: Dict[int, str] = {}
-
-    for i, blk in enumerate(placed):
-        width = int(blk["width"])
-        letter = size_to_letter.get(width, "X")
-        
-        if letter == "X":
-            # Trova la larghezza più vicina se non c'è match esatto
-            candidates = [(abs(width - k), v) for k, v in size_to_letter.items()]
-            letter = sorted(candidates, key=lambda t: t[0])[0][1] if candidates else "X"
-        
-        if letter not in std_counters:
-            std_counters[letter] = 0
-        std_counters[letter] += 1
-        std_labels[i] = f"{letter}{std_counters[letter]}"
-
-    # Custom labels rimangono uguali
-    custom_labels: Dict[int, str] = {}
-    counts = defaultdict(int)  # keys: 1, 2, 'X'
-
-    for i, c in enumerate(custom):
-        ctype = c.get("ctype", 2)
-        if ctype == "out_of_spec":
-            label_base = "CUX"
-            key = "X"
-        elif ctype in [1, 2]:
-            label_base = f"CU{ctype}"
-            key = ctype
-        else:
-            label_base = "CUX"
-            key = "X"
-        counts[key] += 1
-        custom_labels[i] = f"{label_base}({counts[key]})"
-
-    return std_labels, custom_labels
-
-
-def _create_block_labels_legacy_impl(placed: List[Dict], custom: List[Dict]) -> Tuple[Dict[int, str], Dict[int, str]]:
-    """Implementazione legacy del sistema di etichettatura."""
-    std_counters = {"A": 0, "B": 0, "C": 0}
-    std_labels: Dict[int, str] = {}
-
-    for i, blk in enumerate(placed):
-        letter = SIZE_TO_LETTER.get(int(blk["width"]), "X")
-        if letter == "X":
-            candidates = [(abs(int(blk["width"]) - k), v) for k, v in SIZE_TO_LETTER.items()]
-            letter = sorted(candidates, key=lambda t: t[0])[0][1]
-        std_counters[letter] += 1
-        std_labels[i] = f"{letter}{std_counters[letter]}"
-
-    # Robust: supporta ctype 1/2 e 'out_of_spec' -> 'X' → CUX(...)
-    custom_labels: Dict[int, str] = {}
-    counts = defaultdict(int)  # keys: 1, 2, 'X'
-    for i, c in enumerate(custom):
-        ctype = c.get("ctype", 2)
-        code = ctype if isinstance(ctype, int) and ctype in (1, 2) else "X"
-        counts[code] += 1
-        custom_labels[i] = f"CU{code}({counts[code]})"
-    return std_labels, custom_labels
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Summary & export
-# ────────────────────────────────────────────────────────────────────────────────
 def summarize_blocks(placed: List[Dict], size_to_letter: Optional[Dict[int, str]] = None) -> Dict[str, int]:
     """
     Riassume blocchi standard raggruppando per tipo, con supporto per mapping personalizzato.
@@ -2290,59 +2159,6 @@ def summarize_blocks(placed: List[Dict], size_to_letter: Optional[Dict[int, str]
     
     return summary
 
-def export_to_json(summary: Dict[str, int], customs: List[Dict], placed: List[Dict], out_path: str = "distinta_wall.json", params: Optional[Dict] = None, block_config: Optional[Dict] = None) -> str:
-    # Usa il sistema di organizzazione automatica
-    organized_path = get_organized_output_path(out_path, 'json')
-    
-    # Usa il sistema di etichettatura avanzato con mapping personalizzato
-    # 🔧 FIX: Usa mapping personalizzato se size_to_letter è presente (indipendentemente da use_custom_dimensions)
-    if block_config and block_config.get('size_to_letter'):
-        print(f"🔧 [DEBUG] Export JSON using custom size_to_letter: {block_config.get('size_to_letter')}")
-        std_labels_detailed, custom_labels_detailed = create_detailed_block_labels(placed, customs, block_config.get('size_to_letter'))
-        # Converti in formato legacy per compatibilità
-        std_labels = {i: label['full_label'] for i, label in std_labels_detailed.items()}
-        custom_labels = {i: label['full_label'] for i, label in custom_labels_detailed.items()}
-    else:
-        print(f"⚠️ [DEBUG] Export JSON using default system")
-        std_labels, custom_labels = create_block_labels(placed, customs)
-
-    data = {
-        "schema_version": "1.0",
-        "units": "mm",
-        "params": (params or {}),
-        "standard": {
-            std_labels[i]: {
-                "type": p["type"],
-                "width": int(p["width"]),
-                "height": int(p["height"]),
-                "x": int(round(p["x"])),
-                "y": int(round(p["y"])),
-            }
-            for i, p in enumerate(placed)
-        },
-        "custom": [
-            {
-                "label": custom_labels[i],
-                "ctype": c.get("ctype", 2),
-                "width": int(round(c["width"])),
-                "height": int(round(c["height"])),
-                "x": int(round(c["x"])),
-                "y": int(round(c["y"])),
-                "geometry": c["geometry"],
-            }
-            for i, c in enumerate(customs)
-        ],
-        "totals": {
-            "standard_counts": summary,
-            "custom_count": len(customs)
-        }
-    }
-
-    with open(organized_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, sort_keys=True)
-    return organized_path
-
-# ────────────────────────────────────────────────────────────────────────────────
 # Generate preview image
 # ────────────────────────────────────────────────────────────────────────────────
 def generate_preview_image(wall_polygon: Polygon, 
@@ -3845,3 +3661,4 @@ if __name__ == "__main__":
         print("  ✅ Margini adattivi basati su contenuto")
         print("  ✅ Controllo overflow per tabelle e schema taglio")
         print("  ✅ Titoli e sezioni ben separate e leggibili")
+
