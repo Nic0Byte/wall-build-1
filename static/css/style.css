@@ -241,6 +241,23 @@ body {
     font-size: var(--font-size-lg);
 }
 
+.nav-item.disabled {
+    background: rgba(128, 128, 128, 0.3);
+    color: var(--gray-500);
+    cursor: not-allowed;
+    border-color: rgba(128, 128, 128, 0.2);
+}
+
+.nav-item.disabled:hover {
+    background: rgba(128, 128, 128, 0.3);
+    transform: none;
+    box-shadow: none;
+}
+
+.nav-item.disabled i {
+    opacity: 0.5;
+}
+
 /* ===== User Section Simple ===== */
 .user-section-simple {
     position: relative;

@@ -28,6 +28,9 @@ class WallPackingApp {
         
         // Ensure blocks are unlocked at startup (no file loaded)
         this.unlockBlockDimensionsEditing();
+        
+        // Initialize navigation state (all sections should be accessible at startup)
+        this.updateNavigationState();
     }
     
     // ===== NAVIGATION SETUP =====
@@ -43,6 +46,16 @@ class WallPackingApp {
     handleNavigation(e) {
         const targetSection = e.currentTarget.dataset.section;
         if (targetSection) {
+            // Prevent access to library and settings when a file is loaded
+            if (this.currentFile && (targetSection === 'library' || targetSection === 'settings')) {
+                this.showToast(
+                    'Non puoi accedere a questa sezione dopo aver caricato un file. Inizia un nuovo progetto per modificare le impostazioni.',
+                    'warning',
+                    5000
+                );
+                return; // Block navigation
+            }
+            
             this.showMainSection(targetSection);
             
             // Update active navigation item
@@ -100,6 +113,23 @@ class WallPackingApp {
                 this.showSection('upload');
             }
         }
+    }
+    
+    // ===== NAVIGATION STATE MANAGEMENT =====
+    
+    updateNavigationState() {
+        // Update navigation items visual state based on whether a file is loaded
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            const section = item.dataset.section;
+            if (this.currentFile && (section === 'library' || section === 'settings')) {
+                item.classList.add('disabled');
+                item.title = 'Non disponibile dopo aver caricato un file';
+            } else {
+                item.classList.remove('disabled');
+                item.title = '';
+            }
+        });
     }
     
     // ===== EVENT LISTENERS SETUP =====
@@ -299,6 +329,9 @@ class WallPackingApp {
         this.currentFile = file;
         this.showFileInfo(file);
         
+        // Update navigation state to disable library and settings
+        this.updateNavigationState();
+        
         // Show success message and auto-progress to configuration
         this.showToast('File caricato con successo', 'success');
         
@@ -326,6 +359,9 @@ class WallPackingApp {
         
         // Unlock block dimensions editing when file is removed
         this.unlockBlockDimensionsEditing();
+        
+        // Update navigation state to re-enable library and settings
+        this.updateNavigationState();
         
         this.showSection('upload');
         this.showToast('File rimosso', 'info');
@@ -1150,6 +1186,9 @@ class WallPackingApp {
         
         // Unlock block dimensions editing when app is reset
         this.unlockBlockDimensionsEditing();
+        
+        // Update navigation state to re-enable library and settings
+        this.updateNavigationState();
         
         // Show upload section and switch to app
         this.showMainSection('app');
@@ -2364,6 +2403,9 @@ async function loadAndProcessProjectFile(projectId, project) {
             window.wallPackingApp.currentFile = file;
             window.wallPackingApp.isReusedProject = true; // Mark as reused project to prevent saving
             window.wallPackingApp.showFileInfo(file, false); // false = don't reset flags since we're reusing
+            
+            // Update navigation state to disable library and settings
+            window.wallPackingApp.updateNavigationState();
         }
         
         // Now automatically process the file to go directly to results
