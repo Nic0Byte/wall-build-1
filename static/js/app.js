@@ -108,15 +108,26 @@ class WallPackingApp {
         // File Upload
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('uploadArea');
+        const selectFileBtn = document.getElementById('selectFileBtn');
         
-        fileInput?.addEventListener('change', this.handleFileSelect);
-        uploadArea?.addEventListener('dragover', this.handleDragOver);
-        uploadArea?.addEventListener('drop', this.handleDrop);
+        fileInput?.addEventListener('change', (e) => this.handleFileSelect(e));
+        uploadArea?.addEventListener('dragover', (e) => this.handleDragOver(e));
+        uploadArea?.addEventListener('drop', (e) => this.handleDrop(e));
         uploadArea?.addEventListener('dragleave', (e) => {
             e.target.classList.remove('dragover');
         });
-        uploadArea?.addEventListener('click', () => {
+        
+        // Separate click handlers to avoid conflicts
+        selectFileBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
             fileInput?.click();
+        });
+        
+        uploadArea?.addEventListener('click', (e) => {
+            // Only trigger file input if not clicking on the button
+            if (!e.target.closest('#selectFileBtn')) {
+                fileInput?.click();
+            }
         });
         
         // Remove file
@@ -234,18 +245,21 @@ class WallPackingApp {
     // ===== FILE HANDLING =====
     
     handleFileSelect(e) {
+        console.log('🔄 File selected via input');
         const files = e.target.files;
         if (files.length > 0) {
             this.validateAndSetFile(files[0]);
         }
     }
-    
+
     handleDragOver(e) {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
         e.target.classList.add('dragover');
     }
-    
+
     handleDrop(e) {
+        console.log('🔄 File dropped');
         e.preventDefault();
         e.target.classList.remove('dragover');
         
@@ -253,9 +267,9 @@ class WallPackingApp {
         if (files.length > 0) {
             this.validateAndSetFile(files[0]);
         }
-    }
-    
-    validateAndSetFile(file) {
+    }    validateAndSetFile(file) {
+        console.log('🔍 Validating file:', file.name, file.size + 'bytes', file.type);
+        
         // Validation - Updated to support SVG, DWG, DXF
         const fileName = file.name.toLowerCase();
         const supportedFormats = ['.svg', '.dwg', '.dxf'];
@@ -263,18 +277,23 @@ class WallPackingApp {
         
         if (!isValidFormat) {
             this.showToast('Formato non supportato. Usa file SVG, DWG o DXF', 'error');
+            console.log('❌ Invalid format:', fileName);
             return;
         }
         
         if (file.size > 10 * 1024 * 1024) { // 10MB
             this.showToast('File troppo grande (max 10MB)', 'error');
+            console.log('❌ File too large:', file.size);
             return;
         }
         
         if (file.size === 0) {
             this.showToast('File vuoto', 'error');
+            console.log('❌ Empty file');
             return;
         }
+        
+        console.log('✅ File validation passed');
         
         // Set file
         this.currentFile = file;
@@ -683,6 +702,9 @@ class WallPackingApp {
     }
     
     showResults(data) {
+        // Update configuration UI with backend values
+        this.updateConfigurationUI(data.config);
+        
         // Update header stats
         this.updateHeaderStats(data);
         
@@ -695,6 +717,29 @@ class WallPackingApp {
         
         // Auto-save project when results are shown
         this.autoSaveProject(data);
+    }
+    
+    updateConfigurationUI(config) {
+        // Update row offset slider and value
+        if (config && config.row_offset !== undefined) {
+            const rowOffsetSlider = document.getElementById('rowOffset');
+            const rowOffsetValue = document.getElementById('rowOffsetValue');
+            
+            if (rowOffsetSlider && rowOffsetValue) {
+                rowOffsetSlider.value = config.row_offset;
+                rowOffsetValue.textContent = `${config.row_offset} mm`;
+                this.updatePresetButtons(config.row_offset.toString());
+                console.log(`🔄 UI aggiornata con offset: ${config.row_offset}mm`);
+            }
+        }
+        
+        // Update project name if provided
+        if (config && config.project_name) {
+            const projectNameInput = document.getElementById('projectName');
+            if (projectNameInput) {
+                projectNameInput.value = config.project_name;
+            }
+        }
     }
     
     updateHeaderStats(data) {
