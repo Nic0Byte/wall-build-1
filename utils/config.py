@@ -14,6 +14,13 @@ try:
 except ImportError:
     _ENV_LOADED = False
 
+# Import logging after basic setup to avoid circular imports
+try:
+    from .logging_config import get_logger, info, warning, error
+    _LOGGING_AVAILABLE = True
+except ImportError:
+    _LOGGING_AVAILABLE = False
+
 # Helper per leggere variabili ambiente con fallback
 def get_env_bool(key: str, default: bool) -> bool:
     """Legge variabile ambiente come boolean con fallback."""
@@ -155,16 +162,30 @@ def get_environment_info() -> Dict:
 def print_configuration_summary():
     """Stampa un riassunto della configurazione caricata."""
     info = get_environment_info()
-    print("🔧 Wall-Build Configuration Summary")
-    print("=" * 40)
-    print(f"📄 Environment file loaded: {'✅' if info['has_env_file'] else '❌'}")
-    print(f"🐛 Debug mode: {'✅' if info['debug_mode'] else '❌'}")
-    print(f"🌐 Server: {info['server']}")
-    print(f"🗄️  Database: {info['database']}")
-    print(f"🔒 CORS Origins: {', '.join(info['cors_origins'])}")
-    print(f"🧱 Blocks: {info['block_config']['widths']} × {info['block_config']['height']}mm")
-    print(f"🔤 Mapping: {info['block_config']['mapping']}")
-    print("=" * 40)
+    
+    if _LOGGING_AVAILABLE:
+        logger = get_logger("config")
+        logger.info("Wall-Build Configuration Summary", 
+                   env_file_loaded=info['has_env_file'],
+                   debug_mode=info['debug_mode'],
+                   server=info['server'], 
+                   database=info['database'],
+                   cors_origins=info['cors_origins'],
+                   block_widths=info['block_config']['widths'],
+                   block_height=info['block_config']['height'],
+                   block_mapping=info['block_config']['mapping'])
+    else:
+        # Fallback a print se logging non disponibile
+        print("🔧 Wall-Build Configuration Summary")
+        print("=" * 40)
+        print(f"📄 Environment file loaded: {'✅' if info['has_env_file'] else '❌'}")
+        print(f"🐛 Debug mode: {'✅' if info['debug_mode'] else '❌'}")
+        print(f"🌐 Server: {info['server']}")
+        print(f"🗄️  Database: {info['database']}")
+        print(f"🔒 CORS Origins: {', '.join(info['cors_origins'])}")
+        print(f"🧱 Blocks: {info['block_config']['widths']} × {info['block_config']['height']}mm")
+        print(f"🔤 Mapping: {info['block_config']['mapping']}")
+        print("=" * 40)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -238,7 +259,12 @@ def get_block_schema_from_frontend(block_dimensions: Dict = None) -> Dict:
     
     # Default fallback
     if not block_dimensions:
-        print("📦 Nessuna dimensione personalizzata → Schema STANDARD")
+        if _LOGGING_AVAILABLE:
+            logger = get_logger("config")
+            logger.info("Nessuna dimensione personalizzata, uso schema STANDARD", 
+                       schema_type="standard", reason="no_custom_dimensions")
+        else:
+            print("📦 Nessuna dimensione personalizzata → Schema STANDARD")
         return get_default_block_schema()
     
     # Estrai dimensioni dal frontend
@@ -258,10 +284,26 @@ def get_block_schema_from_frontend(block_dimensions: Dict = None) -> Dict:
     is_default_height = (frontend_height_int == BLOCK_HEIGHT)
     
     if is_default_widths and is_default_height:
-        print(f"✅ Dimensioni identiche al default {BLOCK_WIDTHS}×{BLOCK_HEIGHT} → Schema STANDARD")
+        if _LOGGING_AVAILABLE:
+            logger = get_logger("config")
+            logger.info("Dimensioni identiche al default, uso schema STANDARD",
+                       schema_type="standard", 
+                       default_widths=BLOCK_WIDTHS,
+                       default_height=BLOCK_HEIGHT,
+                       reason="dimensions_match_default")
+        else:
+            print(f"✅ Dimensioni identiche al default {BLOCK_WIDTHS}×{BLOCK_HEIGHT} → Schema STANDARD")
         return get_default_block_schema()
     else:
-        print(f"🔧 Dimensioni personalizzate {frontend_widths_int}×{frontend_height_int} → Schema CUSTOM")
+        if _LOGGING_AVAILABLE:
+            logger = get_logger("config") 
+            logger.info("Dimensioni personalizzate, creo schema CUSTOM",
+                       schema_type="custom",
+                       custom_widths=frontend_widths_int,
+                       custom_height=frontend_height_int,
+                       reason="custom_dimensions")
+        else:
+            print(f"🔧 Dimensioni personalizzate {frontend_widths_int}×{frontend_height_int} → Schema CUSTOM")
         return create_custom_block_schema(frontend_widths_int, frontend_height_int)
 
 

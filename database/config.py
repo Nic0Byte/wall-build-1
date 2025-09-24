@@ -13,6 +13,9 @@ from typing import Generator
 # Import centralized configuration
 from utils.config import DATABASE_URL, DATABASE_TIMEOUT, DATABASE_ECHO
 
+# Import structured logging
+from utils.logging_config import get_logger, info, warning, error
+
 from .models import Base, User, Session, Project, SavedProject
 from .material_models import (
     Material, Guide, ProjectMaterialConfig, MaterialRule, ProjectTemplate
@@ -57,7 +60,8 @@ SessionLocal = sessionmaker(
 
 def create_tables():
     """Crea tutte le tabelle del database."""
-    print("🗄️ Creazione tabelle database...")
+    logger = get_logger("database")
+    logger.info("🗄️ Creazione tabelle database...")
     
     # Import tutti i modelli per assicurarsi che siano registrati
     from .models import Base as MainBase
@@ -69,7 +73,7 @@ def create_tables():
     # Crea tabelle materiali
     MaterialBase.metadata.create_all(bind=engine)
     
-    print("✅ Tabelle create con successo")
+    logger.info("✅ Tabelle create con successo")
 
 def get_db() -> Generator[DBSession, None, None]:
     """
@@ -99,6 +103,8 @@ def init_database():
     from passlib.context import CryptContext
     from datetime import datetime
     
+    logger = get_logger("database")
+    
     # Crea le tabelle
     create_tables()
     
@@ -107,7 +113,7 @@ def init_database():
         admin_user = db.query(User).filter(User.username == "admin").first()
         
         if not admin_user:
-            print("👤 Creazione utente admin...")
+            logger.info("👤 Creazione utente admin...")
             
             # Setup password hashing
             pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -128,23 +134,23 @@ def init_database():
             db.commit()
             db.refresh(admin_user)
             
-            print("✅ Utente admin creato con successo")
-            print("👤 Credenziali admin:")
-            print("   Username: admin") 
-            print("   Password: WallBuild2024!")
-            print("   ⚠️  CAMBIARE LA PASSWORD AL PRIMO ACCESSO!")
+            logger.info("✅ Utente admin creato con successo")
+            logger.info("👤 Credenziali admin:")
+            logger.info("   Username: admin") 
+            logger.info("   Password: WallBuild2024!")
+            logger.info("   ⚠️  CAMBIARE LA PASSWORD AL PRIMO ACCESSO!")
         else:
-            print("👤 Utente admin già esistente")
+            logger.info("👤 Utente admin già esistente")
     
     # Inizializza il sistema materiali
     try:
         from .material_services import initialize_material_system
         initialize_material_system()
-        print("🔧 Sistema materiali inizializzato")
+        logger.info("🔧 Sistema materiali inizializzato")
     except Exception as e:
-        print(f"⚠️ Errore inizializzazione materiali: {e}")
+        error("Errore inizializzazione materiali", error=str(e))
     
-    print("🗄️ Database inizializzato correttamente")
+    logger.info("🗄️ Database inizializzato correttamente")
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Utility Functions
@@ -152,10 +158,11 @@ def init_database():
 
 def reset_database():
     """Cancella e ricrea completamente il database."""
-    print("🗑️ Reset database in corso...")
+    logger = get_logger("database")
+    logger.info("Reset database in corso", operation="database_reset")
     Base.metadata.drop_all(bind=engine)
     init_database()
-    print("✅ Database resettato con successo")
+    logger.info("Database resettato con successo", operation="database_reset", status="completed")
 
 def get_database_info():
     """Restituisce informazioni sul database."""

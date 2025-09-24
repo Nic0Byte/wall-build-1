@@ -51,3 +51,4 @@ supervisor>=4.2.5,<5.0      # Process manager (opzionale)
 # ==== Monitoring & Logging (opzionali) ====
 python-multipart>=0.0.6     # Form data handling
 python-dotenv>=1.0.0,<2.0   # .env file support
+structlog>=23.1.0,<24.0     # Structured logging for better debugging

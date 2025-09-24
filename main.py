@@ -15,6 +15,9 @@ from shapely.geometry import Polygon, MultiPolygon, LinearRing, box, mapping, sh
 from shapely.ops import unary_union
 from shapely.validation import explain_validity
 
+# Logging strutturato
+from utils.logging_config import get_logger, log_operation, info, warning, error
+
 # Optional deps (guarded)
 try:
     import svgpathtools  # type: ignore
@@ -75,14 +78,12 @@ def generate_preview_image(
 
     if block_config:
         size_to_letter = block_config.get("size_to_letter", {})
-        print(
-            "[DEBUG] Preview block config:",
-            block_config.get("block_widths", "N/A"),
-            block_config.get("block_height", "N/A"),
-        )
+        info("Preview block config loaded", 
+             block_widths=block_config.get("block_widths", "N/A"),
+             block_height=block_config.get("block_height", "N/A"))
     else:
         size_to_letter = {}
-        print("[WARN] Preview using default block config")
+        warning("Preview using default block config - no custom config provided")
 
     wall_color = color_theme.get("wallOutlineColor", "#1E40AF")
     wall_line_width = color_theme.get("wallLineWidth", 2)
@@ -93,7 +94,9 @@ def generate_preview_image(
     door_window_color = color_theme.get("doorWindowColor", "#FEE2E2")
     door_window_border = color_theme.get("doorWindowBorder", "#DC2626")
 
-    print(f"[DEBUG] Preview colors: wall={wall_color}, blocks={standard_block_color}")
+    info("Preview colors configured", 
+         wall_color=wall_color, 
+         blocks_color=standard_block_color)
 
     try:
         fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
@@ -113,10 +116,10 @@ def generate_preview_image(
                 customs,
                 size_to_letter,
             )
-            print(f"[DEBUG] Preview using custom size_to_letter: {size_to_letter}")
+            info("Preview using custom size_to_letter", mapping=size_to_letter)
         else:
             detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
-            print("[DEBUG] Preview using default size_to_letter mapping")
+            info("Preview using default size_to_letter mapping")
 
         for i, blk in enumerate(placed):
             rect = patches.Rectangle(
@@ -244,7 +247,7 @@ def generate_preview_image(
         return f"data:image/png;base64,{encoded}"
 
     except Exception as exc:
-        print(f"[WARN] Errore generazione preview: {exc}")
+        error("Errore generazione preview", error=str(exc), exception_type=type(exc).__name__)
         return ""
 # NEW: Enhanced packing with automatic measurements
 try:
@@ -255,7 +258,7 @@ try:
     )
     ENHANCED_PACKING_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ Enhanced packing non disponibile: {e}")
+    warning("Enhanced packing non disponibile", error=str(e))
     EnhancedPackingCalculator = None
     enhance_packing_with_automatic_measurements = None
     calculate_automatic_project_parameters = None
@@ -268,10 +271,10 @@ except ImportError as e:
 try:
     import dxfgrabber
     dxfgrabber_available = True
-    print("[OK] dxfgrabber caricato - Supporto DWG avanzato disponibile")
+    info("dxfgrabber caricato - Supporto DWG avanzato disponibile")
 except ImportError:
     dxfgrabber_available = False
-    print("[WARNING] dxfgrabber non installato. Parser DWG avanzato non disponibile.")
+    warning("dxfgrabber non installato. Parser DWG avanzato non disponibile.")
 
 # ---- FastAPI (kept in same file as requested) ----
 try:
@@ -415,9 +418,9 @@ if FastAPI:
     # Cleanup sessioni scadute all'avvio
     try:
         expired_cleaned = cleanup_expired_sessions()
-        print(f"🧹 Pulizia iniziale: {expired_cleaned} sessioni scadute rimosse")
+        info("Pulizia iniziale completata", expired_sessions_cleaned=expired_cleaned)
     except Exception as e:
-        print(f"⚠️ Errore pulizia sessioni: {e}")
+        error("Errore pulizia sessioni", error=str(e))
     
     # ===== INCLUDE ROUTES REFACTORED =====
     from api.routes import frontend_router, packing_router, files_router, legacy_router
@@ -459,7 +462,7 @@ if FastAPI:
         with open(saved_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        print(f"💾 File salvato: {saved_path}")
+        info("File salvato", file_path=str(saved_path), user_id=user_id, session_id=session_id)
         return str(saved_path)
     
     def get_saved_project_file_path(project_id: int, user_id: int, filename: str) -> Optional[str]:
@@ -483,11 +486,11 @@ if FastAPI:
                     if file_path.exists():
                         return str(file_path)
                     else:
-                        print(f"⚠️ File del progetto non trovato: {file_path}")
+                        warning("File del progetto non trovato", file_path=str(file_path))
                         return None
                         
         except Exception as e:
-            print(f"❌ Errore nel recupero file progetto: {e}")
+            error("Errore nel recupero file progetto", error=str(e), project_id=project_id)
             return None
         
         return None
@@ -500,29 +503,31 @@ if FastAPI:
 # CLI demo (mantenuto per test)
 # ────────────────────────────────────────────────────────────────────────────────
 def _demo():
-    print("🚀 Demo Costruttore Pareti a Blocchi")
-    print("=" * 50)
+    logger = get_logger("demo")
+    logger.info("🚀 Demo Costruttore Pareti a Blocchi")
     
-    # Demo parete trapezoidale con due porte
-    wall_exterior = Polygon([(0,0), (12000,0), (12000,4500), (0,2500), (0,0)])
-    porta1 = Polygon([(2000,0), (3200,0), (3200,2200), (2000,2200)])
-    porta2 = Polygon([(8500,0), (9700,0), (9700,2200), (8500,2200)])
+    with log_operation("demo_packing"):
+        # Demo parete trapezoidale con due porte
+        wall_exterior = Polygon([(0,0), (12000,0), (12000,4500), (0,2500), (0,0)])
+        porta1 = Polygon([(2000,0), (3200,0), (3200,2200), (2000,2200)])
+        porta2 = Polygon([(8500,0), (9700,0), (9700,2200), (8500,2200)])
 
-    placed, custom = pack_wall(wall_exterior, BLOCK_WIDTHS, BLOCK_HEIGHT,
-                               row_offset=826, apertures=[porta1, porta2])
-    summary = summarize_blocks(placed)
+        placed, custom = pack_wall(wall_exterior, BLOCK_WIDTHS, BLOCK_HEIGHT,
+                                   row_offset=826, apertures=[porta1, porta2])
+        summary = summarize_blocks(placed)
 
-    print("🔨 Distinta base blocchi standard:")
-    for k, v in summary.items():
-        print(f"  • {v} × {k}")
-    print(f"\n✂️ Pezzi custom totali: {len(custom)}")
+        logger.info("Distinta base blocchi standard")
+        for k, v in summary.items():
+            logger.info(f"Blocco {k}", quantity=v)
+        
+        logger.info("Pezzi custom totali", count=len(custom))
 
-    # Calcola metriche
-    metrics = calculate_metrics(placed, custom, wall_exterior.area)
-    print(f"\n📊 Metriche:")
-    print(f"  • Efficienza: {metrics['efficiency']:.1%}")
-    print(f"  • Waste ratio: {metrics['waste_ratio']:.1%}")
-    print(f"  • Complessità: {metrics['complexity']} pezzi CU2")
+        # Calcola metriche
+        metrics = calculate_metrics(placed, custom, wall_exterior.area)
+        logger.info("Metriche calcolate", 
+                   efficiency=f"{metrics['efficiency']:.1%}",
+                   waste_ratio=f"{metrics['waste_ratio']:.1%}",
+                   complexity=metrics['complexity'])
 
     # Genera nomi file unici con timestamp
     json_filename = generate_unique_filename("distinta_demo", ".json", "trapezoidale")
@@ -530,7 +535,7 @@ def _demo():
     dxf_filename = generate_unique_filename("schema_demo", ".dxf", "trapezoidale")
 
     out = export_to_json(summary, custom, placed, out_path=json_filename, params=build_run_params(row_offset=826))
-    print(f"📄 JSON scritto in: {out}")
+    logger.info("JSON demo generato", file_path=out)
 
     # Test export PDF
     if reportlab_available:
@@ -540,11 +545,11 @@ def _demo():
                                    project_name="Demo Parete Trapezoidale", 
                                    out_path=pdf_filename,
                                    params=build_run_params(row_offset=826))
-            print(f"📄 PDF demo generato: {pdf_path}")
+            logger.info("PDF demo generato", file_path=pdf_path)
         except Exception as e:
-            print(f"⚠️ Errore PDF demo: {e}")
+            error("Errore PDF demo", error=str(e))
     else:
-        print("⚠️ ReportLab non disponibile per export PDF")
+        warning("ReportLab non disponibile per export PDF")
 
     # Test export DXF SENZA SOVRAPPOSIZIONI
     if ezdxf_available:
@@ -554,11 +559,11 @@ def _demo():
                                    project_name="Demo Parete Trapezoidale", 
                                    out_path=dxf_filename,
                                    params=build_run_params(row_offset=826))
-            print(f"📐 DXF demo SENZA SOVRAPPOSIZIONI generato: {dxf_path}")
+            logger.info("DXF demo generato", file_path=dxf_path)
         except Exception as e:
-            print(f"⚠️ Errore DXF demo: {e}")
+            error("Errore DXF demo", error=str(e))
     else:
-        print("⚠️ ezdxf non disponibile per export DXF")
+        warning("ezdxf non disponibile per export DXF")
 
 if __name__ == "__main__":
     import sys
@@ -567,28 +572,28 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "server":
         # Avvia server FastAPI
         if app:
-            print("🚀 Avvio server Web UI...")
-            print("🌐 Apri il browser su: http://localhost:8000")
-            print("🛑 Premi Ctrl+C per fermare il server")
+            info("🚀 Avvio server Web UI...")
+            info("🌐 Apri il browser su: http://localhost:8000")
+            info("🛑 Premi Ctrl+C per fermare il server")
             
             # Reload solo se richiesto esplicitamente con --dev
             use_reload = len(sys.argv) > 2 and sys.argv[2] == "--dev"
             if use_reload:
-                print("🔧 Modalità sviluppo: auto-reload attivo")
+                info("🔧 Modalità sviluppo: auto-reload attivo")
             
             uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=use_reload)
         else:
-            print("❌ FastAPI non disponibile")
+            error("❌ FastAPI non disponibile")
     else:
-        print("Uso: python main.py [demo|server] [--dev]")
-        print("  demo     - Esegui demo CLI")
-        print("  server   - Avvia server web")
-        print("  --dev    - Modalità sviluppo con auto-reload (solo con server)")
-        print("\n🧱 MIGLIORAMENTI DXF:")
-        print("  ✅ Layout intelligente con DXFLayoutManager")
-        print("  ✅ Zone calcolate automaticamente senza sovrapposizioni")
-        print("  ✅ Margini adattivi basati su contenuto")
-        print("  ✅ Controllo overflow per tabelle e schema taglio")
-        print("  ✅ Titoli e sezioni ben separate e leggibili")
+        info("Uso: python main.py [demo|server] [--dev]")
+        info("  demo     - Esegui demo CLI")
+        info("  server   - Avvia server web")
+        info("  --dev    - Modalità sviluppo con auto-reload (solo con server)")
+        info("🧱 MIGLIORAMENTI DXF:")
+        info("  ✅ Layout intelligente con DXFLayoutManager")
+        info("  ✅ Zone calcolate automaticamente senza sovrapposizioni")
+        info("  ✅ Margini adattivi basati su contenuto")
+        info("  ✅ Controllo overflow per tabelle e schema taglio")
+        info("  ✅ Titoli e sezioni ben separate e leggibili")
 
 
