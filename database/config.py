@@ -10,23 +10,28 @@ from sqlalchemy.pool import StaticPool
 from contextlib import contextmanager
 from typing import Generator
 
+# Import centralized configuration
+from utils.config import DATABASE_URL, DATABASE_TIMEOUT, DATABASE_ECHO
+
 from .models import Base, User, Session, Project, SavedProject
 from .material_models import (
     Material, Guide, ProjectMaterialConfig, MaterialRule, ProjectTemplate
 )
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Configurazione Database
+# Configurazione Database (with environment support)
 # ────────────────────────────────────────────────────────────────────────────────
 
-# Percorso database SQLite
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATABASE_DIR = os.path.join(BASE_DIR, "data")
-DATABASE_FILE = os.path.join(DATABASE_DIR, "wallbuild.db")
-DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
+# Assicura che la directory del database esista
+def _ensure_database_dir():
+    """Assicura che la directory del database esista."""
+    if DATABASE_URL.startswith('sqlite:///'):
+        db_path = DATABASE_URL.replace('sqlite:///', '')
+        db_dir = os.path.dirname(db_path)
+        if db_dir:  # Solo se c'è una directory specificata
+            os.makedirs(db_dir, exist_ok=True)
 
-# Assicura che la directory esista
-os.makedirs(DATABASE_DIR, exist_ok=True)
+_ensure_database_dir()
 
 # Configurazione engine SQLAlchemy
 engine = create_engine(
@@ -34,9 +39,9 @@ engine = create_engine(
     poolclass=StaticPool,
     connect_args={
         "check_same_thread": False,  # Necessario per SQLite con FastAPI
-        "timeout": 20
+        "timeout": DATABASE_TIMEOUT
     },
-    echo=False  # Cambia a True per debug SQL
+    echo=DATABASE_ECHO  # Usa valore da environment
 )
 
 # Session factory
@@ -161,7 +166,7 @@ def get_database_info():
         saved_project_count = db.query(SavedProject).count()
         
         return {
-            "database_file": DATABASE_FILE,
+            "database_url": DATABASE_URL,
             "users": user_count,
             "sessions": session_count,
             "projects": project_count,

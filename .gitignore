@@ -58,3 +58,14 @@ coverage.xml
 # OS files
 .DS_Store
 Thumbs.db
+
+# Environment & Logs
+logs/
+*.log
+.env.local
+.env.production
+
+# Temporary files
+temp/
+tmp/
+uploads/temp/

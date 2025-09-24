@@ -3,35 +3,81 @@ Configuration & Constants
 Configurazioni e costanti globali del sistema wall-build.
 """
 
+import os
 from typing import List, Dict
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Carica variabili da .env se presente
+    _ENV_LOADED = True
+except ImportError:
+    _ENV_LOADED = False
+
+# Helper per leggere variabili ambiente con fallback
+def get_env_bool(key: str, default: bool) -> bool:
+    """Legge variabile ambiente come boolean con fallback."""
+    value = os.getenv(key, str(default)).lower()
+    return value in ('true', '1', 'yes', 'on')
+
+def get_env_int(key: str, default: int) -> int:
+    """Legge variabile ambiente come int con fallback."""
+    try:
+        return int(os.getenv(key, str(default)))
+    except ValueError:
+        return default
+
+def get_env_float(key: str, default: float) -> float:
+    """Legge variabile ambiente come float con fallback."""
+    try:
+        return float(os.getenv(key, str(default)))
+    except ValueError:
+        return default
+
+def get_env_list_int(key: str, default: List[int]) -> List[int]:
+    """Legge lista di interi da env (formato: '1,2,3') con fallback."""
+    value = os.getenv(key)
+    if not value:
+        return default
+    try:
+        return [int(x.strip()) for x in value.split(',') if x.strip()]
+    except ValueError:
+        return default
+
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Tolerances & Precision Constants
+# Tolerances & Precision Constants (with environment support)
 # ────────────────────────────────────────────────────────────────────────────────
 
-SCARTO_CUSTOM_MM = 5          # tolleranza matching tipi custom
-AREA_EPS = 1e-3               # area minima per considerare una geometria
-COORD_EPS = 1e-6              # precisione coordinate
-DISPLAY_MM_PER_M = 1000.0     # conversione mm per metro
-
-
-# ────────────────────────────────────────────────────────────────────────────────
-# Optimization Constants
-# ────────────────────────────────────────────────────────────────────────────────
-
-MICRO_REST_MM = 15.0          # soglia per attivare backtrack del resto finale (coda riga)
-KEEP_OUT_MM = 2.0             # margine attorno ad aperture per evitare micro-sfridi
-SPLIT_MAX_WIDTH_MM = 413      # larghezza max per slice CU2 (profilo rigido) - limite tecnico taglio
+SCARTO_CUSTOM_MM = get_env_int('SCARTO_CUSTOM_MM', 5)          # tolleranza matching tipi custom
+AREA_EPS = get_env_float('AREA_EPS', 1e-3)                     # area minima per considerare una geometria
+COORD_EPS = get_env_float('COORD_EPS', 1e-6)                   # precisione coordinate
+DISPLAY_MM_PER_M = get_env_float('DISPLAY_MM_PER_M', 1000.0)   # conversione mm per metro
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Block Library (Standard Blocks in mm)
+# Optimization Constants (with environment support)
 # ────────────────────────────────────────────────────────────────────────────────
 
-BLOCK_HEIGHT = 495                          # altezza standard blocchi
-BLOCK_WIDTHS = [1239, 826, 413]            # larghezze: Grande, Medio, Piccolo
-SIZE_TO_LETTER = {1239: "A", 826: "B", 413: "C"}  # mapping dimensione -> lettera
+MICRO_REST_MM = get_env_float('MICRO_REST_MM', 15.0)           # soglia per attivare backtrack del resto finale (coda riga)
+KEEP_OUT_MM = get_env_float('KEEP_OUT_MM', 2.0)               # margine attorno ad aperture per evitare micro-sfridi
+SPLIT_MAX_WIDTH_MM = get_env_int('SPLIT_MAX_WIDTH_MM', 413)    # larghezza max per slice CU2 (profilo rigido) - limite tecnico taglio
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Block Library (Standard Blocks in mm - with environment support)
+# ────────────────────────────────────────────────────────────────────────────────
+
+BLOCK_HEIGHT = get_env_int('BLOCK_HEIGHT', 495)                      # altezza standard blocchi
+BLOCK_WIDTHS = get_env_list_int('BLOCK_WIDTHS', [1239, 826, 413])    # larghezze: Grande, Medio, Piccolo
+
+# Crea mapping dimensione -> lettera dinamicamente
+def _create_size_to_letter_mapping(widths: List[int]) -> Dict[int, str]:
+    """Crea mapping dimensione -> lettera ordinando per dimensione decrescente."""
+    sorted_widths = sorted(widths, reverse=True)
+    return {width: chr(ord('A') + i) for i, width in enumerate(sorted_widths)}
+
+SIZE_TO_LETTER = _create_size_to_letter_mapping(BLOCK_WIDTHS)  # mapping dimensione -> lettera
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -51,6 +97,74 @@ BLOCK_ORDERS = [
 
 # Storage per sessioni (in-memory per semplicità)
 SESSIONS: Dict[str, Dict] = {}
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Server & Database Configuration (with environment support)
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Server settings
+SERVER_HOST = os.getenv('HOST', '0.0.0.0')
+SERVER_PORT = get_env_int('PORT', 8000)
+DEBUG = get_env_bool('DEBUG', False)
+RELOAD = get_env_bool('RELOAD', False)
+
+# CORS settings
+CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',') if os.getenv('CORS_ORIGINS', '*') != '*' else ['*']
+
+# Security
+SECRET_KEY = os.getenv('SECRET_KEY', 'wallbuild_secure_secret_key_2024_change_in_production')
+JWT_EXPIRE_MINUTES = get_env_int('JWT_EXPIRE_MINUTES', 30)
+
+# Database
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///data/wallbuild.db')
+DATABASE_TIMEOUT = get_env_int('DATABASE_TIMEOUT', 20)
+DATABASE_ECHO = get_env_bool('DATABASE_ECHO', False)
+
+# Logging
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+LOG_FORMAT = os.getenv('LOG_FORMAT', 'text')  # text or json
+VERBOSE_LOGGING = get_env_bool('VERBOSE_LOGGING', False)
+
+# File Storage
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'output')
+UPLOAD_DIR = os.getenv('UPLOAD_DIR', 'uploads')
+MAX_UPLOAD_SIZE = os.getenv('MAX_UPLOAD_SIZE', '50MB')
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Environment Info & Debug
+# ────────────────────────────────────────────────────────────────────────────────
+
+def get_environment_info() -> Dict:
+    """Restituisce informazioni sull'ambiente di configurazione."""
+    return {
+        "dotenv_loaded": _ENV_LOADED,
+        "has_env_file": os.path.exists('.env'),
+        "debug_mode": DEBUG,
+        "server": f"{SERVER_HOST}:{SERVER_PORT}",
+        "database": DATABASE_URL,
+        "cors_origins": CORS_ORIGINS,
+        "block_config": {
+            "widths": BLOCK_WIDTHS,
+            "height": BLOCK_HEIGHT,
+            "mapping": SIZE_TO_LETTER
+        }
+    }
+
+def print_configuration_summary():
+    """Stampa un riassunto della configurazione caricata."""
+    info = get_environment_info()
+    print("🔧 Wall-Build Configuration Summary")
+    print("=" * 40)
+    print(f"📄 Environment file loaded: {'✅' if info['has_env_file'] else '❌'}")
+    print(f"🐛 Debug mode: {'✅' if info['debug_mode'] else '❌'}")
+    print(f"🌐 Server: {info['server']}")
+    print(f"🗄️  Database: {info['database']}")
+    print(f"🔒 CORS Origins: {', '.join(info['cors_origins'])}")
+    print(f"🧱 Blocks: {info['block_config']['widths']} × {info['block_config']['height']}mm")
+    print(f"🔤 Mapping: {info['block_config']['mapping']}")
+    print("=" * 40)
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -157,12 +271,14 @@ def get_block_schema_from_frontend(block_dimensions: Dict = None) -> Dict:
 
 def get_default_config() -> Dict:
     """
-    Restituisce la configurazione di default del sistema.
+    Restituisce la configurazione completa del sistema.
+    Include sia valori hardcoded che quelli da environment.
     
     Returns:
         Dict con tutti i parametri di configurazione
     """
     return {
+        # Algoritmo constants
         "scarto_custom_mm": SCARTO_CUSTOM_MM,
         "area_eps": AREA_EPS,
         "coord_eps": COORD_EPS,
@@ -170,8 +286,33 @@ def get_default_config() -> Dict:
         "micro_rest_mm": MICRO_REST_MM,
         "keep_out_mm": KEEP_OUT_MM,
         "split_max_width_mm": SPLIT_MAX_WIDTH_MM,
+        # Block configuration
         "block_height": BLOCK_HEIGHT,
         "block_widths": BLOCK_WIDTHS,
         "size_to_letter": SIZE_TO_LETTER,
-        "block_orders": BLOCK_ORDERS
+        "block_orders": BLOCK_ORDERS,
+        # Server configuration
+        "server_host": SERVER_HOST,
+        "server_port": SERVER_PORT,
+        "debug": DEBUG,
+        "reload": RELOAD,
+        # Security
+        "secret_key": SECRET_KEY,
+        "jwt_expire_minutes": JWT_EXPIRE_MINUTES,
+        # Database
+        "database_url": DATABASE_URL,
+        "database_timeout": DATABASE_TIMEOUT,
+        "database_echo": DATABASE_ECHO,
+        # CORS
+        "cors_origins": CORS_ORIGINS,
+        # Logging
+        "log_level": LOG_LEVEL,
+        "log_format": LOG_FORMAT,
+        "verbose_logging": VERBOSE_LOGGING,
+        # Storage
+        "output_dir": OUTPUT_DIR,
+        "upload_dir": UPLOAD_DIR,
+        "max_upload_size": MAX_UPLOAD_SIZE,
+        # Environment info
+        "environment_info": get_environment_info()
     }

@@ -6,8 +6,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 import secrets
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 120  # 2 ore invece di 30 minuti
-SECRET_KEY = "wallbuild_secure_secret_key_2024_change_in_production"  # In produzione, usare variabile ambiente
+# Import configuration from centralized config
+from utils.config import SECRET_KEY, JWT_EXPIRE_MINUTES
+
+ACCESS_TOKEN_EXPIRE_MINUTES = JWT_EXPIRE_MINUTES  # Usa valore da environment
 ALGORITHM = "HS256"
 
 security = HTTPBearer()
