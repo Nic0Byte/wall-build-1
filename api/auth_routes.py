@@ -368,6 +368,7 @@ async def save_project(
                 color_theme=json.dumps(project_data.get("color_theme")),
                 packing_config=json.dumps(project_data.get("packing_config")),
                 results_summary=json.dumps(project_data.get("results")),
+                extended_config=json.dumps(project_data.get("extended_config")),  # NEW: Extended config
                 wall_dimensions=project_data.get("wall_dimensions"),
                 total_blocks=project_data.get("total_blocks"),
                 efficiency_percentage=project_data.get("efficiency"),
@@ -477,6 +478,7 @@ async def get_saved_project(
                     "color_theme": json.loads(project.color_theme) if project.color_theme else None,
                     "packing_config": json.loads(project.packing_config) if project.packing_config else None,
                     "results": json.loads(project.results_summary) if project.results_summary else None,
+                    "extended_config": json.loads(project.extended_config) if project.extended_config else {},  # NEW: Extended config
                     "wall_dimensions": project.wall_dimensions,
                     "total_blocks": project.total_blocks,
                     "efficiency": project.efficiency_percentage,

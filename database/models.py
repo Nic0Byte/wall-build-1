@@ -75,6 +75,7 @@ class SavedProject(Base):
     color_theme = Column(Text, nullable=True)       # Tema colori utilizzato
     packing_config = Column(Text, nullable=True)    # Configurazioni di packing
     results_summary = Column(Text, nullable=True)   # Riassunto risultati ottenuti
+    extended_config = Column(Text, nullable=True)   # Configurazioni estese (material, guide, wall, etc.)
     
     # Metadata
     wall_dimensions = Column(String(100), nullable=True)  # Es: "10000x3000mm"

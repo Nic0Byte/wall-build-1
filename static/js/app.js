@@ -1535,6 +1535,36 @@ class WallPackingApp {
         // Get configuration data
         const config = this.getConfiguration();
         
+        // NEW: Collect extended configuration parameters
+        const extendedConfig = {
+            // Material configuration (try app instance first, then session data)
+            material_config: this.currentMaterialConfig || data.session?.material_config || {},
+            
+            // Guide specifications  
+            guide_spec: this.currentGuideSpec || data.session?.guide_spec || {},
+            
+            // Wall position settings
+            wall_position: this.currentWallPosition || data.session?.wall_position || {},
+            
+            // Custom dimensions
+            custom_dimensions: this.currentCustomDimensions || data.session?.custom_dimensions || {},
+            
+            // Construction method
+            construction_method: this.currentConstructionMethod || data.session?.construction_method || {},
+            
+            // Moretti settings
+            moretti_settings: this.currentMorettiSettings || data.session?.moretti_settings || {},
+            
+            // Store session data references for debugging
+            session_stored: {
+                material_config: !!data.session?.material_config,
+                guide_spec: !!data.session?.guide_spec,
+                wall_position: !!data.session?.wall_position
+            }
+        };
+        
+        console.log('🔧 Extended Config per salvataggio:', extendedConfig);
+        
         // Get saved file path from session data (this comes from backend after upload)
         const savedFilePath = data.saved_file_path || '';
         console.log('💾 Percorso file salvato per progetto:', savedFilePath);
@@ -1551,6 +1581,7 @@ class WallPackingApp {
                 block_widths: config.blockWidths,
                 project_name: config.projectName
             },
+            extended_config: extendedConfig,  // NEW: Include extended configuration
             results: {
                 summary: data.summary,
                 blocks_custom: data.blocks_custom,
@@ -2994,6 +3025,38 @@ async function restoreProjectConfigurations(project) {
         }
         
         console.log('⚙️ Configurazioni UI ripristinate');
+    }
+    
+    // NEW: Restore extended configuration
+    if (project.extended_config) {
+        console.log('🔧 Ripristino extended_config:', project.extended_config);
+        
+        const extConfig = project.extended_config;
+        
+        // Store in app instance for later use
+        if (window.wallPackingApp) {
+            window.wallPackingApp.currentMaterialConfig = extConfig.material_config || {};
+            window.wallPackingApp.currentGuideSpec = extConfig.guide_spec || {};
+            window.wallPackingApp.currentWallPosition = extConfig.wall_position || {};
+            window.wallPackingApp.currentCustomDimensions = extConfig.custom_dimensions || {};
+            window.wallPackingApp.currentConstructionMethod = extConfig.construction_method || {};
+            window.wallPackingApp.currentMorettiSettings = extConfig.moretti_settings || {};
+            
+            console.log('✅ Extended config ripristinato in app instance');
+        }
+        
+        // Store in localStorage for persistence
+        if (extConfig.material_config) {
+            localStorage.setItem('material_config', JSON.stringify(extConfig.material_config));
+        }
+        if (extConfig.guide_spec) {
+            localStorage.setItem('guide_spec', JSON.stringify(extConfig.guide_spec));
+        }
+        if (extConfig.wall_position) {
+            localStorage.setItem('wall_position', JSON.stringify(extConfig.wall_position));
+        }
+        
+        console.log('💾 Extended config salvato in localStorage');
     }
 }
 
