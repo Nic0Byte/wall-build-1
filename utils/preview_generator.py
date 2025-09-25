@@ -54,47 +54,35 @@ def _extract_configuration_info(enhanced_info: Dict) -> Dict:
         print(f"DEBUG: material_parameters trovati: {material_parameters}")
         
         if material_parameters and isinstance(material_parameters, dict):
+            # I dati sono nidificati in material_spec e guide_spec
+            material_spec = material_parameters.get("material_spec", {})
+            guide_spec = material_parameters.get("guide_spec", {})
+            
             # Configurazione materiale
-            if material_parameters.get('material_type') or material_parameters.get('material_thickness_mm'):
+            if material_spec:
                 config['Materiale'] = {
-                    'Tipo': material_parameters.get('material_type', 'Non specificato'),
-                    'Spessore': f"{material_parameters.get('material_thickness_mm', 'N/A')} mm"
+                    'Spessore': f"{material_spec.get('thickness_mm', 'N/A')} mm"
                 }
-                if material_parameters.get('material_density_kg_m3'):
-                    config['Materiale']['Densità'] = f"{material_parameters.get('material_density_kg_m3')} kg/m³"
+                if material_spec.get('density_kg_m3'):
+                    config['Materiale']['Densità'] = f"{material_spec.get('density_kg_m3')} kg/m³"
             
             # Configurazione guide
-            if material_parameters.get('guide_type') or material_parameters.get('guide_width_mm'):
+            if guide_spec:
                 config['Guide'] = {
-                    'Tipo': material_parameters.get('guide_type', 'Non specificato'),
-                    'Larghezza': f"{material_parameters.get('guide_width_mm', 'N/A')} mm",
-                    'Profondità': f"{material_parameters.get('guide_depth_mm', 'N/A')} mm"
+                    'Tipo': guide_spec.get('material_type', 'Non specificato'),
+                    'Larghezza': f"{guide_spec.get('width_mm', 'N/A')} mm",
+                    'Profondità': f"{guide_spec.get('depth_mm', 'N/A')} mm"
                 }
-            
-            # Posizionamento
-            position_info = {}
-            if material_parameters.get('wall_position'):
-                position_info['Posizione'] = material_parameters.get('wall_position', 'Non specificato')
-            if material_parameters.get('ceiling_height_mm'):
-                position_info['Altezza Soffitto'] = f"{material_parameters.get('ceiling_height_mm', 'N/A')} mm"
-            
-            if position_info:
-                config['Posizionamento'] = position_info
+                if guide_spec.get('max_load_kg'):
+                    config['Guide']['Carico Max'] = f"{guide_spec.get('max_load_kg')} kg"
         
-        # Controlla se c'è info sui blocchi nei parametri di packing
-        packing_parameters = automatic_measurements.get("packing_parameters", {})
-        if packing_parameters and isinstance(packing_parameters, dict):
-            if packing_parameters.get('block_widths') or packing_parameters.get('block_height'):
-                block_widths = packing_parameters.get('block_widths', [])
-                if isinstance(block_widths, list) and block_widths:
-                    widths_str = ', '.join([f"{w}mm" for w in block_widths])
-                else:
-                    widths_str = 'Non specificato'
-                    
-                config['Blocchi'] = {
-                    'Larghezze': widths_str,
-                    'Altezza': f"{packing_parameters.get('block_height', 'N/A')} mm"
-                }
+        # Cerca altre informazioni nelle sezioni automatiche
+        wall_dimensions = automatic_measurements.get("wall_dimensions", {})
+        if wall_dimensions and isinstance(wall_dimensions, dict):
+            if wall_dimensions.get('height_mm'):
+                if 'Posizionamento' not in config:
+                    config['Posizionamento'] = {}
+                config['Posizionamento']['Altezza Parete'] = f"{wall_dimensions.get('height_mm')} mm"
         
         # Controlla moretti
         moretti_requirements = automatic_measurements.get("moretti_requirements", {})
@@ -123,13 +111,14 @@ def _extract_configuration_info(enhanced_info: Dict) -> Dict:
     return config
 
 
-def _add_configuration_info_box(fig, config_info: Dict):
+def _add_configuration_info_box(ax, config_info: Dict, bounds):
     """
-    Aggiunge una card semplice con solo le informazioni di configurazione selezionate dall'utente.
+    Aggiunge una card integrata nel plot con le informazioni di configurazione.
     
     Args:
-        fig: Figure matplotlib
+        ax: Asse matplotlib per il disegno
         config_info: Dizionario con le informazioni di configurazione
+        bounds: Bounds del plot (minx, miny, maxx, maxy)
     """
     print(f"DEBUG: _add_configuration_info_box chiamata con config_info: {config_info}")
     
@@ -137,46 +126,90 @@ def _add_configuration_info_box(fig, config_info: Dict):
         print("DEBUG: Nessuna config_info fornita")
         return
     
-    # Crea le righe per la card solo con le informazioni essenziali
-    card_sections = []
+    minx, miny, maxx, maxy = bounds
+    
+    # Crea le righe per la card
+    card_lines = []
+    
+    # Titolo principale
+    card_lines.append("CONFIGURAZIONE")
+    card_lines.append("-" * 20)
     
     # Ogni sezione con le sue informazioni
     for section_name, section_data in config_info.items():
         if isinstance(section_data, dict) and section_data:
-            # Sezione titolo
-            card_sections.append(f"** {section_name.upper()} **")
+            # Nome sezione
+            card_lines.append(f"{section_name.upper()}:")
             
             # Dati della sezione
             for key, value in section_data.items():
                 if value and value != 'Non specificato' and value != 'N/A':
-                    card_sections.append(f"  {key}: {value}")
+                    card_lines.append(f"  {key}: {value}")
             
             # Spaziatura tra sezioni
-            card_sections.append("")
+            card_lines.append("")
     
     # Rimuove l'ultima riga vuota se presente
-    if card_sections and card_sections[-1] == "":
-        card_sections.pop()
+    if card_lines and card_lines[-1] == "":
+        card_lines.pop()
     
-    print(f"DEBUG: Card sections create: {card_sections}")
+    print(f"DEBUG: Card lines create: {card_lines}")
     
     # Crea la card solo se ci sono informazioni da mostrare
-    if card_sections:
-        card_text = "\n".join(card_sections)
+    if card_lines:
+        # Posizionamento della card in basso a destra del plot
+        card_width = (maxx - minx) * 0.35  # 35% della larghezza
+        card_height = len(card_lines) * 50  # Altezza proporzionale al numero di righe
         
-        print(f"DEBUG: Creando card con testo: {card_text}")
+        card_x = maxx - card_width - ((maxx - minx) * 0.05)  # 5% di margine da destra
+        card_y = miny + ((maxy - miny) * 0.05)  # 5% di margine dal basso
         
-        # Card semplice e pulita
-        fig.text(0.5, 0.02, card_text, 
-                fontsize=9,
-                ha='center', va='bottom',
-                bbox=dict(boxstyle="round,pad=0.8", 
-                        facecolor='white', 
-                        edgecolor='#333333',
-                        linewidth=1,
-                        alpha=0.95),
-                linespacing=1.4,
-                family='monospace')  # Font monospace per allineamento migliore
+        # Disegna il rettangolo di sfondo della card
+        card_rect = patches.Rectangle(
+            (card_x, card_y),
+            card_width,
+            card_height,
+            facecolor='white',
+            edgecolor='#333333',
+            linewidth=1.5,
+            alpha=0.95,
+            zorder=1000
+        )
+        ax.add_patch(card_rect)
+        
+        # Aggiungi il testo riga per riga
+        line_height = card_height / len(card_lines)
+        for i, line in enumerate(card_lines):
+            text_y = card_y + card_height - (i + 0.5) * line_height
+            
+            # Stile diverso per il titolo
+            if i == 0:  # Titolo principale
+                fontweight = 'bold'
+                fontsize = 12
+            elif line.endswith(':'):  # Titoli delle sezioni
+                fontweight = 'bold'
+                fontsize = 10
+            elif line.startswith('-'):  # Linea separatrice
+                fontweight = 'normal'
+                fontsize = 8
+            else:  # Contenuto normale
+                fontweight = 'normal'
+                fontsize = 9
+            
+            ax.text(
+                card_x + card_width / 2,  # Centrato orizzontalmente
+                text_y,
+                line,
+                fontsize=fontsize,
+                fontweight=fontweight,
+                ha='center',
+                va='center',
+                color='#333333',
+                zorder=1001,
+                family='monospace'
+            )
+        
+        print(f"DEBUG: Card integrata creata alle coordinate ({card_x}, {card_y})")
     else:
         print("DEBUG: Nessuna sezione da mostrare nella card")
 
@@ -419,11 +452,8 @@ def generate_preview_image(
         # Add comprehensive configuration info box if enhanced
         if enhanced_info and enhanced_info.get("enhanced", False):
             # Gather all configuration information
+            # Estrai informazioni di configurazione (per uso futuro)
             config_info = _extract_configuration_info(enhanced_info)
-            
-            if config_info:
-                # Create comprehensive configuration display
-                _add_configuration_info_box(fig, config_info)
 
         # Genera immagine PNG with extra space for comprehensive configuration card
         img_buffer = io.BytesIO()
