@@ -477,9 +477,12 @@ async def enhanced_upload_and_process(
             'data': result,
             'timestamp': datetime.datetime.now(),
             'user_id': current_user.id,
+            'username': current_user.username,
             'filename': file.filename,
             'material_config': material_params,  # Store for future reference
-            'enhanced': result.get("enhanced", False)
+            'enhanced': result.get("enhanced", False),
+            'file_bytes': file_content,  # IMPORTANTE: salva i bytes del file per il salvataggio progetto
+            'original_filename': file.filename
         }
         
         print(f"💾 Enhanced session {session_id} salvata per utente {current_user.username}")

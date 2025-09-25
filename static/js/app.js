@@ -1489,9 +1489,29 @@ class WallPackingApp {
     
     // Auto-save project when processing is complete
     autoSaveProject(data) {
-        if (!this.currentFile || !data || this.projectSaved || this.isReusedProject) {
-            return; // Don't save if already saved or if this is a reused project
+        if (!this.currentFile || !data) {
+            console.log('❌ Auto-save bloccato: mancano file o dati');
+            return;
         }
+        
+        if (this.projectSaved) {
+            console.log('❌ Auto-save bloccato: progetto già salvato');
+            return;
+        }
+        
+        if (this.isReusedProject) {
+            console.log('❌ Auto-save bloccato: progetto riutilizzato');
+            return;
+        }
+        
+        if (!this.currentSessionId) {
+            console.log('❌ Auto-save bloccato: manca session_id');
+            return;
+        }
+        
+        console.log('✅ Iniziando auto-save progetto...');
+        console.log('📁 File corrente:', this.currentFile.name);
+        console.log('🔑 Session ID:', this.currentSessionId);
         
         // Extract project information
         const filename = this.currentFile.name;
@@ -1501,6 +1521,8 @@ class WallPackingApp {
         const totalStandard = Object.values(data.summary || {}).reduce((a, b) => a + b, 0);
         const totalCustom = (data.blocks_custom || []).length;
         const totalBlocks = totalStandard + totalCustom;
+        
+        console.log('📊 Totale blocchi calcolato:', totalBlocks);
         
         // Get efficiency
         const efficiency = data.metrics?.efficiency ? 
@@ -1545,6 +1567,14 @@ class WallPackingApp {
         // Mark as saving to prevent duplicates
         this.projectSaved = true;
         console.log('💾 Salvataggio automatico progetto:', projectName);
+        
+        // Verifica che l'utente sia autenticato
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            console.log('❌ Auto-save bloccato: utente non autenticato');
+            this.showToast('Effettua il login per salvare automaticamente i progetti', 'warning');
+            return;
+        }
         
         // Save asynchronously (don't wait for result to avoid blocking UI)
         saveCurrentProject(projectData).catch(error => {
@@ -3130,15 +3160,30 @@ function refreshPastProjects() {
 
 // Save Current Project (called when project is completed)
 async function saveCurrentProject(projectData) {
+    console.log('💾 saveCurrentProject chiamata con:', projectData);
+    
     if (!projectData || !projectData.name) {
-        console.warn('Cannot save project: missing project data or name');
+        console.warn('❌ Cannot save project: missing project data or name');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore: dati progetto mancanti', 'error');
+        }
         return false;
     }
     
     try {
+        const sessionId = window.wallPackingApp ? window.wallPackingApp.currentSessionId : null;
+        
+        if (!sessionId) {
+            console.warn('❌ Cannot save project: missing session_id');
+            if (window.wallPackingApp) {
+                window.wallPackingApp.showToast('Errore: sessione non valida', 'error');
+            }
+            return false;
+        }
+        
         // Add session_id to access file bytes on server
         const saveData = {
-            session_id: window.wallPackingApp ? window.wallPackingApp.currentSessionId : null,
+            session_id: sessionId,
             name: projectData.name,
             filename: projectData.filename,
             file_path: projectData.file_path || '', // Will be set by backend
@@ -3156,33 +3201,59 @@ async function saveCurrentProject(projectData) {
             json_path: projectData.json_path
         };
         
-        console.log('💾 Salvando progetto con session_id:', saveData.session_id);
+        console.log('💾 Salvando progetto con session_id:', sessionId);
+        console.log('📝 Dati da salvare:', saveData);
+        
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            console.warn('❌ Cannot save project: missing authentication token');
+            if (window.wallPackingApp) {
+                window.wallPackingApp.showToast('Errore: token di autenticazione mancante', 'error');
+            }
+            return false;
+        }
         
         const response = await fetch('/api/v1/saved-projects/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(saveData)
         });
         
+        console.log('📡 Response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Server response error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
         }
         
         const data = await response.json();
+        console.log('✅ Progetto salvato con successo:', data);
         
         if (window.wallPackingApp) {
-            window.wallPackingApp.showToast('Progetto salvato per riutilizzo futuro!', 'success');
+            window.wallPackingApp.showToast(`Progetto "${projectData.name}" salvato per riutilizzo futuro!`, 'success');
         }
         
         return true;
         
     } catch (error) {
-        console.error('Error saving project:', error);
+        console.error('❌ Error saving project:', error);
+        console.error('❌ Error stack:', error.stack);
+        
+        let errorMessage = 'Errore nel salvataggio progetto';
+        if (error.message.includes('401')) {
+            errorMessage = 'Errore di autenticazione - rieffettua il login';
+        } else if (error.message.includes('403')) {
+            errorMessage = 'Errore di autorizzazione';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Errore del server';
+        }
+        
         if (window.wallPackingApp) {
-            window.wallPackingApp.showToast('Errore nel salvataggio progetto', 'error');
+            window.wallPackingApp.showToast(errorMessage, 'error');
         }
         return false;
     }
