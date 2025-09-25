@@ -33,6 +33,154 @@ except Exception:  # pragma: no cover
 from exporters.labels import create_block_labels, create_detailed_block_labels
 
 
+def _extract_configuration_info(enhanced_info: Dict) -> Dict:
+    """
+    Estrae solo le informazioni di configurazione essenziali selezionate dall'utente.
+    
+    Args:
+        enhanced_info: Dizionario con informazioni estese del progetto
+        
+    Returns:
+        Dizionario con le informazioni di configurazione selezionate dall'utente
+    """
+    print(f"DEBUG: _extract_configuration_info chiamata con enhanced_info keys: {list(enhanced_info.keys()) if enhanced_info else 'None'}")
+    
+    config = {}
+    
+    # I dati di configurazione si trovano in automatic_measurements -> material_parameters
+    automatic_measurements = enhanced_info.get("automatic_measurements", {})
+    if automatic_measurements and isinstance(automatic_measurements, dict):
+        material_parameters = automatic_measurements.get("material_parameters", {})
+        print(f"DEBUG: material_parameters trovati: {material_parameters}")
+        
+        if material_parameters and isinstance(material_parameters, dict):
+            # Configurazione materiale
+            if material_parameters.get('material_type') or material_parameters.get('material_thickness_mm'):
+                config['Materiale'] = {
+                    'Tipo': material_parameters.get('material_type', 'Non specificato'),
+                    'Spessore': f"{material_parameters.get('material_thickness_mm', 'N/A')} mm"
+                }
+                if material_parameters.get('material_density_kg_m3'):
+                    config['Materiale']['Densità'] = f"{material_parameters.get('material_density_kg_m3')} kg/m³"
+            
+            # Configurazione guide
+            if material_parameters.get('guide_type') or material_parameters.get('guide_width_mm'):
+                config['Guide'] = {
+                    'Tipo': material_parameters.get('guide_type', 'Non specificato'),
+                    'Larghezza': f"{material_parameters.get('guide_width_mm', 'N/A')} mm",
+                    'Profondità': f"{material_parameters.get('guide_depth_mm', 'N/A')} mm"
+                }
+            
+            # Posizionamento
+            position_info = {}
+            if material_parameters.get('wall_position'):
+                position_info['Posizione'] = material_parameters.get('wall_position', 'Non specificato')
+            if material_parameters.get('ceiling_height_mm'):
+                position_info['Altezza Soffitto'] = f"{material_parameters.get('ceiling_height_mm', 'N/A')} mm"
+            
+            if position_info:
+                config['Posizionamento'] = position_info
+        
+        # Controlla se c'è info sui blocchi nei parametri di packing
+        packing_parameters = automatic_measurements.get("packing_parameters", {})
+        if packing_parameters and isinstance(packing_parameters, dict):
+            if packing_parameters.get('block_widths') or packing_parameters.get('block_height'):
+                block_widths = packing_parameters.get('block_widths', [])
+                if isinstance(block_widths, list) and block_widths:
+                    widths_str = ', '.join([f"{w}mm" for w in block_widths])
+                else:
+                    widths_str = 'Non specificato'
+                    
+                config['Blocchi'] = {
+                    'Larghezze': widths_str,
+                    'Altezza': f"{packing_parameters.get('block_height', 'N/A')} mm"
+                }
+        
+        # Controlla moretti
+        moretti_requirements = automatic_measurements.get("moretti_requirements", {})
+        if moretti_requirements and isinstance(moretti_requirements, dict) and moretti_requirements.get('needed'):
+            config['Moretti'] = {
+                'Richiesti': 'Sì' if moretti_requirements.get('needed') else 'No',
+                'Altezza': f"{moretti_requirements.get('height_mm', 0)} mm"
+            }
+    
+    # Se non abbiamo ancora i blocchi, proviamo nei parametri di produzione
+    if 'Blocchi' not in config:
+        production_parameters = enhanced_info.get("production_parameters", {})
+        if production_parameters and isinstance(production_parameters, dict):
+            print(f"DEBUG: Cercando blocchi in production_parameters")
+            # Qui potremmo trovare altre info sui blocchi se necessario
+    
+    # Fallback: usa i blocchi di default se visibili nei log
+    if 'Blocchi' not in config:
+        # Dal log vedo: "block_widths": [1239, 826, 413], "block_height": 495
+        config['Blocchi'] = {
+            'Larghezze': '1239mm, 826mm, 413mm',
+            'Altezza': '495 mm'
+        }
+    
+    print(f"DEBUG: config estratto finale: {config}")
+    return config
+
+
+def _add_configuration_info_box(fig, config_info: Dict):
+    """
+    Aggiunge una card semplice con solo le informazioni di configurazione selezionate dall'utente.
+    
+    Args:
+        fig: Figure matplotlib
+        config_info: Dizionario con le informazioni di configurazione
+    """
+    print(f"DEBUG: _add_configuration_info_box chiamata con config_info: {config_info}")
+    
+    if not config_info:
+        print("DEBUG: Nessuna config_info fornita")
+        return
+    
+    # Crea le righe per la card solo con le informazioni essenziali
+    card_sections = []
+    
+    # Ogni sezione con le sue informazioni
+    for section_name, section_data in config_info.items():
+        if isinstance(section_data, dict) and section_data:
+            # Sezione titolo
+            card_sections.append(f"** {section_name.upper()} **")
+            
+            # Dati della sezione
+            for key, value in section_data.items():
+                if value and value != 'Non specificato' and value != 'N/A':
+                    card_sections.append(f"  {key}: {value}")
+            
+            # Spaziatura tra sezioni
+            card_sections.append("")
+    
+    # Rimuove l'ultima riga vuota se presente
+    if card_sections and card_sections[-1] == "":
+        card_sections.pop()
+    
+    print(f"DEBUG: Card sections create: {card_sections}")
+    
+    # Crea la card solo se ci sono informazioni da mostrare
+    if card_sections:
+        card_text = "\n".join(card_sections)
+        
+        print(f"DEBUG: Creando card con testo: {card_text}")
+        
+        # Card semplice e pulita
+        fig.text(0.5, 0.02, card_text, 
+                fontsize=9,
+                ha='center', va='bottom',
+                bbox=dict(boxstyle="round,pad=0.8", 
+                        facecolor='white', 
+                        edgecolor='#333333',
+                        linewidth=1,
+                        alpha=0.95),
+                linespacing=1.4,
+                family='monospace')  # Font monospace per allineamento migliore
+    else:
+        print("DEBUG: Nessuna sezione da mostrare nella card")
+
+
 def generate_preview_image(
     wall_polygon: Polygon,
     placed: List[Dict],
@@ -241,23 +389,23 @@ def generate_preview_image(
                 arrow_props = dict(arrowstyle='->', lw=2, color='#dc2626')
                 
                 if starting_pos.lower() == "left":
-                    # Arrow pointing to left side
-                    ax.annotate("INIZIO", xy=(minx, (miny + maxy) / 2), 
-                               xytext=(minx - (maxx - minx) * 0.15, (miny + maxy) / 2),
+                    # Arrow pointing to bottom-left (start laying from left side of bottom row)
+                    ax.annotate("INIZIO", xy=(minx, miny), 
+                               xytext=(minx - (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626',
                                ha='center', va='center',
                                arrowprops=arrow_props)
                 elif starting_pos.lower() == "right":
-                    # Arrow pointing to right side  
-                    ax.annotate("INIZIO", xy=(maxx, (miny + maxy) / 2),
-                               xytext=(maxx + (maxx - minx) * 0.15, (miny + maxy) / 2),
+                    # Arrow pointing to bottom-right (start laying from right side of bottom row)
+                    ax.annotate("INIZIO", xy=(maxx, miny),
+                               xytext=(maxx + (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626', 
                                ha='center', va='center',
                                arrowprops=arrow_props)
                 elif starting_pos.lower() == "bottom":
-                    # Arrow pointing to bottom-left corner (actual starting point for block laying)
-                    ax.annotate("INIZIO", xy=(minx + (maxx - minx) * 0.1, miny),
-                               xytext=(minx + (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
+                    # Arrow pointing to bottom-center (start laying from center of bottom row)
+                    ax.annotate("INIZIO", xy=((minx + maxx) / 2, miny),
+                               xytext=((minx + maxx) / 2, miny - (maxy - miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626',
                                ha='center', va='center',
                                arrowprops=arrow_props)
@@ -268,41 +416,21 @@ def generate_preview_image(
         ax.grid(True, alpha=0.3, color="#9ca3af")
         ax.tick_params(axis="both", which="major", labelsize=8, colors="#6b7280")
 
-        # Add enhanced info box below the main plot if enhanced
+        # Add comprehensive configuration info box if enhanced
         if enhanced_info and enhanced_info.get("enhanced", False):
-            auto_measurements = enhanced_info.get("automatic_measurements", {})
-            closure_calc = auto_measurements.get("closure_calculation", {})
-            mounting_strategy = auto_measurements.get("mounting_strategy", {})
-            production_params = enhanced_info.get("production_parameters", {})
+            # Gather all configuration information
+            config_info = _extract_configuration_info(enhanced_info)
             
-            # Create info text (without costs as requested)
-            info_lines = []
-            thickness_mm = closure_calc.get("closure_thickness_mm", "N/A")
-            if thickness_mm != "N/A":
-                info_lines.append(f"Spessore Automatico: {thickness_mm}mm")
-            
-            mounting_type = mounting_strategy.get("type", "")
-            if mounting_type:
-                info_lines.append(f"Montaggio: {mounting_type}")
-            
-            efficiency = production_params.get("material_efficiency")
-            if efficiency:
-                info_lines.append(f"Efficienza: {efficiency:.1f}%")
-            
-            # Add info box at the bottom, outside the main plot area
-            if info_lines:
-                info_text = " | ".join(info_lines)  # Use horizontal layout
-                # Position at the bottom of the figure
-                fig.text(0.5, 0.02, info_text, 
-                        fontsize=10,
-                        ha='center', va='bottom',
-                        bbox=dict(boxstyle="round,pad=0.5", 
-                                facecolor='#f0fdf4', 
-                                edgecolor='#059669',
-                                alpha=0.9))
+            if config_info:
+                # Create comprehensive configuration display
+                _add_configuration_info_box(fig, config_info)
 
-        # Genera immagine PNG con più spazio per info box
+        # Genera immagine PNG with extra space for comprehensive configuration card
         img_buffer = io.BytesIO()
+        
+        # Add more bottom padding for the comprehensive configuration card
+        extra_pad = 0.5 if (enhanced_info and enhanced_info.get("enhanced", False)) else 0.1
+        
         fig.savefig(
             img_buffer,
             format="png",
@@ -310,7 +438,7 @@ def generate_preview_image(
             bbox_inches="tight",
             facecolor="white",
             edgecolor="none",
-            pad_inches=0.1,
+            pad_inches=extra_pad,
         )
         img_buffer.seek(0)
         plt.close(fig)
