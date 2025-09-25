@@ -168,6 +168,9 @@ class WallPackingApp {
         // Configuration
         this.setupConfigurationListeners();
         
+        // NEW: Project Parameters listeners
+        this.setupProjectParametersListeners();
+        
         // Process button
         document.getElementById('processBtn')?.addEventListener('click', () => {
             this.processFile();
@@ -332,14 +335,15 @@ class WallPackingApp {
         // Update navigation state to disable library and settings
         this.updateNavigationState();
         
-        // Show success message and auto-progress to configuration
+        // Show success message and auto-progress to project parameters
         this.showToast('File caricato con successo', 'success');
         
         // Auto-progress with smooth transition
         setTimeout(() => {
-            this.showToast('Passaggio alla configurazione...', 'info');
+            this.showToast('Passaggio ai parametri di progetto...', 'info');
             setTimeout(() => {
-                this.showSection('config');
+                console.log('🔄 About to show projectParams section');
+                this.showSection('projectParams');
             }, 800);
         }, 1200);
     }
@@ -459,8 +463,11 @@ class WallPackingApp {
         // Get configuration
         const config = this.getConfiguration();
         
+        // Get project parameters (NEW)
+        const projectParams = this.projectParameters || this.collectProjectParameters();
+        
         // Show loading
-        this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico');
+        this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico con parametri personalizzati');
         
         try {
             // Prepare form data
@@ -478,8 +485,25 @@ class WallPackingApp {
             const blockDimensions = getBlockDimensionsForBackend();
             formData.append('block_dimensions', JSON.stringify(blockDimensions));
             
-            // Make API call
-            const response = await fetch('/api/upload', {
+            // NEW: Add project parameters for enhanced packing
+            formData.append('material_config', JSON.stringify({
+                material_thickness_mm: projectParams.material.thickness_mm,
+                material_density_kg_m3: projectParams.material.density_kg_m3,
+                material_type: projectParams.material.type,
+                guide_width_mm: projectParams.guide.width_mm,
+                guide_depth_mm: projectParams.guide.depth_mm,
+                guide_type: projectParams.guide.type,
+                wall_position: projectParams.wall.position,
+                is_attached_to_existing: projectParams.wall.is_attached,
+                attachment_points: projectParams.wall.attachment_points,
+                ceiling_height_mm: projectParams.ceiling.height_mm,
+                enable_moretti_calculation: projectParams.ceiling.enable_moretti_calculation,
+                enable_automatic_measurements: projectParams.advanced.enable_automatic_measurements,
+                enable_cost_estimation: projectParams.advanced.enable_cost_estimation
+            }));
+            
+            // Make API call to enhanced packing endpoint
+            const response = await fetch('/api/enhanced-pack', {
                 method: 'POST',
                 body: formData
             });
@@ -701,22 +725,30 @@ class WallPackingApp {
     // ===== UI STATE MANAGEMENT =====
     
     showSection(sectionName) {
+        console.log('🔍 showSection called with:', sectionName, 'currentSection:', this.currentSection);
+        
         // Only show sections if we're in the app section
         if (this.currentSection !== 'app') {
+            console.log('❌ Not in app section, returning');
             return;
         }
         
         // Hide all sections
-        const sections = ['uploadSection', 'configSection', 'resultsSection'];
+        const sections = ['uploadSection', 'projectParamsSection', 'configSection', 'resultsSection'];
         sections.forEach(id => {
             const element = document.getElementById(id);
             if (element) element.style.display = 'none';
         });
         
         // Show target section
-        const targetSection = document.getElementById(sectionName + 'Section');
+        const targetSectionId = sectionName + 'Section';
+        const targetSection = document.getElementById(targetSectionId);
+        console.log('🎯 Looking for element with ID:', targetSectionId, 'found:', !!targetSection);
         if (targetSection) {
             targetSection.style.display = 'block';
+            console.log('✅ Section shown:', targetSectionId);
+        } else {
+            console.log('❌ Element not found:', targetSectionId);
         }
         
         // Handle special cases
@@ -1037,15 +1069,7 @@ class WallPackingApp {
     }
     
     updateMetrics(metrics) {
-        const metricEfficiency = document.getElementById('metricEfficiency');
-        const metricWaste = document.getElementById('metricWaste');
-        const metricComplexity = document.getElementById('metricComplexity');
-        const metricCoverage = document.getElementById('metricCoverage');
-        
-        if (metricEfficiency) metricEfficiency.textContent = `${Math.round((metrics?.efficiency || 0) * 100)}%`;
-        if (metricWaste) metricWaste.textContent = `${Math.round((metrics?.waste_ratio || 0) * 100)}%`;
-        if (metricComplexity) metricComplexity.textContent = metrics?.complexity || 0;
-        if (metricCoverage) metricCoverage.textContent = `${Math.round((metrics?.total_area_coverage || 0) * 100)}%`;
+        // Metrics removed as requested
     }
     
     // ===== CONFIGURATION =====
@@ -1261,6 +1285,312 @@ class WallPackingApp {
             console.warn('Auto-save project failed:', error);
             this.projectSaved = false; // Reset on failure to allow retry
         });
+    }
+    
+    // ===== NEW: PROJECT PARAMETERS SECTION =====
+    
+    setupProjectParametersListeners() {
+        console.log('🔧 Setup Project Parameters Listeners');
+        
+        // Navigation buttons for project parameters section
+        document.getElementById('backToUpload')?.addEventListener('click', () => {
+            this.showSection('upload');
+        });
+        
+        document.getElementById('proceedToConfig')?.addEventListener('click', () => {
+            // Validate and collect parameters before proceeding
+            const params = this.collectProjectParameters();
+            if (this.validateProjectParameters(params)) {
+                this.showSection('config');
+                this.updateParametersSummary(params);
+            }
+        });
+        
+        // Material configuration listeners
+        const materialType = document.getElementById('materialType');
+        const materialThickness = document.getElementById('materialThickness');
+        const materialDensity = document.getElementById('materialDensity');
+        
+        materialType?.addEventListener('change', () => {
+            this.handleMaterialTypeChange();
+            this.updateParametersSummary();
+        });
+        
+        materialThickness?.addEventListener('input', debounce(() => {
+            this.updateParametersSummary();
+        }, 300));
+        
+        materialDensity?.addEventListener('input', debounce(() => {
+            this.updateParametersSummary();
+        }, 300));
+        
+        // Guide configuration listeners
+        const guideRadios = document.querySelectorAll('input[name="guideType"]');
+        const guideDepth = document.getElementById('guideDepth');
+        
+        guideRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.handleGuideTypeChange();
+                this.updateParametersSummary();
+            });
+        });
+        
+        guideDepth?.addEventListener('input', debounce(() => {
+            this.updateParametersSummary();
+        }, 300));
+        
+        // Wall position configuration listeners
+        const wallTypeRadios = document.querySelectorAll('input[name="wallType"]');
+        wallTypeRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.handleWallTypeChange();
+                this.updateParametersSummary();
+            });
+        });
+        
+        // Attachment points listeners
+        const attachmentCheckboxes = document.querySelectorAll('.attachment-checkbox');
+        attachmentCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.handleAttachmentPointsChange();
+                this.updateParametersSummary();
+            });
+        });
+        
+        // Ceiling height and moretti listeners
+        const ceilingHeight = document.getElementById('ceilingHeight');
+        const enableMoretti = document.getElementById('enableMoretti');
+        
+        ceilingHeight?.addEventListener('input', debounce(() => {
+            this.updateParametersSummary();
+        }, 300));
+        
+        enableMoretti?.addEventListener('change', () => {
+            this.updateParametersSummary();
+        });
+        
+        // Advanced options listeners
+        const enableAutoMeasurements = document.getElementById('enableAutoMeasurements');
+        const enableCostEstimation = document.getElementById('enableCostEstimation');
+        
+        enableAutoMeasurements?.addEventListener('change', () => {
+            this.updateParametersSummary();
+        });
+        
+        enableCostEstimation?.addEventListener('change', () => {
+            this.updateParametersSummary();
+        });
+        
+        // Initialize UI state
+        this.initializeProjectParametersUI();
+    }
+    
+    initializeProjectParametersUI() {
+        // Set default values and update UI accordingly
+        this.handleMaterialTypeChange();
+        this.handleGuideTypeChange();
+        this.handleWallTypeChange();
+        this.updateParametersSummary();
+    }
+    
+    handleMaterialTypeChange() {
+        const materialType = document.getElementById('materialType');
+        const materialThickness = document.getElementById('materialThickness');
+        const materialDensity = document.getElementById('materialDensity');
+        
+        if (!materialType) return;
+        
+        // Set default values based on material type
+        const materialDefaults = {
+            'melamine': { thickness: 18, density: 650 },
+            'mdf': { thickness: 16, density: 700 },
+            'chipboard': { thickness: 18, density: 650 },
+            'plywood': { thickness: 15, density: 550 },
+            'custom': { thickness: 18, density: 650 }
+        };
+        
+        const selected = materialType.value;
+        const defaults = materialDefaults[selected] || materialDefaults['melamine'];
+        
+        if (materialThickness) materialThickness.value = defaults.thickness;
+        if (materialDensity) materialDensity.value = defaults.density;
+    }
+    
+    handleGuideTypeChange() {
+        const selectedGuide = document.querySelector('input[name="guideType"]:checked');
+        const guideDepth = document.getElementById('guideDepth');
+        
+        if (!selectedGuide) return;
+        
+        // Update guide option visuals
+        document.querySelectorAll('.guide-option').forEach(option => {
+            option.classList.remove('active');
+        });
+        
+        const selectedOption = selectedGuide.nextElementSibling;
+        if (selectedOption) {
+            selectedOption.classList.add('active');
+        }
+        
+        // Set default depth based on guide width
+        const guideDefaults = {
+            '50': 20,
+            '75': 25,
+            '100': 30
+        };
+        
+        if (guideDepth) {
+            guideDepth.value = guideDefaults[selectedGuide.value] || 25;
+        }
+    }
+    
+    handleWallTypeChange() {
+        const selectedWallType = document.querySelector('input[name="wallType"]:checked');
+        const attachmentPoints = document.getElementById('attachmentPoints');
+        
+        if (!selectedWallType) return;
+        
+        // Update wall option visuals
+        document.querySelectorAll('.wall-option').forEach(option => {
+            option.classList.remove('active');
+        });
+        
+        const selectedOption = selectedWallType.nextElementSibling;
+        if (selectedOption) {
+            selectedOption.classList.add('active');
+        }
+        
+        // Show/hide attachment points configuration
+        if (attachmentPoints) {
+            if (selectedWallType.value === 'attached') {
+                attachmentPoints.style.display = 'block';
+            } else {
+                attachmentPoints.style.display = 'none';
+                // Clear attachment checkboxes when hiding
+                const checkboxes = attachmentPoints.querySelectorAll('.attachment-checkbox');
+                checkboxes.forEach(checkbox => checkbox.checked = false);
+            }
+        }
+    }
+    
+    handleAttachmentPointsChange() {
+        const checkboxes = document.querySelectorAll('.attachment-checkbox:checked');
+        console.log(`📎 Attachment points selected: ${checkboxes.length}`);
+    }
+    
+    collectProjectParameters() {
+        // Material parameters
+        const materialType = document.getElementById('materialType')?.value || 'melamine';
+        const materialThickness = parseInt(document.getElementById('materialThickness')?.value) || 18;
+        const materialDensity = parseInt(document.getElementById('materialDensity')?.value) || 650;
+        
+        // Guide parameters
+        const selectedGuide = document.querySelector('input[name="guideType"]:checked');
+        const guideType = selectedGuide ? selectedGuide.value : '75';
+        const guideDepth = parseInt(document.getElementById('guideDepth')?.value) || 25;
+        
+        // Wall position parameters
+        const selectedWallType = document.querySelector('input[name="wallType"]:checked');
+        const wallType = selectedWallType ? selectedWallType.value : 'new';
+        
+        const attachmentPoints = [];
+        if (wallType === 'attached') {
+            const checkboxes = document.querySelectorAll('.attachment-checkbox:checked');
+            checkboxes.forEach(checkbox => {
+                attachmentPoints.push(checkbox.id.replace('attach', '').toLowerCase());
+            });
+        }
+        
+        // Ceiling parameters
+        const ceilingHeight = parseInt(document.getElementById('ceilingHeight')?.value) || 2700;
+        const enableMoretti = document.getElementById('enableMoretti')?.checked || true;
+        
+        // Advanced parameters
+        const enableAutoMeasurements = document.getElementById('enableAutoMeasurements')?.checked || true;
+        const enableCostEstimation = document.getElementById('enableCostEstimation')?.checked || true;
+        
+        return {
+            material: {
+                type: materialType,
+                thickness_mm: materialThickness,
+                density_kg_m3: materialDensity
+            },
+            guide: {
+                type: `${guideType}mm`,
+                width_mm: parseInt(guideType),
+                depth_mm: guideDepth
+            },
+            wall: {
+                position: wallType,
+                is_attached: wallType === 'attached',
+                attachment_points: attachmentPoints
+            },
+            ceiling: {
+                height_mm: ceilingHeight,
+                enable_moretti_calculation: enableMoretti
+            },
+            advanced: {
+                enable_automatic_measurements: enableAutoMeasurements,
+                enable_cost_estimation: enableCostEstimation
+            }
+        };
+    }
+    
+    validateProjectParameters(params) {
+        // Basic validation
+        if (params.material.thickness_mm < 10 || params.material.thickness_mm > 50) {
+            this.showToast('Spessore materiale deve essere tra 10 e 50 mm', 'error');
+            return false;
+        }
+        
+        if (params.ceiling.height_mm < 2200 || params.ceiling.height_mm > 4000) {
+            this.showToast('Altezza soffitto deve essere tra 2200 e 4000 mm', 'error');
+            return false;
+        }
+        
+        if (params.wall.is_attached && params.wall.attachment_points.length === 0) {
+            this.showToast('Seleziona almeno un punto di appoggio per pareti attaccate', 'warning');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    updateParametersSummary(params = null) {
+        if (!params) {
+            params = this.collectProjectParameters();
+        }
+        
+        // Update summary display
+        const summaryMaterial = document.getElementById('summaryMaterial');
+        const summaryGuides = document.getElementById('summaryGuides');
+        const summaryWallType = document.getElementById('summaryWallType');
+        const summaryCeiling = document.getElementById('summaryCeiling');
+        
+        if (summaryMaterial) {
+            summaryMaterial.textContent = `${params.material.type.charAt(0).toUpperCase() + params.material.type.slice(1)} ${params.material.thickness_mm}mm`;
+        }
+        
+        if (summaryGuides) {
+            summaryGuides.textContent = `${params.guide.width_mm}mm ${params.guide.width_mm === 75 ? 'Standard' : params.guide.width_mm === 50 ? 'Strette' : 'Larghe'}`;
+        }
+        
+        if (summaryWallType) {
+            let wallText = params.wall.is_attached ? 'Parete Attaccata' : 'Parete Nuova';
+            if (params.wall.is_attached && params.wall.attachment_points.length > 0) {
+                wallText += ` (${params.wall.attachment_points.join(', ')})`;
+            }
+            summaryWallType.textContent = wallText;
+        }
+        
+        if (summaryCeiling) {
+            summaryCeiling.textContent = `${params.ceiling.height_mm}mm`;
+        }
+        
+        // Store parameters for later use in processing
+        this.projectParameters = params;
+        
+        console.log('📋 Project parameters updated:', params);
     }
 }
 

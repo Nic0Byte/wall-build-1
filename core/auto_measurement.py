@@ -16,19 +16,37 @@ class MeasurementUnit(Enum):
     M = "m"
 
 @dataclass
+@dataclass
 class MaterialSpec:
     """Specifiche materiale."""
     thickness_mm: int
     density_kg_m3: float
     strength_factor: float = 1.0
     
+    def to_dict(self):
+        return {
+            "thickness_mm": self.thickness_mm,
+            "density_kg_m3": self.density_kg_m3,
+            "strength_factor": self.strength_factor
+        }
+    
 @dataclass 
+@dataclass
 class GuideSpec:
     """Specifiche guide."""
     width_mm: int
     depth_mm: int
     max_load_kg: float
-    type: str  # "50mm", "75mm", "100mm"
+    material_type: str  # "50mm", "75mm", "100mm"
+    
+    def to_dict(self) -> Dict:
+        """Converte GuideSpec in dizionario per serializzazione JSON."""
+        return {
+            "width_mm": self.width_mm,
+            "depth_mm": self.depth_mm,
+            "max_load_kg": self.max_load_kg,
+            "material_type": self.material_type
+        }
 
 @dataclass
 class CalculationResult:
@@ -39,6 +57,17 @@ class CalculationResult:
     technical_notes: List[str]
     warnings: List[str]
     formula: str
+    
+    def to_dict(self) -> Dict:
+        """Converte CalculationResult in dizionario per serializzazione JSON."""
+        return {
+            "closure_thickness_mm": self.closure_thickness_mm,
+            "total_thickness_mm": self.total_thickness_mm,
+            "moretti_height_mm": self.moretti_height_mm,
+            "technical_notes": self.technical_notes,
+            "warnings": self.warnings,
+            "formula": self.formula
+        }
 
 class AutoMeasurementCalculator:
     """
@@ -169,7 +198,7 @@ class AutoMeasurementCalculator:
             },
             "guides": {
                 "length_m": guide_length_m,
-                "type": guide.type,
+                "type": guide.material_type,
                 "width_mm": guide.width_mm
             },
             "moretti": {
@@ -433,7 +462,7 @@ def create_calculation_from_config(config: Dict) -> CalculationResult:
         width_mm=config.get("guide_width_mm", 75),
         depth_mm=config.get("guide_depth_mm", 25),
         max_load_kg=config.get("guide_max_load", 40.0),
-        type=config.get("guide_type", "75mm")
+        material_type=config.get("guide_type", "75mm")
     )
     
     calculator = AutoMeasurementCalculator()
@@ -453,7 +482,7 @@ def validate_project_measurements(project_config: Dict) -> Dict:
         width_mm=project_config.get("guide_width_mm", 75),
         depth_mm=project_config.get("guide_depth_mm", 25),
         max_load_kg=project_config.get("guide_max_load", 40.0),
-        type=project_config.get("guide_type", "75mm")
+        material_type=project_config.get("guide_type", "75mm")
     )
     
     wall_dimensions = {
@@ -514,7 +543,7 @@ if __name__ == "__main__":
     print("🧪 Test combinazioni diverse:")
     for combo in test_combinations:
         mat = MaterialSpec(thickness_mm=combo["material"], density_kg_m3=650.0)
-        gui = GuideSpec(width_mm=combo["guide"], depth_mm=20, max_load_kg=30.0, type=f"{combo['guide']}mm")
+        gui = GuideSpec(width_mm=combo["guide"], depth_mm=20, max_load_kg=30.0, material_type=f"{combo['guide']}mm")
         
         result = calculator.calculate_closure_thickness(mat, gui)
         

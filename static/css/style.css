@@ -2860,7 +2860,375 @@ table tbody tr:hover {
     /* Dark mode styles can be added here when needed */
 }
 
-/* ===== High Contrast Mode ===== */
+/* ===== NEW: Project Parameters Section Styles ===== */
+.project-params-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-6);
+}
+
+/* Material Configuration Card */
+.material-config-card {
+    background: linear-gradient(135deg, var(--primary-50) 0%, var(--gray-50) 100%);
+    border-left: 4px solid var(--primary-500);
+}
+
+.material-config-card .param-input {
+    background: white;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-3);
+    font-size: var(--font-size-sm);
+    transition: var(--transition-normal);
+}
+
+.material-config-card .param-input:focus {
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-50);
+    outline: none;
+}
+
+/* Guide Configuration Card */
+.guide-config-card {
+    background: linear-gradient(135deg, var(--success-50) 0%, var(--gray-50) 100%);
+    border-left: 4px solid var(--success-500);
+}
+
+.guide-selector {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+}
+
+.guide-radio {
+    display: none;
+}
+
+.guide-option {
+    flex: 1;
+    padding: var(--spacing-3);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    background: white;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    text-align: center;
+}
+
+.guide-option:hover {
+    border-color: var(--success-300);
+    background: var(--success-50);
+}
+
+.guide-option.active,
+.guide-radio:checked + .guide-option {
+    border-color: var(--success-500);
+    background: var(--success-100);
+    color: var(--success-700);
+}
+
+.guide-size {
+    display: block;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--success-700);
+}
+
+.guide-desc {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--gray-600);
+    margin-top: var(--spacing-1);
+}
+
+/* Wall Position Configuration Card */
+.wall-position-card {
+    background: linear-gradient(135deg, var(--warning-50) 0%, var(--gray-50) 100%);
+    border-left: 4px solid var(--warning-500);
+}
+
+.wall-type-selector {
+    display: flex;
+    gap: var(--spacing-3);
+    margin-top: var(--spacing-2);
+}
+
+.wall-radio {
+    display: none;
+}
+
+.wall-option {
+    flex: 1;
+    padding: var(--spacing-4);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    background: white;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    text-align: center;
+}
+
+.wall-option:hover {
+    border-color: var(--warning-300);
+    background: var(--warning-50);
+}
+
+.wall-option.active,
+.wall-radio:checked + .wall-option {
+    border-color: var(--warning-500);
+    background: var(--warning-100);
+}
+
+.wall-option i {
+    font-size: var(--font-size-2xl);
+    color: var(--warning-600);
+    margin-bottom: var(--spacing-2);
+}
+
+.wall-option span {
+    display: block;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: var(--spacing-1);
+}
+
+.wall-option small {
+    display: block;
+    color: var(--gray-600);
+    font-size: var(--font-size-xs);
+}
+
+/* Attachment Points Configuration */
+.attachment-config {
+    margin-top: var(--spacing-4);
+    padding-top: var(--spacing-4);
+    border-top: 1px solid var(--gray-200);
+}
+
+.attachment-selector {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+}
+
+.attachment-point {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-2);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    background: white;
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.attachment-point:hover {
+    background: var(--warning-50);
+    border-color: var(--warning-300);
+}
+
+.attachment-checkbox {
+    margin-right: var(--spacing-2);
+}
+
+.attachment-checkbox:checked ~ .attachment-label {
+    color: var(--warning-700);
+    font-weight: 600;
+}
+
+.attachment-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    font-size: var(--font-size-sm);
+}
+
+/* Ceiling Configuration Card */
+.ceiling-config-card {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--primary-50) 100%);
+    border-left: 4px solid var(--gray-500);
+}
+
+/* Advanced Configuration Card */
+.advanced-config-card {
+    background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-50) 100%);
+    border-left: 4px solid var(--gray-600);
+}
+
+/* Parameter Row Styles */
+.param-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+}
+
+.param-row:last-child {
+    margin-bottom: 0;
+}
+
+.param-row label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.param-input {
+    padding: var(--spacing-3);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    transition: var(--transition-normal);
+    background: white;
+}
+
+.param-input:focus {
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-50);
+    outline: none;
+}
+
+.param-checkbox {
+    margin-right: var(--spacing-2);
+}
+
+.param-help {
+    font-size: var(--font-size-xs);
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.param-help-box {
+    background: var(--warning-50);
+    border: 1px solid var(--warning-200);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-3);
+    margin-top: var(--spacing-3);
+    font-size: var(--font-size-sm);
+    color: var(--warning-800);
+}
+
+.param-help-box i {
+    margin-right: var(--spacing-2);
+    color: var(--warning-600);
+}
+
+.param-note {
+    background: var(--primary-50);
+    border: 1px solid var(--primary-200);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-3);
+    margin-top: var(--spacing-2);
+    font-size: var(--font-size-sm);
+    color: var(--primary-800);
+}
+
+.param-note i {
+    margin-right: var(--spacing-2);
+    color: var(--primary-600);
+}
+
+/* Parameters Summary */
+.params-summary {
+    background: white;
+    border: 2px solid var(--primary-200);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-6);
+    margin-top: var(--spacing-8);
+    box-shadow: var(--shadow-md);
+}
+
+.summary-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+    padding-bottom: var(--spacing-3);
+    border-bottom: 2px solid var(--primary-100);
+}
+
+.summary-header i {
+    color: var(--primary-600);
+    font-size: var(--font-size-lg);
+}
+
+.summary-header span {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--primary-800);
+}
+
+.summary-content {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-2);
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+}
+
+.summary-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.summary-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+/* Step Actions */
+.step-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-8);
+    padding-top: var(--spacing-6);
+    border-top: 1px solid var(--gray-200);
+}
+
+/* Responsive Design for Project Parameters */
+@media (max-width: 768px) {
+    .project-params-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-4);
+    }
+    
+    .guide-selector {
+        flex-direction: column;
+    }
+    
+    .wall-type-selector {
+        flex-direction: column;
+    }
+    
+    .attachment-selector {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .step-actions {
+        flex-direction: column;
+        gap: var(--spacing-3);
+    }
+    
+    .step-actions .btn {
+        width: 100%;
+    }
+}
+
+/* High Contrast Mode ===== */
 @media (prefers-contrast: high) {
     :root {
         --gray-50: #ffffff;

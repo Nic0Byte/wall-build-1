@@ -42,7 +42,6 @@ def generate_preview_image(
     block_config: Optional[Dict] = None,
     width: int = 800,
     height: int = 600,
-    enhanced_info: Optional[Dict] = None,
 ) -> str:
     """
     Genera immagine preview come stringa base64.
@@ -56,7 +55,6 @@ def generate_preview_image(
         block_config: Configurazione blocchi personalizzata
         width: Larghezza immagine in pixel
         height: Altezza immagine in pixel
-        enhanced_info: Informazioni per preview enhanced (frecce, titolo, info aggiuntive)
         
     Returns:
         String base64 dell'immagine PNG o stringa vuota se errore
@@ -226,82 +224,12 @@ def generate_preview_image(
                 ax.plot(x, y, color=door_window_border, linestyle="--", linewidth=2)
                 ax.fill(x, y, color=door_window_color, alpha=0.15)
 
-        # Configurazione grafico con supporto enhanced
-        if enhanced_info and enhanced_info.get("enhanced", False):
-            # Enhanced title and arrows
-            thickness_mm = enhanced_info.get("automatic_measurements", {}).get("closure_calculation", {}).get("closure_thickness_mm", "N/A")
-            starting_pos = enhanced_info.get("automatic_measurements", {}).get("mounting_strategy", {}).get("starting_point", "bottom")
-            
-            title = f"Enhanced Preview - Spessore: {thickness_mm}mm - Start: {starting_pos}"
-            ax.set_title(title, fontsize=11, fontweight="bold", color="#059669")
-            
-            # Add directional arrows for starting position
-            if starting_pos:
-                minx, miny, maxx, maxy = wall_polygon.bounds
-                arrow_props = dict(arrowstyle='->', lw=2, color='#dc2626')
-                
-                if starting_pos.lower() == "left":
-                    # Arrow pointing to left side
-                    ax.annotate("INIZIO", xy=(minx, (miny + maxy) / 2), 
-                               xytext=(minx - (maxx - minx) * 0.15, (miny + maxy) / 2),
-                               fontsize=10, fontweight='bold', color='#dc2626',
-                               ha='center', va='center',
-                               arrowprops=arrow_props)
-                elif starting_pos.lower() == "right":
-                    # Arrow pointing to right side  
-                    ax.annotate("INIZIO", xy=(maxx, (miny + maxy) / 2),
-                               xytext=(maxx + (maxx - minx) * 0.15, (miny + maxy) / 2),
-                               fontsize=10, fontweight='bold', color='#dc2626', 
-                               ha='center', va='center',
-                               arrowprops=arrow_props)
-                elif starting_pos.lower() == "bottom":
-                    # Arrow pointing to bottom-left corner (actual starting point for block laying)
-                    ax.annotate("INIZIO", xy=(minx + (maxx - minx) * 0.1, miny),
-                               xytext=(minx + (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
-                               fontsize=10, fontweight='bold', color='#dc2626',
-                               ha='center', va='center',
-                               arrowprops=arrow_props)
-        else:
-            # Standard title
-            ax.set_title("Preview Costruzione Parete", fontsize=12, fontweight="bold", color="#1f2937")
-        
+        # Configurazione grafico
+        ax.set_title("Preview Costruzione Parete", fontsize=12, fontweight="bold", color="#1f2937")
         ax.grid(True, alpha=0.3, color="#9ca3af")
         ax.tick_params(axis="both", which="major", labelsize=8, colors="#6b7280")
 
-        # Add enhanced info box below the main plot if enhanced
-        if enhanced_info and enhanced_info.get("enhanced", False):
-            auto_measurements = enhanced_info.get("automatic_measurements", {})
-            closure_calc = auto_measurements.get("closure_calculation", {})
-            mounting_strategy = auto_measurements.get("mounting_strategy", {})
-            production_params = enhanced_info.get("production_parameters", {})
-            
-            # Create info text (without costs as requested)
-            info_lines = []
-            thickness_mm = closure_calc.get("closure_thickness_mm", "N/A")
-            if thickness_mm != "N/A":
-                info_lines.append(f"Spessore Automatico: {thickness_mm}mm")
-            
-            mounting_type = mounting_strategy.get("type", "")
-            if mounting_type:
-                info_lines.append(f"Montaggio: {mounting_type}")
-            
-            efficiency = production_params.get("material_efficiency")
-            if efficiency:
-                info_lines.append(f"Efficienza: {efficiency:.1f}%")
-            
-            # Add info box at the bottom, outside the main plot area
-            if info_lines:
-                info_text = " | ".join(info_lines)  # Use horizontal layout
-                # Position at the bottom of the figure
-                fig.text(0.5, 0.02, info_text, 
-                        fontsize=10,
-                        ha='center', va='bottom',
-                        bbox=dict(boxstyle="round,pad=0.5", 
-                                facecolor='#f0fdf4', 
-                                edgecolor='#059669',
-                                alpha=0.9))
-
-        # Genera immagine PNG con più spazio per info box
+        # Genera immagine PNG
         img_buffer = io.BytesIO()
         fig.savefig(
             img_buffer,

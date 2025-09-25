@@ -156,12 +156,230 @@
                         </div>
                     </section>
 
-                    <!-- Step 2: Configuration -->
-                    <section class="step-section" id="configSection" style="display: none;">
+                    <!-- NEW STEP: Project Parameters -->
+                    <section class="step-section" id="projectParamsSection" style="display: none;">
                         <div class="step-header">
                             <div class="step-number">2</div>
                             <div class="step-info">
-                                <h2>Configurazione Parametri</h2>
+                                <h2>Parametri di Progetto</h2>
+                                <p>Inserisci le specifiche tecniche per il calcolo automatico delle misure</p>
+                            </div>
+                        </div>
+                        
+                        <div class="config-grid project-params-grid">
+                            <!-- Material Configuration -->
+                            <div class="config-card material-config-card">
+                                <label>
+                                    <i class="fas fa-layer-group"></i>
+                                    Configurazione Materiale
+                                </label>
+                                <div class="param-row">
+                                    <label for="materialType">Tipologia Materiale:</label>
+                                    <select id="materialType" class="param-input">
+                                        <option value="melamine">Melamina</option>
+                                        <option value="mdf">MDF</option>
+                                        <option value="chipboard">Truciolato</option>
+                                        <option value="plywood">Multistrato</option>
+                                        <option value="custom">Personalizzato</option>
+                                    </select>
+                                </div>
+                                <div class="param-row">
+                                    <label for="materialThickness">Spessore Materiale (mm):</label>
+                                    <input type="number" id="materialThickness" class="param-input" value="18" min="10" max="50" step="1">
+                                    <span class="param-help">*Influenza calcolo spessore chiusure</span>
+                                </div>
+                                <div class="param-row">
+                                    <label for="materialDensity">Densità (kg/m³):</label>
+                                    <input type="number" id="materialDensity" class="param-input" value="650" min="400" max="1000" step="10">
+                                </div>
+                            </div>
+
+                            <!-- Guide Configuration -->
+                            <div class="config-card guide-config-card">
+                                <label>
+                                    <i class="fas fa-ruler-horizontal"></i>
+                                    Configurazione Guide
+                                </label>
+                                <div class="param-row">
+                                    <label>Tipologia Guide da Utilizzare:</label>
+                                    <div class="guide-selector">
+                                        <input type="radio" id="guide50" name="guideType" value="50" class="guide-radio">
+                                        <label for="guide50" class="guide-option">
+                                            <span class="guide-size">50mm</span>
+                                            <span class="guide-desc">Guide Strette</span>
+                                        </label>
+                                        
+                                        <input type="radio" id="guide75" name="guideType" value="75" class="guide-radio" checked>
+                                        <label for="guide75" class="guide-option active">
+                                            <span class="guide-size">75mm</span>
+                                            <span class="guide-desc">Guide Standard</span>
+                                        </label>
+                                        
+                                        <input type="radio" id="guide100" name="guideType" value="100" class="guide-radio">
+                                        <label for="guide100" class="guide-option">
+                                            <span class="guide-size">100mm</span>
+                                            <span class="guide-desc">Guide Larghe</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="param-row">
+                                    <label for="guideDepth">Profondità Guide (mm):</label>
+                                    <input type="number" id="guideDepth" class="param-input" value="25" min="15" max="50" step="1">
+                                </div>
+                            </div>
+
+                            <!-- Wall Position Configuration -->
+                            <div class="config-card wall-position-card">
+                                <label>
+                                    <i class="fas fa-home"></i>
+                                    Posizione Parete e Punti di Appoggio
+                                </label>
+                                <div class="param-row">
+                                    <label>Tipologia Parete:</label>
+                                    <div class="wall-type-selector">
+                                        <input type="radio" id="wallNew" name="wallType" value="new" class="wall-radio" checked>
+                                        <label for="wallNew" class="wall-option active">
+                                            <i class="fas fa-plus-circle"></i>
+                                            <span>Parete Nuova</span>
+                                            <small>Parete indipendente</small>
+                                        </label>
+                                        
+                                        <input type="radio" id="wallAttached" name="wallType" value="attached" class="wall-radio">
+                                        <label for="wallAttached" class="wall-option">
+                                            <i class="fas fa-link"></i>
+                                            <span>Parete Attaccata</span>
+                                            <small>Appoggiata a muri esistenti</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Attachment Points (shown only for attached walls) -->
+                                <div id="attachmentPoints" class="attachment-config" style="display: none;">
+                                    <div class="param-row">
+                                        <label>Lati di Appoggio:</label>
+                                        <div class="attachment-selector">
+                                            <label class="attachment-point">
+                                                <input type="checkbox" id="attachLeft" class="attachment-checkbox">
+                                                <span class="attachment-label">
+                                                    <i class="fas fa-arrow-left"></i> Sinistra
+                                                </span>
+                                            </label>
+                                            <label class="attachment-point">
+                                                <input type="checkbox" id="attachRight" class="attachment-checkbox">
+                                                <span class="attachment-label">
+                                                    <i class="fas fa-arrow-right"></i> Destra
+                                                </span>
+                                            </label>
+                                            <label class="attachment-point">
+                                                <input type="checkbox" id="attachTop" class="attachment-checkbox">
+                                                <span class="attachment-label">
+                                                    <i class="fas fa-arrow-up"></i> Alto
+                                                </span>
+                                            </label>
+                                            <label class="attachment-point">
+                                                <input type="checkbox" id="attachBottom" class="attachment-checkbox">
+                                                <span class="attachment-label">
+                                                    <i class="fas fa-arrow-down"></i> Basso
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="param-help-box">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span><strong>Importante:</strong> L'algoritmo inizierà il posizionamento dei blocchi dal lato fissato selezionato</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ceiling and Moretti Configuration -->
+                            <div class="config-card ceiling-config-card">
+                                <label>
+                                    <i class="fas fa-ruler-vertical"></i>
+                                    Altezze e Moretti
+                                </label>
+                                <div class="param-row">
+                                    <label for="ceilingHeight">Altezza Soffitto (mm):</label>
+                                    <input type="number" id="ceilingHeight" class="param-input" value="2700" min="2200" max="4000" step="10">
+                                    <span class="param-help">Altezza dal pavimento al soffitto</span>
+                                </div>
+                                <div class="param-row">
+                                    <label>
+                                        <input type="checkbox" id="enableMoretti" class="param-checkbox" checked>
+                                        Calcolo Automatico Moretti
+                                    </label>
+                                    <span class="param-help">Per pareti che non raggiungono il soffitto</span>
+                                </div>
+                                <div id="morettiNote" class="param-note">
+                                    <i class="fas fa-calculator"></i>
+                                    <span>I moretti verranno calcolati automaticamente in base all'altezza parete e del soffitto</span>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Options -->
+                            <div class="config-card advanced-config-card">
+                                <label>
+                                    <i class="fas fa-cogs"></i>
+                                    Opzioni Avanzate
+                                </label>
+                                <div class="param-row">
+                                    <label>
+                                        <input type="checkbox" id="enableAutoMeasurements" class="param-checkbox" checked>
+                                        Calcoli Automatici Attivati
+                                    </label>
+                                    <span class="param-help">Calcolo spessore chiusure e parametri</span>
+                                </div>
+                                <div class="param-row">
+                                    <label>
+                                        <input type="checkbox" id="enableCostEstimation" class="param-checkbox" checked>
+                                        Stima Costi Materiali
+                                    </label>
+                                    <span class="param-help">Calcolo automatico fabbisogno e costi</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parameters Summary -->
+                        <div class="params-summary" id="paramsSummary">
+                            <div class="summary-header">
+                                <i class="fas fa-clipboard-check"></i>
+                                <span>Riepilogo Parametri Impostati</span>
+                            </div>
+                            <div class="summary-content" id="paramsSummaryContent">
+                                <div class="summary-item">
+                                    <span class="summary-label">Materiale:</span>
+                                    <span class="summary-value" id="summaryMaterial">Melamina 18mm</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Guide:</span>
+                                    <span class="summary-value" id="summaryGuides">75mm Standard</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Tipologia:</span>
+                                    <span class="summary-value" id="summaryWallType">Parete Nuova</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Soffitto:</span>
+                                    <span class="summary-value" id="summaryCeiling">2700mm</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="step-actions">
+                            <button type="button" class="btn btn-secondary" id="backToUpload">
+                                <i class="fas fa-arrow-left"></i> Indietro
+                            </button>
+                            <button type="button" class="btn btn-primary" id="proceedToConfig">
+                                <i class="fas fa-arrow-right"></i> Continua
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Step 3: Configuration -->
+                    <section class="step-section" id="configSection" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
+                            <div class="step-info">
+                                <h2>Configurazione Blocchi</h2>
                                 <p>Personalizza le impostazioni di packing per ottimizzare il risultato</p>
                             </div>
                         </div>
@@ -252,10 +470,10 @@
                         </div>
                     </section>
 
-                    <!-- Step 3: Results -->
+                    <!-- Step 4: Results -->
                     <section class="step-section" id="resultsSection" style="display: none;">
                         <div class="step-header">
-                            <div class="step-number">3</div>
+                            <div class="step-number">4</div>
                             <div class="step-info">
                                 <h2>Risultati Packing</h2>
                                 <p>Visualizza il layout calcolato e scarica i risultati</p>
@@ -332,33 +550,7 @@
                                         </table>
                                     </div>
                                 </div>
-                                
-                                <!-- Metrics -->
-                                <div class="summary-card metrics-card">
-                                    <h3><i class="fas fa-chart-bar"></i> Metriche Qualità</h3>
-                                    <div class="metrics-grid">
-                                        <div class="metric-item">
-                                            <div class="metric-icon"><i class="fas fa-percentage"></i></div>
-                                            <div class="metric-value" id="metricEfficiency">0%</div>
-                                            <div class="metric-label">Efficienza</div>
-                                        </div>
-                                        <div class="metric-item">
-                                            <div class="metric-icon"><i class="fas fa-trash-alt"></i></div>
-                                            <div class="metric-value" id="metricWaste">0%</div>
-                                            <div class="metric-label">Spreco</div>
-                                        </div>
-                                        <div class="metric-item">
-                                            <div class="metric-icon"><i class="fas fa-layer-group"></i></div>
-                                            <div class="metric-value" id="metricComplexity">0</div>
-                                            <div class="metric-label">Complessità</div>
-                                        </div>
-                                        <div class="metric-item">
-                                            <div class="metric-icon"><i class="fas fa-fill"></i></div>
-                                            <div class="metric-value" id="metricCoverage">0%</div>
-                                            <div class="metric-label">Copertura</div>
-                                        </div>
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                         

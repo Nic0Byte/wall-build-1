@@ -203,6 +203,7 @@ async def get_preview_image(session_id: str):
     """
     # Import qui per evitare circular imports
     from main import SESSIONS, generate_preview_image
+    from shapely.geometry import Polygon
     
     try:
         if session_id not in SESSIONS:
@@ -210,14 +211,70 @@ async def get_preview_image(session_id: str):
         
         session = SESSIONS[session_id]
         
+        # Check if it's an enhanced session (data is wrapped in "data" key)
+        if "data" in session and session.get("enhanced", False):
+            # Enhanced session format
+            data = session["data"]
+            
+            # Reconstruct wall_polygon from wall_bounds
+            if "wall_bounds" in data:
+                wall_bounds = data["wall_bounds"]
+                wall_polygon = Polygon([
+                    (wall_bounds[0], wall_bounds[1]),  # minx, miny
+                    (wall_bounds[2], wall_bounds[1]),  # maxx, miny
+                    (wall_bounds[2], wall_bounds[3]),  # maxx, maxy
+                    (wall_bounds[0], wall_bounds[3])   # minx, maxy
+                ])
+            else:
+                raise ValueError("wall_bounds non trovati nella sessione enhanced")
+            
+            # Extract other required data for preview
+            placed = data.get("blocks_standard", [])
+            customs = data.get("blocks_custom", []) 
+            apertures_data = data.get("apertures", [])
+            
+            # Convert apertures format if needed
+            apertures = []
+            for ap in apertures_data:
+                if "bounds" in ap:
+                    bounds = ap["bounds"]
+                    apertures.append(Polygon([
+                        (bounds[0], bounds[1]),
+                        (bounds[2], bounds[1]),
+                        (bounds[2], bounds[3]),
+                        (bounds[0], bounds[3])
+                    ]))
+            
+            config = data.get("config", {})
+            color_theme = config.get("color_theme", {})
+            
+            # Extract enhanced information
+            enhanced_info = {
+                "automatic_measurements": data.get("automatic_measurements", {}),
+                "blocks_with_measurements": data.get("blocks_with_measurements", {}),
+                "cutting_list": data.get("cutting_list", {}),
+                "production_parameters": data.get("production_parameters", {}),
+                "enhanced": True
+            }
+        else:
+            # Standard session format  
+            wall_polygon = session["wall_polygon"]
+            placed = session["placed"]
+            customs = session["customs"] 
+            apertures = session["apertures"]
+            color_theme = session["config"].get("color_theme", {})
+            config = session["config"]
+            enhanced_info = {"enhanced": False}
+        
         # Genera preview
         preview_base64 = generate_preview_image(
-            session["wall_polygon"],
-            session["placed"],
-            session["customs"],
-            session["apertures"],
-            session["config"].get("color_theme", {}),
-            session["config"]
+            wall_polygon,
+            placed,
+            customs,
+            apertures,
+            color_theme,
+            config,
+            enhanced_info=enhanced_info  # Pass enhanced data
         )
         
         if not preview_base64:
@@ -249,3 +306,196 @@ async def reconfigure_packing(
     except Exception as e:
         print(f"❌ Errore reconfig: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/enhanced-pack")
+async def enhanced_upload_and_process(
+    file: UploadFile = File(...),
+    row_offset: int = Form(826),
+    block_widths: str = Form("1239,826,413"),
+    project_name: str = Form("Progetto Parete"),
+    color_theme: str = Form("{}"),
+    block_dimensions: str = Form("{}"),
+    material_config: str = Form("{}"),  # NEW: Material configuration parameters
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Enhanced upload e processamento completo con calcoli automatici delle misure.
+    Include parametri materiali, guide, posizionamento parete e calcolo moretti.
+    """
+    # Import qui per evitare circular imports
+    from main import (
+        SESSIONS, PackingResult, parse_wall_file, pack_wall, opt_pass, 
+        summarize_blocks, calculate_metrics, get_block_schema_from_frontend,
+        get_default_block_schema, BLOCK_WIDTHS, BLOCK_HEIGHT, SIZE_TO_LETTER,
+        ENHANCED_PACKING_AVAILABLE, enhance_packing_with_automatic_measurements
+    )
+    
+    try:
+        # Log dell'attività dell'utente
+        print(f"📁 Enhanced processing per file '{file.filename}' da utente: {current_user.username}")
+        
+        # Validazione file
+        file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+        supported_formats = ['svg', 'dwg', 'dxf']
+        
+        if file_ext not in supported_formats:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Formato file non supportato. Formati accettati: {', '.join(supported_formats).upper()}"
+            )
+        
+        if file.size and file.size > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=413, detail="File troppo grande (max 10MB)")
+        
+        # Parse material configuration
+        try:
+            material_params = json.loads(material_config) if material_config != "{}" else {}
+        except json.JSONDecodeError:
+            material_params = {}
+        
+        print(f"🔧 Material parameters ricevuti: {material_params}")
+        
+        # Parse block dimensions from frontend
+        try:
+            block_dims = json.loads(block_dimensions)
+        except json.JSONDecodeError:
+            block_dims = {}
+        
+        # Parse color theme
+        try:
+            theme = json.loads(color_theme)  
+        except json.JSONDecodeError:
+            theme = {}
+        
+        # Get block schema (standard o custom)
+        block_schema = get_block_schema_from_frontend(block_dims)
+        
+        # Generate unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Save file content to memory for processing
+        file_content = await file.read()
+        await file.seek(0)  # Reset for potential reuse
+        
+        # Parse wall geometry
+        print(f"🔍 Parsing file: {file.filename} ({file_ext})")
+        wall_exterior, apertures = parse_wall_file(file_content, file.filename)
+        
+        if not wall_exterior or wall_exterior.is_empty:
+            raise HTTPException(status_code=400, detail="Nessuna geometria valida trovata nel file")
+        
+        print(f"✅ Geometria parsed - Area parete: {wall_exterior.area/1000000:.2f} m²")
+        print(f"📐 Aperture trovate: {len(apertures)}")
+        
+        # Convert block_widths string to list
+        try:
+            widths_list = [int(w.strip()) for w in block_widths.split(',') if w.strip()]
+        except ValueError:
+            widths_list = block_schema["block_widths"]
+        
+        # ===== ENHANCED PACKING LOGIC =====
+        
+        # Perform standard packing
+        placed, custom = pack_wall(
+            wall_exterior, 
+            widths_list, 
+            block_schema["block_height"],
+            row_offset=row_offset, 
+            apertures=apertures
+        )
+        
+        # Calculate standard metrics
+        summary = summarize_blocks(placed)
+        metrics = calculate_metrics(placed, custom, wall_exterior.area)
+        
+        # Enhanced processing with automatic measurements (if available)
+        enhanced_result = None
+        if ENHANCED_PACKING_AVAILABLE and material_params:
+            print("🚀 Applying enhanced packing with automatic measurements...")
+            
+            # Prepare standard packing result for enhancement
+            standard_result = {
+                "session_id": session_id,
+                "status": "success",
+                "wall_bounds": list(wall_exterior.bounds),
+                "blocks_standard": placed,
+                "blocks_custom": custom,
+                "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
+                "summary": summary,
+                "config": {
+                    "block_widths": widths_list,
+                    "block_height": block_schema["block_height"],
+                    "row_offset": row_offset,
+                    "project_name": project_name
+                },
+                "metrics": metrics
+            }
+            
+            # Apply enhanced calculations
+            enhanced_result = enhance_packing_with_automatic_measurements(
+                standard_result, 
+                material_params
+            )
+            
+            print(f"✅ Enhanced calculations completed")
+            
+        # Prepare final result
+        if enhanced_result:
+            result = enhanced_result
+            result["enhanced"] = True
+        else:
+            # Fallback to standard result
+            result = PackingResult(
+                session_id=session_id,
+                status="success", 
+                wall_bounds=list(wall_exterior.bounds),
+                blocks_standard=placed,
+                blocks_custom=custom,
+                apertures=[{"bounds": list(ap.bounds)} for ap in apertures],
+                summary=summary,
+                config={
+                    "block_widths": widths_list,
+                    "block_height": block_schema["block_height"], 
+                    "row_offset": row_offset,
+                    "project_name": project_name,
+                    "block_schema": block_schema["schema_type"],
+                    "color_theme": theme
+                },
+                metrics=metrics
+            ).dict()
+            result["enhanced"] = False
+        
+        # Apply optimization if available
+        try:
+            result = opt_pass(result)
+            print("✅ Optimization pass applied")
+        except Exception as e:
+            print(f"⚠️ Optimization pass failed: {e}")
+        
+        # Store session
+        SESSIONS[session_id] = {
+            'data': result,
+            'timestamp': datetime.datetime.now(),
+            'user_id': current_user.id,
+            'filename': file.filename,
+            'material_config': material_params,  # Store for future reference
+            'enhanced': result.get("enhanced", False)
+        }
+        
+        print(f"💾 Enhanced session {session_id} salvata per utente {current_user.username}")
+        
+        return JSONResponse(
+            content=result,
+            headers={
+                "X-Enhanced-Processing": "true" if result.get("enhanced") else "false",
+                "X-Session-ID": session_id
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Errore enhanced processing: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Errore interno del server: {str(e)}")

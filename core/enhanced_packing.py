@@ -80,10 +80,11 @@ class EnhancedPackingCalculator:
         moretti_params = self._calculate_moretti_requirements(wall_dimensions, closure_calc, project_config)
         
         # Calcola fabbisogno materiali
+        material_spec, guide_spec = self._get_material_objects_from_dict(material_params)
         material_requirements = self.measurement_calculator.calculate_material_requirements(
             wall_dimensions, 
-            material_params["material_spec"],
-            material_params["guide_spec"],
+            material_spec,
+            guide_spec,
             moretti_params
         )
         
@@ -99,7 +100,7 @@ class EnhancedPackingCalculator:
         return {
             "wall_dimensions": wall_dimensions,
             "material_parameters": material_params,
-            "closure_calculation": closure_calc,
+            "closure_calculation": closure_calc.to_dict(),
             "mounting_strategy": mounting_strategy,
             "moretti_requirements": moretti_params,
             "material_requirements": material_requirements,
@@ -227,18 +228,19 @@ class EnhancedPackingCalculator:
                     guide = self.material_service.get_guide(guide_id)
                     
                     if material and guide:
+                        material_spec = MaterialSpec(
+                            thickness_mm=material.thickness_mm,
+                            density_kg_m3=material.density_kg_m3,
+                            strength_factor=material.strength_factor or 1.0
+                        )
                         result = {
-                            "material_spec": MaterialSpec(
-                                thickness_mm=material.thickness_mm,
-                                density_kg_m3=material.density_kg_m3,
-                                strength_factor=material.strength_factor or 1.0
-                            ),
+                            "material_spec": material_spec.to_dict(),
                             "guide_spec": GuideSpec(
                                 width_mm=guide.width_mm,
                                 depth_mm=guide.depth_mm,
                                 max_load_kg=guide.max_load_kg,
-                                type=f"{guide.width_mm}mm"
-                            ),
+                                material_type=f"{guide.width_mm}mm"
+                            ).to_dict(),
                             "source": "database"
                         }
                         
@@ -248,30 +250,53 @@ class EnhancedPackingCalculator:
                 logger.warning(f"Errore accesso database materiali: {e}")
         
         # Fallback a parametri da configurazione
+        material_spec = MaterialSpec(
+            thickness_mm=config.get("material_thickness_mm", 18),
+            density_kg_m3=config.get("material_density_kg_m3", 650.0),
+            strength_factor=config.get("material_strength_factor", 1.0)
+        )
         result = {
-            "material_spec": MaterialSpec(
-                thickness_mm=config.get("material_thickness_mm", 18),
-                density_kg_m3=config.get("material_density_kg_m3", 650.0),
-                strength_factor=config.get("material_strength_factor", 1.0)
-            ),
+            "material_spec": material_spec.to_dict(),
             "guide_spec": GuideSpec(
                 width_mm=config.get("guide_width_mm", 75),
                 depth_mm=config.get("guide_depth_mm", 25),
                 max_load_kg=config.get("guide_max_load_kg", 40.0),
-                type=config.get("guide_type", "75mm")
-            ),
+                material_type=config.get("guide_type", "75mm")
+            ).to_dict(),
             "source": "config"
         }
         
         self._calculation_cache[cache_key] = result
         return result
     
+    def _get_material_objects_from_dict(self, material_params: Dict) -> tuple[MaterialSpec, GuideSpec]:
+        """Helper per ricostruire oggetti MaterialSpec e GuideSpec dai dizionari."""
+        material_spec_dict = material_params["material_spec"]
+        guide_spec_dict = material_params["guide_spec"]
+        
+        material_spec = MaterialSpec(
+            thickness_mm=material_spec_dict["thickness_mm"],
+            density_kg_m3=material_spec_dict["density_kg_m3"],
+            strength_factor=material_spec_dict["strength_factor"]
+        )
+        
+        guide_spec = GuideSpec(
+            width_mm=guide_spec_dict["width_mm"],
+            depth_mm=guide_spec_dict["depth_mm"],
+            max_load_kg=guide_spec_dict["max_load_kg"],
+            material_type=guide_spec_dict["material_type"]
+        )
+        
+        return material_spec, guide_spec
+
     def _calculate_closure_dimensions(self, material_params: Dict) -> CalculationResult:
         """Calcola dimensioni chiusura con formula automatica."""
         
+        material_spec, guide_spec = self._get_material_objects_from_dict(material_params)
+        
         return self.measurement_calculator.calculate_closure_thickness(
-            material_params["material_spec"],
-            material_params["guide_spec"]
+            material_spec,
+            guide_spec
         )
     
     def _determine_mounting_strategy(self, config: Dict, wall_dimensions: Dict) -> Dict:
@@ -286,7 +311,7 @@ class EnhancedPackingCalculator:
             "starting_point": config.get("starting_point", "left"),
             "requires_reinforcement": wall_height > 3000,
             "mounting_sequence": [],
-            "special_notes": []
+            "special_considerations": []
         }
         
         # Logica per pareti attaccate 
@@ -296,12 +321,12 @@ class EnhancedPackingCalculator:
         
         # Considerazioni altezza
         if wall_height > 3000:
-            strategy["special_notes"].append("Parete alta - verificare stabilità")
+            strategy["special_considerations"].append("Parete alta - verificare stabilità")
             strategy["mounting_sequence"].append("Aggiungere rinforzi intermedi")
         
         # Considerazioni larghezza
         if wall_width > 5000:
-            strategy["special_notes"].append("Parete larga - considerare giunti di dilatazione")
+            strategy["special_considerations"].append("Parete larga - considerare giunti di dilatazione")
             strategy["mounting_sequence"].append("Pianificare giunti ogni 4-5m")
         
         return strategy
@@ -343,7 +368,7 @@ class EnhancedPackingCalculator:
                                         enhanced_params: Dict) -> Dict:
         """Potenzia blocchi con misure automatiche."""
         
-        closure_thickness = enhanced_params["closure_calculation"].closure_thickness_mm
+        closure_thickness = enhanced_params["closure_calculation"]["closure_thickness_mm"]
         
         enhanced_standard = []
         for block in standard_blocks:
@@ -378,23 +403,23 @@ class EnhancedPackingCalculator:
         """Genera lista taglio potenziata con misure automatiche."""
         
         material_req = enhanced_params["material_requirements"]
-        closure_calc = enhanced_params["closure_calculation"]
+        closure_calc = enhanced_params["closure_calculation"]  # Ora è un dizionario
         
         cutting_list = {
             "material_sheets": {
-                "thickness_mm": closure_calc.closure_thickness_mm,
+                "thickness_mm": closure_calc["closure_thickness_mm"],
                 "total_area_m2": material_req["material"]["area_m2"],
                 "total_volume_m3": material_req["material"]["volume_m3"],
                 "sheets_needed": max(1, int(material_req["material"]["area_m2"] / 3.125))  # Sheet 2.5x1.25m
             },
             "guides": {
-                "type": enhanced_params["material_parameters"]["guide_spec"].type,
+                "type": enhanced_params["material_parameters"]["guide_spec"]["material_type"],
                 "total_length_m": material_req["guides"]["length_m"],
                 "pieces": max(1, int(material_req["guides"]["length_m"] / 3.0))  # Guide da 3m
             },
-            "cutting_instructions": closure_calc.technical_notes,
-            "formula_applied": closure_calc.formula,
-            "warnings": closure_calc.warnings
+            "cutting_instructions": closure_calc["technical_notes"],
+            "formula_applied": closure_calc["formula"],
+            "warnings": closure_calc["warnings"]
         }
         
         # Aggiungi moretti se necessari
@@ -402,7 +427,7 @@ class EnhancedPackingCalculator:
             moretti = enhanced_params["moretti_requirements"]
             cutting_list["moretti"] = {
                 "height_mm": moretti["height_mm"],
-                "thickness_mm": closure_calc.closure_thickness_mm,
+                "thickness_mm": closure_calc["closure_thickness_mm"],
                 "quantity": moretti.get("quantity_estimate", {}).get("pieces", 0),
                 "cutting_instructions": moretti.get("cutting_instructions", [])
             }
@@ -413,15 +438,15 @@ class EnhancedPackingCalculator:
         """Genera parametri per produzione."""
         
         return {
-            "closure_thickness_mm": enhanced_params["closure_calculation"].closure_thickness_mm,
+            "closure_thickness_mm": enhanced_params["closure_calculation"]["closure_thickness_mm"],
             "mounting_strategy": enhanced_params["mounting_strategy"]["type"],
             "starting_position": enhanced_params["mounting_strategy"]["starting_point"],
             "special_requirements": enhanced_params["mounting_strategy"]["special_considerations"],
             "estimated_cost": enhanced_params["material_requirements"]["cost_estimate"]["total_cost"],
             "material_efficiency": enhanced_params["material_requirements"]["cost_estimate"].get("efficiency_percent", 85),
             "production_notes": [
-                f"Spessore automatico calcolato: {enhanced_params['closure_calculation'].closure_thickness_mm}mm",
-                f"Formula: {enhanced_params['closure_calculation'].formula}",
+                f"Spessore automatico calcolato: {enhanced_params['closure_calculation']['closure_thickness_mm']}mm",
+                f"Formula: {enhanced_params['closure_calculation']['formula']}",
                 "Verificare misure prima della produzione",
                 "Mantenere tolleranze di taglio ±2mm"
             ]
