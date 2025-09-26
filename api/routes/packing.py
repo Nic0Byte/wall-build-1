@@ -14,6 +14,165 @@ from api.models import User
 
 router = APIRouter()
 
+@router.post("/preview-conversion")
+async def preview_file_conversion(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Genera solo l'anteprima della conversione del file caricato senza fare il packing.
+    Mostra la geometria convertita con le relative misure per validazione utente.
+    """
+    # Import qui per evitare circular imports
+    from main import parse_wall_file, generate_preview_image
+    
+    try:
+        # Log dell'attività dell'utente
+        print(f"🔍 Preview conversione per file '{file.filename}' da utente: {current_user.username}")
+        
+        # Validazione file
+        file_ext = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+        supported_formats = ['svg', 'dwg', 'dxf']
+        
+        if file_ext not in supported_formats:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Formato file non supportato. Formati accettati: {', '.join(supported_formats).upper()}"
+            )
+        
+        if file.size and file.size > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=413, detail="File troppo grande (max 10MB)")
+        
+        # Lettura contenuto file
+        file_content = await file.read()
+        if not file_content:
+            raise HTTPException(status_code=400, detail="File vuoto")
+        
+        # Parse del file per estrarre geometria
+        print(f"🔄 Parsing file: {file.filename} ({file_ext.upper()})")
+        wall_exterior, apertures = parse_wall_file(file_content, file.filename)
+        
+        if not wall_exterior or wall_exterior.is_empty:
+            raise HTTPException(status_code=400, detail="Nessuna geometria valida trovata nel file")
+        
+        # Calcola dimensioni e statistiche
+        bounds = wall_exterior.bounds
+        area = wall_exterior.area
+        perimeter = wall_exterior.length
+        
+        # Calcola tipo di geometria
+        coords = list(wall_exterior.exterior.coords)
+        is_rectangle = len(coords) == 5 and coords[0] == coords[-1]  # Prima e ultima coordinate uguali
+        is_complex = len(apertures) > 0 or not is_rectangle
+        
+        geometry_type = "Rettangolare"
+        if is_complex and apertures:
+            geometry_type = f"Complessa con {len(apertures)} aperture"
+        elif is_complex:
+            geometry_type = "Forma personalizzata"
+        
+        # Genera preview image senza blocks (solo outline)
+        empty_placed = []
+        empty_customs = []
+        
+        # Configurazione base per preview
+        config = {
+            "project_name": f"Preview - {file.filename}",
+            "show_measurements": True,
+            "preview_mode": True
+        }
+        
+        preview_base64 = generate_preview_image(
+            wall_exterior,
+            empty_placed,
+            empty_customs, 
+            apertures,
+            {},  # color_theme vuoto
+            config,
+            enhanced_info={"enhanced": False, "preview_only": True}
+        )
+        
+        if not preview_base64:
+            raise HTTPException(status_code=500, detail="Errore generazione preview")
+        
+        # Preparazione misure formattate
+        measurements = {
+            "area_total": f"{area / 1000000:.2f}",  # Converti da mm² a m²
+            "max_width": f"{bounds[2] - bounds[0]:.0f}",  # maxx - minx 
+            "max_height": f"{bounds[3] - bounds[1]:.0f}",  # maxy - miny
+            "apertures_count": f"{len(apertures)}",
+            "perimeter": f"{perimeter:.0f}",
+            "geometry_type": geometry_type
+        }
+        
+        # Dettagli conversione
+        conversion_details = {
+            "original_filename": file.filename,
+            "file_format": file_ext.upper(),
+            "file_size": f"{file.size / 1024:.1f} KB" if file.size else "N/A",
+            "conversion_status": "success"
+        }
+        
+        # Messaggi di validazione
+        validation_messages = []
+        
+        # Validazione area
+        if area < 1000000:  # < 1 m²
+            validation_messages.append({
+                "type": "warning",
+                "message": "L'area della parete è molto piccola. Verifica che le unità di misura siano corrette."
+            })
+        elif area > 50000000:  # > 50 m²
+            validation_messages.append({
+                "type": "warning", 
+                "message": "L'area della parete è molto grande. Verifica che le unità di misura siano corrette."
+            })
+        else:
+            validation_messages.append({
+                "type": "success",
+                "message": "Dimensioni parete nell'intervallo normale."
+            })
+        
+        # Validazione aperture
+        if len(apertures) == 0:
+            validation_messages.append({
+                "type": "info",
+                "message": "Nessuna apertura rilevata. La parete sarà completamente riempita con blocchi."
+            })
+        else:
+            validation_messages.append({
+                "type": "success", 
+                "message": f"{len(apertures)} aperture rilevate correttamente."
+            })
+        
+        # Validazione geometria
+        if not is_rectangle and len(apertures) == 0:
+            validation_messages.append({
+                "type": "info",
+                "message": "Geometria parete non rettangolare rilevata. Verranno generati blocchi custom per le zone irregolari."
+            })
+        
+        print(f"✅ Preview generata - Area: {area/1000000:.2f}m², Aperture: {len(apertures)}")
+        
+        return {
+            "status": "success",
+            "preview_image": preview_base64,
+            "measurements": measurements,
+            "conversion_details": conversion_details,
+            "validation_messages": validation_messages,
+            "raw_bounds": bounds,
+            "raw_area": area,
+            "apertures_data": [{"bounds": list(ap.bounds)} for ap in apertures]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Errore preview conversione: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Errore interno: {str(e)}")
+
 @router.post("/upload")
 async def upload_and_process(
     file: UploadFile = File(...),

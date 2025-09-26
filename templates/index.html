@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parete TAKTAK® - Sistema Professionale</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=3.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -156,10 +156,132 @@
                         </div>
                     </section>
 
-                    <!-- NEW STEP: Project Parameters -->
-                    <section class="step-section" id="projectParamsSection" style="display: none;">
+                    <!-- NEW Step 2: Preview -->
+                    <section class="step-section" id="previewSection" style="display: none;">
                         <div class="step-header">
                             <div class="step-number">2</div>
+                            <div class="step-info">
+                                <h2>Anteprima Conversione</h2>
+                                <p>Verifica che la conversione del file sia corretta prima di procedere</p>
+                            </div>
+                        </div>
+                        
+                        <div class="preview-container-main">
+                            <!-- Preview Image -->
+                            <div class="preview-card-main">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-eye"></i> Anteprima Parete Convertita</h3>
+                                    <div class="preview-actions">
+                                        <button type="button" class="btn-icon" id="zoomInPreview" title="Ingrandisci">
+                                            <i class="fas fa-search-plus"></i>
+                                        </button>
+                                        <button type="button" class="btn-icon" id="zoomOutPreview" title="Riduci">
+                                            <i class="fas fa-search-minus"></i>
+                                        </button>
+                                        <button type="button" class="btn-icon" id="centerPreview" title="Centra">
+                                            <i class="fas fa-crosshairs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="image-container" id="previewImageContainer">
+                                    <div class="preview-loading" id="previewLoadingMain">
+                                        <div class="spinner"></div>
+                                        <p>Conversione file in corso...</p>
+                                    </div>
+                                    <canvas id="previewCanvas" style="display: none;"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Measurements Panel -->
+                            <div class="measurements-panel">
+                                <div class="measurements-header">
+                                    <h3><i class="fas fa-ruler-combined"></i> Dimensioni Rilevate</h3>
+                                </div>
+                                <div class="measurements-content" id="measurementsContent">
+                                    <div class="measurement-loading" id="measurementsLoading">
+                                        <i class="fas fa-calculator"></i>
+                                        <span>Calcolo dimensioni...</span>
+                                    </div>
+                                    <div class="measurements-data" id="measurementsData" style="display: none;">
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Area Totale:</span>
+                                            <span class="measurement-value" id="totalArea">-- m²</span>
+                                        </div>
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Larghezza Massima:</span>
+                                            <span class="measurement-value" id="maxWidth">-- mm</span>
+                                        </div>
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Altezza Massima:</span>
+                                            <span class="measurement-value" id="maxHeight">-- mm</span>
+                                        </div>
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Aperture Rilevate:</span>
+                                            <span class="measurement-value" id="aperturesCount">-- elementi</span>
+                                        </div>
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Perimetro:</span>
+                                            <span class="measurement-value" id="wallPerimeter">-- mm</span>
+                                        </div>
+                                        <div class="measurement-item">
+                                            <span class="measurement-label">Geometria:</span>
+                                            <span class="measurement-value" id="geometryType">-- tipo</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Conversion Details -->
+                                <div class="conversion-details" id="conversionDetails" style="display: none;">
+                                    <div class="conversion-header">
+                                        <h4><i class="fas fa-info-circle"></i> Dettagli Conversione</h4>
+                                    </div>
+                                    <div class="conversion-info">
+                                        <div class="detail-item">
+                                            <span class="detail-label">File Originale:</span>
+                                            <span class="detail-value" id="originalFileName">--</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Formato:</span>
+                                            <span class="detail-value" id="fileFormat">--</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Dimensione File:</span>
+                                            <span class="detail-value" id="fileSize">--</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Stato Conversione:</span>
+                                            <span class="detail-value status-success" id="conversionStatus">
+                                                <i class="fas fa-check-circle"></i> Completata
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Validation Messages -->
+                                <div class="validation-messages" id="validationMessages">
+                                    <!-- Messages will be populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Step Actions -->
+                        <div class="step-actions">
+                            <button type="button" class="btn btn-secondary" id="backToUploadFromPreview">
+                                <i class="fas fa-arrow-left"></i> Indietro
+                            </button>
+                            <button type="button" class="btn btn-outline" id="reprocessFile">
+                                <i class="fas fa-sync-alt"></i> Riconverti File
+                            </button>
+                            <button type="button" class="btn btn-primary" id="acceptPreview">
+                                <i class="fas fa-check"></i> Conferma e Continua
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Step 3: Project Parameters (formerly Step 2) -->
+                    <section class="step-section" id="projectParamsSection" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-number">3</div>
                             <div class="step-info">
                                 <h2>Parametri di Progetto</h2>
                                 <p>Inserisci le specifiche tecniche per il calcolo automatico delle misure</p>
@@ -374,10 +496,10 @@
                         </div>
                     </section>
 
-                    <!-- Step 3: Configuration -->
+                    <!-- Step 4: Configuration (formerly Step 3) -->
                     <section class="step-section" id="configSection" style="display: none;">
                         <div class="step-header">
-                            <div class="step-number">3</div>
+                            <div class="step-number">4</div>
                             <div class="step-info">
                                 <h2>Configurazione Blocchi</h2>
                                 <p>Personalizza le impostazioni di packing per ottimizzare il risultato</p>
@@ -470,10 +592,10 @@
                         </div>
                     </section>
 
-                    <!-- Step 4: Results -->
+                    <!-- Step 5: Results (formerly Step 4) -->
                     <section class="step-section" id="resultsSection" style="display: none;">
                         <div class="step-header">
-                            <div class="step-number">4</div>
+                            <div class="step-number">5</div>
                             <div class="step-info">
                                 <h2>Risultati Packing</h2>
                                 <p>Visualizza il layout calcolato e scarica i risultati</p>
@@ -1052,7 +1174,7 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js"></script>
-    <script src="/static/js/user-section.js"></script>
+    <script src="/static/js/app.js?v=3.0"></script>
+    <script src="/static/js/user-section.js?v=3.0"></script>
 </body>
 </html>

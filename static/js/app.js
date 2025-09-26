@@ -8,6 +8,7 @@ class WallPackingApp {
         this.currentFile = null;
         this.currentSessionId = null;
         this.currentData = null;
+        this.currentPreviewData = null; // NEW: Store preview data
         this.currentSection = 'app'; // Track current section
         
         // Bind methods
@@ -170,6 +171,9 @@ class WallPackingApp {
         
         // NEW: Project Parameters listeners
         this.setupProjectParametersListeners();
+        
+        // NEW: Preview Step listeners
+        this.setupPreviewStepListeners();
         
         // Process button
         document.getElementById('processBtn')?.addEventListener('click', () => {
@@ -335,15 +339,16 @@ class WallPackingApp {
         // Update navigation state to disable library and settings
         this.updateNavigationState();
         
-        // Show success message and auto-progress to project parameters
+        // Show success message and auto-progress to preview
         this.showToast('File caricato con successo', 'success');
         
-        // Auto-progress with smooth transition
+        // Auto-generate preview
         setTimeout(() => {
-            this.showToast('Passaggio ai parametri di progetto...', 'info');
+            this.showToast('Generazione anteprima conversione...', 'info');
             setTimeout(() => {
-                console.log('🔄 About to show projectParams section');
-                this.showSection('projectParams');
+                console.log('🔄 About to generate file preview for:', file.name);
+                console.log('📋 generateFilePreview function exists:', typeof this.generateFilePreview);
+                this.generateFilePreview(file);
             }, 800);
         }, 1200);
     }
@@ -352,6 +357,7 @@ class WallPackingApp {
         this.currentFile = null;
         this.currentSessionId = null;
         this.currentData = null;
+        this.currentPreviewData = null; // NEW: Clear preview data
         
         // Reset file input
         const fileInput = document.getElementById('fileInput');
@@ -733,8 +739,8 @@ class WallPackingApp {
             return;
         }
         
-        // Hide all sections
-        const sections = ['uploadSection', 'projectParamsSection', 'configSection', 'resultsSection'];
+        // Hide all sections - UPDATED: included previewSection
+        const sections = ['uploadSection', 'previewSection', 'projectParamsSection', 'configSection', 'resultsSection'];
         sections.forEach(id => {
             const element = document.getElementById(id);
             if (element) element.style.display = 'none';
@@ -1918,6 +1924,326 @@ class WallPackingApp {
         this.projectParameters = params;
         
         console.log('📋 Project parameters updated:', params);
+    }
+    
+    // ===== NEW: PREVIEW STEP LISTENERS =====
+    
+    setupPreviewStepListeners() {
+        console.log('🔧 Setup Preview Step Listeners');
+        
+        // Navigation buttons
+        document.getElementById('backToUploadFromPreview')?.addEventListener('click', () => {
+            this.showSection('upload');
+            // Clear current preview data but keep file
+            this.currentPreviewData = null;
+        });
+        
+        document.getElementById('acceptPreview')?.addEventListener('click', () => {
+            // Proceed to project parameters if preview is acceptable
+            if (this.currentPreviewData) {
+                this.showSection('projectParams');
+            } else {
+                this.showToast('Nessuna anteprima disponibile. Ricarica il file.', 'error');
+            }
+        });
+        
+        document.getElementById('reprocessFile')?.addEventListener('click', () => {
+            // Reload the current file for preview
+            if (this.currentFile) {
+                this.generateFilePreview(this.currentFile);
+            } else {
+                this.showToast('Nessun file caricato da riprocessare', 'error');
+            }
+        });
+        
+        // Preview controls
+        document.getElementById('zoomInPreview')?.addEventListener('click', () => {
+            this.zoomPreviewCanvas(1.2);
+        });
+        
+        document.getElementById('zoomOutPreview')?.addEventListener('click', () => {
+            this.zoomPreviewCanvas(0.8);
+        });
+        
+        document.getElementById('centerPreview')?.addEventListener('click', () => {
+            this.centerPreviewCanvas();
+        });
+        
+        // Canvas mouse interactions for panning
+        const previewCanvas = document.getElementById('previewCanvas');
+        if (previewCanvas) {
+            this.setupCanvasInteractions(previewCanvas);
+        }
+    }
+    
+    // ===== NEW: FILE PREVIEW GENERATION =====
+    
+    async generateFilePreview(file) {
+        console.log('�🚨🚨 GENERATE FILE PREVIEW CALLED! 🚨🚨🚨');
+        console.log('�🔍 Generating file preview for:', file.name);
+        console.log('🔍 File size:', file.size, 'bytes');
+        console.log('🔍 File type:', file.type);
+        
+        // Show loading states
+        this.showPreviewLoading(true);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            console.log('📡 Sending request to /api/preview-conversion');
+            
+            const response = await fetch('/api/preview-conversion', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${window.authManager.token}`
+                }
+            });
+            
+            console.log('📡 Response status:', response.status);
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Errore conversione file');
+            }
+            
+            const result = await response.json();
+            console.log('✅ Preview data received:', result);
+            
+            // Store preview data
+            this.currentPreviewData = result;
+            
+            // Update UI with preview data
+            this.updatePreviewUI(result);
+            
+            // Hide loading and show preview section
+            this.showPreviewLoading(false);
+            this.showSection('preview');
+            
+        } catch (error) {
+            console.error('❌ Preview generation error:', error);
+            this.showPreviewLoading(false);
+            this.showToast(`Errore generazione preview: ${error.message}`, 'error');
+            
+            // Return to upload section on error
+            this.showSection('upload');
+        }
+    }
+    
+    showPreviewLoading(show) {
+        const loadingElement = document.getElementById('previewLoadingMain');
+        const canvasElement = document.getElementById('previewCanvas');
+        const measurementsLoading = document.getElementById('measurementsLoading');
+        const measurementsData = document.getElementById('measurementsData');
+        
+        if (show) {
+            if (loadingElement) loadingElement.style.display = 'flex';
+            if (canvasElement) canvasElement.style.display = 'none';
+            if (measurementsLoading) measurementsLoading.style.display = 'flex';
+            if (measurementsData) measurementsData.style.display = 'none';
+        } else {
+            if (loadingElement) loadingElement.style.display = 'none';
+            if (canvasElement) canvasElement.style.display = 'block';
+            if (measurementsLoading) measurementsLoading.style.display = 'none';
+            if (measurementsData) measurementsData.style.display = 'block';
+        }
+    }
+    
+    updatePreviewUI(previewData) {
+        // Update preview image
+        this.renderPreviewImage(previewData.preview_image);
+        
+        // Update measurements
+        this.updateMeasurementsPanel(previewData.measurements);
+        
+        // Update conversion details
+        this.updateConversionDetails(previewData.conversion_details);
+        
+        // Show validation messages
+        this.showValidationMessages(previewData.validation_messages);
+    }
+    
+    renderPreviewImage(imageBase64) {
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!canvas || !imageBase64) return;
+        
+        const img = new Image();
+        img.onload = () => {
+            // Set canvas size based on container
+            const container = canvas.parentElement;
+            const containerWidth = container.clientWidth - 40; // padding
+            const containerHeight = container.clientHeight - 40;
+            
+            // Calculate scale to fit image in container
+            const scaleX = containerWidth / img.width;
+            const scaleY = containerHeight / img.height;
+            const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+            
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            // Draw image
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Store original dimensions for zoom/pan
+            canvas.dataset.originalWidth = img.width;
+            canvas.dataset.originalHeight = img.height;
+            canvas.dataset.currentScale = scale;
+            
+            console.log('✅ Preview image rendered');
+        };
+        
+        img.onerror = () => {
+            console.error('❌ Failed to load preview image');
+            this.showToast('Errore caricamento anteprima immagine', 'error');
+        };
+        
+        // Set image source (remove data:image prefix if present)
+        const imageData = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+        img.src = imageData;
+    }
+    
+    updateMeasurementsPanel(measurements) {
+        const elements = {
+            totalArea: document.getElementById('totalArea'),
+            maxWidth: document.getElementById('maxWidth'),
+            maxHeight: document.getElementById('maxHeight'),
+            aperturesCount: document.getElementById('aperturesCount'),
+            wallPerimeter: document.getElementById('wallPerimeter'),
+            geometryType: document.getElementById('geometryType')
+        };
+        
+        if (elements.totalArea) elements.totalArea.textContent = `${measurements.area_total} m²`;
+        if (elements.maxWidth) elements.maxWidth.textContent = `${measurements.max_width} mm`;
+        if (elements.maxHeight) elements.maxHeight.textContent = `${measurements.max_height} mm`;
+        if (elements.aperturesCount) elements.aperturesCount.textContent = `${measurements.apertures_count} elementi`;
+        if (elements.wallPerimeter) elements.wallPerimeter.textContent = `${measurements.perimeter} mm`;
+        if (elements.geometryType) elements.geometryType.textContent = measurements.geometry_type;
+    }
+    
+    updateConversionDetails(details) {
+        const elements = {
+            originalFileName: document.getElementById('originalFileName'),
+            fileFormat: document.getElementById('fileFormat'),
+            fileSize: document.getElementById('fileSize'),
+            conversionStatus: document.getElementById('conversionStatus')
+        };
+        
+        if (elements.originalFileName) elements.originalFileName.textContent = details.original_filename;
+        if (elements.fileFormat) elements.fileFormat.textContent = details.file_format;
+        if (elements.fileSize) elements.fileSize.textContent = details.file_size;
+        
+        // Show conversion details panel
+        const detailsPanel = document.getElementById('conversionDetails');
+        if (detailsPanel) detailsPanel.style.display = 'block';
+    }
+    
+    showValidationMessages(messages) {
+        const container = document.getElementById('validationMessages');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        messages.forEach(msg => {
+            const messageEl = document.createElement('div');
+            messageEl.className = `validation-message ${msg.type}`;
+            
+            const icon = msg.type === 'success' ? 'fa-check-circle' :
+                        msg.type === 'warning' ? 'fa-exclamation-triangle' :
+                        msg.type === 'error' ? 'fa-times-circle' : 'fa-info-circle';
+            
+            messageEl.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span>${msg.message}</span>
+            `;
+            
+            container.appendChild(messageEl);
+        });
+    }
+    
+    // Canvas interaction methods (zoom, pan)
+    setupCanvasInteractions(canvas) {
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - lastX;
+                const deltaY = e.clientY - lastY;
+                
+                // Implement panning logic here if needed
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'move';
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.style.cursor = 'move';
+        });
+    }
+    
+    zoomPreviewCanvas(factor) {
+        const canvas = document.getElementById('previewCanvas');
+        if (!canvas) return;
+        
+        const currentScale = parseFloat(canvas.dataset.currentScale || 1);
+        const newScale = Math.max(0.1, Math.min(5, currentScale * factor));
+        
+        const originalWidth = parseFloat(canvas.dataset.originalWidth || canvas.width);
+        const originalHeight = parseFloat(canvas.dataset.originalHeight || canvas.height);
+        
+        canvas.width = originalWidth * newScale;
+        canvas.height = originalHeight * newScale;
+        canvas.dataset.currentScale = newScale;
+        
+        // Re-render image at new scale if we have the data
+        if (this.currentPreviewData) {
+            this.renderPreviewImage(this.currentPreviewData.preview_image);
+        }
+    }
+    
+    centerPreviewCanvas() {
+        const canvas = document.getElementById('previewCanvas');
+        if (!canvas) return;
+        
+        // Reset to original size and center
+        const container = canvas.parentElement;
+        const originalWidth = parseFloat(canvas.dataset.originalWidth || canvas.width);
+        const originalHeight = parseFloat(canvas.dataset.originalHeight || canvas.height);
+        
+        const containerWidth = container.clientWidth - 40;
+        const containerHeight = container.clientHeight - 40;
+        
+        const scaleX = containerWidth / originalWidth;
+        const scaleY = containerHeight / originalHeight;
+        const scale = Math.min(scaleX, scaleY, 1);
+        
+        canvas.width = originalWidth * scale;
+        canvas.height = originalHeight * scale;
+        canvas.dataset.currentScale = scale;
+        
+        // Re-render
+        if (this.currentPreviewData) {
+            this.renderPreviewImage(this.currentPreviewData.preview_image);
+        }
     }
 }
 
