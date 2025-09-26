@@ -24,7 +24,9 @@ async def preview_file_conversion(
     Mostra la geometria convertita con le relative misure per validazione utente.
     """
     # Import qui per evitare circular imports
-    from main import parse_wall_file, generate_preview_image
+    from main import parse_wall_file, generate_preview_image, SESSIONS
+    import uuid
+    import datetime
     
     try:
         # Log dell'attività dell'utente
@@ -154,8 +156,24 @@ async def preview_file_conversion(
         
         print(f"✅ Preview generata - Area: {area/1000000:.2f}m², Aperture: {len(apertures)}")
         
+        # NUOVO: Salva i dati di conversione per riutilizzo
+        preview_session_id = str(uuid.uuid4())
+        
+        # Store per riutilizzo nel packing finale - EVITA DOPPIA CONVERSIONE
+        SESSIONS[preview_session_id] = {
+            "wall_polygon": wall_exterior,
+            "apertures": apertures,
+            "file_content": file_content,
+            "original_filename": file.filename,
+            "conversion_timestamp": datetime.datetime.now(),
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "preview_only": True  # Marca come sessione di preview
+        }
+        
         return {
             "status": "success",
+            "preview_session_id": preview_session_id,  # NUOVO: ID per riutilizzo
             "preview_image": preview_base64,
             "measurements": measurements,
             "conversion_details": conversion_details,
@@ -169,6 +187,199 @@ async def preview_file_conversion(
         raise
     except Exception as e:
         print(f"❌ Errore preview conversione: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Errore interno: {str(e)}")
+
+@router.post("/enhanced-pack-from-preview")
+async def enhanced_pack_from_preview(
+    preview_session_id: str = Form(...),
+    row_offset: int = Form(826),
+    block_widths: str = Form("1239,826,413"),
+    project_name: str = Form("Progetto Parete"),
+    color_theme: str = Form("{}"),
+    block_dimensions: str = Form("{}"),
+    material_config: str = Form("{}"),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    NUOVO: Elaborazione ottimizzata che riutilizza i dati già convertiti dal preview.
+    EVITA la doppia conversione DWG/SVG.
+    """
+    # Import qui per evitare circular imports
+    from main import (
+        SESSIONS, PackingResult, pack_wall, opt_pass, 
+        summarize_blocks, calculate_metrics, get_block_schema_from_frontend,
+        get_default_block_schema, BLOCK_WIDTHS, BLOCK_HEIGHT, SIZE_TO_LETTER,
+        ENHANCED_PACKING_AVAILABLE, enhance_packing_with_automatic_measurements
+    )
+    
+    try:
+        print(f"🔄 Elaborazione ottimizzata da preview session: {preview_session_id}")
+        
+        # Recupera i dati già convertiti dal preview
+        if preview_session_id not in SESSIONS:
+            raise HTTPException(status_code=404, detail="Sessione preview non trovata o scaduta")
+        
+        preview_data = SESSIONS[preview_session_id]
+        
+        # Verifica che sia una sessione di preview dell'utente corrente
+        if preview_data.get("user_id") != current_user.id:
+            raise HTTPException(status_code=403, detail="Accesso negato alla sessione preview")
+        
+        if not preview_data.get("preview_only"):
+            raise HTTPException(status_code=400, detail="Sessione non valida per riutilizzo")
+        
+        # RIUTILIZZO: Usa i dati già convertiti - NO DOPPIA CONVERSIONE!
+        wall_exterior = preview_data["wall_polygon"]
+        apertures = preview_data["apertures"]
+        original_filename = preview_data["original_filename"]
+        
+        print(f"✅ Riutilizzo conversione esistente per: {original_filename}")
+        print(f"📐 Area: {wall_exterior.area/1000000:.2f}m², Aperture: {len(apertures)}")
+        
+        # Parse parametri materiali
+        try:
+            material_params = json.loads(material_config) if material_config != "{}" else {}
+        except json.JSONDecodeError:
+            material_params = {}
+        
+        # Parse dimensioni blocchi
+        try:
+            block_dims = json.loads(block_dimensions)
+        except json.JSONDecodeError:
+            block_dims = {}
+        
+        # Parse tema colori  
+        try:
+            theme = json.loads(color_theme)
+        except json.JSONDecodeError:
+            theme = {}
+        
+        # Get block schema
+        block_schema = get_block_schema_from_frontend(block_dims)
+        
+        # Convert block_widths string to list
+        try:
+            widths_list = [int(w.strip()) for w in block_widths.split(',') if w.strip()]
+        except ValueError:
+            widths_list = block_schema["block_widths"]
+        
+        # Generate new session ID per i risultati finali
+        final_session_id = str(uuid.uuid4())
+        
+        print(f"🚀 Inizio packing ottimizzato (senza riconversione)")
+        
+        # Perform standard packing SUI DATI GIÀ CONVERTITI
+        placed, custom = pack_wall(
+            wall_exterior,
+            widths_list, 
+            block_schema["block_height"],
+            row_offset=row_offset,
+            apertures=apertures
+        )
+        
+        # Calculate standard metrics
+        summary = summarize_blocks(placed)
+        metrics = calculate_metrics(placed, custom, wall_exterior.area)
+        
+        # Enhanced processing con misurazioni automatiche (se disponibile)
+        enhanced_result = None
+        if ENHANCED_PACKING_AVAILABLE and material_params:
+            print("🚀 Applying enhanced packing with automatic measurements...")
+            
+            # Prepare standard packing result per enhancement
+            standard_result = {
+                "session_id": final_session_id,
+                "status": "success",
+                "wall_bounds": list(wall_exterior.bounds),
+                "blocks_standard": placed,
+                "blocks_custom": custom,
+                "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
+                "summary": summary,
+                "config": {
+                    "block_widths": widths_list,
+                    "block_height": block_schema["block_height"],
+                    "row_offset": row_offset,
+                    "project_name": project_name
+                },
+                "metrics": metrics
+            }
+            
+            # Apply enhanced calculations
+            enhanced_result = enhance_packing_with_automatic_measurements(
+                standard_result, 
+                material_params
+            )
+            
+            print(f"✅ Enhanced calculations completed")
+        
+        # Prepare final result
+        if enhanced_result:
+            result = enhanced_result
+            result["enhanced"] = True
+        else:
+            # Fallback to standard result
+            result = PackingResult(
+                session_id=final_session_id,
+                status="success", 
+                wall_bounds=list(wall_exterior.bounds),
+                blocks_standard=placed,
+                blocks_custom=custom,
+                apertures=[{"bounds": list(ap.bounds)} for ap in apertures],
+                summary=summary,
+                config={
+                    "block_widths": widths_list,
+                    "block_height": block_schema["block_height"], 
+                    "row_offset": row_offset,
+                    "project_name": project_name,
+                    "block_schema": block_schema["schema_type"],
+                    "color_theme": theme
+                },
+                metrics=metrics
+            ).dict()
+            result["enhanced"] = False
+        
+        # Apply optimization if available
+        try:
+            result = opt_pass(result)
+            print("✅ Optimization pass applied")
+        except Exception as e:
+            print(f"⚠️ Optimization pass failed: {e}")
+        
+        # Store final session
+        SESSIONS[final_session_id] = {
+            'data': result,
+            'timestamp': datetime.datetime.now(),
+            'user_id': current_user.id,
+            'username': current_user.username,
+            'filename': original_filename,
+            'material_config': material_params,
+            'enhanced': result.get("enhanced", False),
+            'file_bytes': preview_data.get("file_content"),  # Riutilizzo per salvataggio progetto
+            'original_filename': original_filename,
+            'optimized_from_preview': True  # MARKER: Indica elaborazione ottimizzata
+        }
+        
+        # Cleanup preview session (opzionale)
+        # del SESSIONS[preview_session_id]  # Rimuovi per liberare memoria
+        
+        print(f"💾 Final session {final_session_id} salvata (ottimizzata da preview)")
+        print(f"⚡ CONVERSIONE EVITATA - Riutilizzati dati esistenti!")
+        
+        return JSONResponse(
+            content=result,
+            headers={
+                "X-Enhanced-Processing": "true" if result.get("enhanced") else "false",
+                "X-Session-ID": final_session_id,
+                "X-Optimized-From-Preview": "true"  # Indica elaborazione ottimizzata
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Errore enhanced processing da preview: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Errore interno: {str(e)}")

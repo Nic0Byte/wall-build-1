@@ -9,6 +9,7 @@ class WallPackingApp {
         this.currentSessionId = null;
         this.currentData = null;
         this.currentPreviewData = null; // NEW: Store preview data
+        this.previewSessionId = null; // NUOVO: Store preview session ID per riutilizzo
         this.currentSection = 'app'; // Track current section
         
         // Bind methods
@@ -358,6 +359,7 @@ class WallPackingApp {
         this.currentSessionId = null;
         this.currentData = null;
         this.currentPreviewData = null; // NEW: Clear preview data
+        this.previewSessionId = null; // NUOVO: Clear preview session ID
         
         // Reset file input
         const fileInput = document.getElementById('fileInput');
@@ -461,10 +463,19 @@ class WallPackingApp {
     // ===== API COMMUNICATION =====
     
     async processFile() {
+        // CONTROLLO: Se abbiamo un preview session, usa l'endpoint ottimizzato
+        if (this.previewSessionId) {
+            console.log('🚀 Usando elaborazione OTTIMIZZATA (riutilizzo conversione esistente)');
+            return this.processFromPreview();
+        }
+        
+        // FALLBACK: Elaborazione tradizionale se non c'è preview
         if (!this.currentFile) {
             this.showToast('Nessun file selezionato', 'error');
             return;
         }
+        
+        console.log('⚠️ Usando elaborazione TRADIZIONALE (doppia conversione)');
         
         // Get configuration
         const config = this.getConfiguration();
@@ -537,6 +548,103 @@ class WallPackingApp {
             console.error('Errore processamento:', error);
             this.hideLoading();
             this.showToast(`Errore: ${error.message}`, 'error');
+        }
+    }
+
+    // NUOVO: Elaborazione ottimizzata che riutilizza i dati di preview
+    async processFromPreview() {
+        console.log('⚡ Elaborazione OTTIMIZZATA - Riutilizzo conversione esistente');
+        console.log('🆔 Preview Session ID:', this.previewSessionId);
+        
+        // Get configuration
+        const config = this.getConfiguration();
+        
+        // Get project parameters
+        const projectParams = this.projectParameters || this.collectProjectParameters();
+        
+        // Show loading
+        this.showLoading('Elaborazione ottimizzata in corso...', 
+            'Calcolo packing con dati già convertiti - EVITATA doppia conversione!');
+        
+        try {
+            // Prepare form data per endpoint ottimizzato
+            const formData = new FormData();
+            formData.append('preview_session_id', this.previewSessionId); // CHIAVE: Riutilizzo dati
+            formData.append('row_offset', config.rowOffset);
+            formData.append('block_widths', config.blockWidths);
+            formData.append('project_name', config.projectName);
+            
+            // Add color theme configuration
+            const colorTheme = getCurrentColorTheme();
+            formData.append('color_theme', JSON.stringify(colorTheme));
+            
+            // Add block dimensions configuration
+            const blockDimensions = getBlockDimensionsForBackend();
+            formData.append('block_dimensions', JSON.stringify(blockDimensions));
+            
+            // Add project parameters for enhanced packing
+            formData.append('material_config', JSON.stringify({
+                material_thickness_mm: projectParams.material.thickness_mm,
+                material_density_kg_m3: projectParams.material.density_kg_m3,
+                material_type: projectParams.material.type,
+                guide_width_mm: projectParams.guide.width_mm,
+                guide_depth_mm: projectParams.guide.depth_mm,
+                guide_type: projectParams.guide.type,
+                wall_position: projectParams.wall.position,
+                is_attached_to_existing: projectParams.wall.is_attached,
+                attachment_points: projectParams.wall.attachment_points,
+                ceiling_height_mm: projectParams.ceiling.height_mm,
+                enable_moretti_calculation: projectParams.ceiling.enable_moretti_calculation,
+                enable_automatic_measurements: projectParams.advanced.enable_automatic_measurements,
+                enable_cost_estimation: projectParams.advanced.enable_cost_estimation
+            }));
+            
+            // CHIAMA ENDPOINT OTTIMIZZATO
+            const response = await fetch('/api/enhanced-pack-from-preview', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${window.authManager.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Errore del server');
+            }
+            
+            const result = await response.json();
+            console.log('✅ Elaborazione ottimizzata completata:', result);
+            
+            // Check if it was actually optimized
+            const wasOptimized = response.headers.get('X-Optimized-From-Preview') === 'true';
+            if (wasOptimized) {
+                console.log('⚡ CONVERSIONE EVITATA - Riutilizzati dati preview!');
+            }
+            
+            // Store result
+            this.currentSessionId = result.session_id;
+            this.currentData = result;
+            
+            // Update UI
+            this.hideLoading();
+            this.showResults(result);
+            this.loadPreview();
+            this.showSection('results');
+            
+            this.showToast(wasOptimized ? 
+                'Packing completato con successo! (Elaborazione ottimizzata)' : 
+                'Packing completato con successo!', 'success');
+            
+        } catch (error) {
+            console.error('Errore processamento ottimizzato:', error);
+            this.hideLoading();
+            this.showToast(`Errore elaborazione: ${error.message}`, 'error');
+            
+            // FALLBACK: Se l'elaborazione ottimizzata fallisce, prova quella tradizionale
+            console.log('🔄 Tentativo fallback con elaborazione tradizionale...');
+            this.previewSessionId = null; // Reset per evitare loop
+            return this.processFile();
         }
     }
     
@@ -2011,8 +2119,9 @@ class WallPackingApp {
             const result = await response.json();
             console.log('✅ Preview data received:', result);
             
-            // Store preview data
+            // Store preview data with session ID for reuse
             this.currentPreviewData = result;
+            this.previewSessionId = result.preview_session_id; // NUOVO: Store per riutilizzo
             
             // Update UI with preview data
             this.updatePreviewUI(result);
