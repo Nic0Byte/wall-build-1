@@ -26,22 +26,23 @@ def parse_wall_file(
     if file_ext in ['dwg', 'dxf']:
         print(f" Parsing file DWG/DXF: {filename}")
 
-        header_info = analyze_dwg_header(file_bytes)
-        print(f" Formato rilevato: {header_info['format']} {header_info['version']}")
-
-        if header_info['compatible']:
+        # ODA FIRST STRATEGY - sempre usa ODA per massima compatibilità
+        try:
+            print(" Utilizzo ODA File Converter per massima precisione...")
+            return try_oda_conversion(file_bytes, filename, layer_wall, layer_holes)
+        except Exception as exc:
+            print(f" ODA fallito: {exc}, tentativo parser diretto...")
+            
+            # Fallback al parser diretto
             try:
                 return parse_dwg_wall(file_bytes, layer_wall, layer_holes)
-            except Exception as exc:
-                print(f" Parser diretto fallito: {exc}")
-
-        if not header_info['compatible']:
-            try:
-                return try_oda_conversion(file_bytes, filename, layer_wall, layer_holes)
-            except Exception as exc:
-                print(f" Conversione ODA fallita: {exc}")
-
-        return intelligent_fallback(file_bytes, filename, header_info)
+            except Exception as exc2:
+                print(f" Parser diretto fallito: {exc2}")
+                
+                # Ultimo resort: fallback intelligente
+                header_info = analyze_dwg_header(file_bytes)
+                print(f" Formato rilevato: {header_info['format']} {header_info['version']}")
+                return intelligent_fallback(file_bytes, filename, header_info)
 
     print(f" Formato non riconosciuto ({file_ext}), tentativo auto-detection...")
 

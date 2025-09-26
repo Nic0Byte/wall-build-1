@@ -12,6 +12,7 @@ from pathlib import Path
 def find_oda_converter():
     """Trova ODA File Converter nel sistema."""
     possible_paths = [
+        r"C:\Program Files\ODA\ODAFileConverter 26.8.0\ODAFileConverter.exe",  # Versione attuale
         r"C:\Program Files\ODA\ODAFileConverter_QT5_vc14_dll_24.12\ODAFileConverter.exe",
         r"C:\Program Files (x86)\ODA\ODAFileConverter_QT5_vc14_dll_24.12\ODAFileConverter.exe",
         r"C:\ODA\ODAFileConverter.exe",
