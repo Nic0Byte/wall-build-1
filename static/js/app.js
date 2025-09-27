@@ -173,6 +173,9 @@ class WallPackingApp {
         // NEW: Project Parameters listeners
         this.setupProjectParametersListeners();
         
+        // NUOVO: Setup aggiornamento parametri dinamici
+        this.setupRealTimeParametersUpdate();
+        
         // NEW: Preview Step listeners
         this.setupPreviewStepListeners();
         
@@ -582,22 +585,52 @@ class WallPackingApp {
             const blockDimensions = getBlockDimensionsForBackend();
             formData.append('block_dimensions', JSON.stringify(blockDimensions));
             
-            // Add project parameters for enhanced packing
-            formData.append('material_config', JSON.stringify({
+            // Add project parameters for enhanced packing - DINAMICO COMPLETO
+            const enhancedMaterialConfig = {
+                // Material parameters - TUTTI DINAMICI
                 material_thickness_mm: projectParams.material.thickness_mm,
                 material_density_kg_m3: projectParams.material.density_kg_m3,
                 material_type: projectParams.material.type,
+                material_strength_factor: projectParams.material.strength_factor,
+                material_thermal_conductivity: projectParams.material.thermal_conductivity,
+                
+                // Guide parameters - TUTTI DINAMICI
                 guide_width_mm: projectParams.guide.width_mm,
                 guide_depth_mm: projectParams.guide.depth_mm,
                 guide_type: projectParams.guide.type,
+                guide_max_load_kg: projectParams.guide.max_load_kg,
+                
+                // Wall position parameters - COMPLETI E DINAMICI
                 wall_position: projectParams.wall.position,
-                is_attached_to_existing: projectParams.wall.is_attached,
+                is_attached_to_existing: projectParams.wall.is_attached_to_existing,
                 attachment_points: projectParams.wall.attachment_points,
+                existing_walls_sides: projectParams.wall.existing_walls_sides, // Backend compatibility
+                fixed_walls: projectParams.wall.fixed_walls, // Enhanced format
+                
+                // Ceiling and moretti parameters - DINAMICI
                 ceiling_height_mm: projectParams.ceiling.height_mm,
                 enable_moretti_calculation: projectParams.ceiling.enable_moretti_calculation,
+                moretti_needed_hint: projectParams.ceiling.moretti_needed, // Pre-calcolo frontend
+                
+                // Advanced options - DINAMICI
                 enable_automatic_measurements: projectParams.advanced.enable_automatic_measurements,
-                enable_cost_estimation: projectParams.advanced.enable_cost_estimation
-            }));
+                enable_cost_estimation: projectParams.advanced.enable_cost_estimation,
+                enable_enhanced_packing: projectParams.advanced.enable_enhanced_packing,
+                use_optimized_algorithms: projectParams.advanced.use_optimized_algorithms,
+                
+                // NUOVO: Parametri calcolati per validazione backend
+                calculated_closure_thickness_mm: projectParams.calculated.closure_thickness_mm,
+                formula_description: projectParams.calculated.formula_description,
+                calculated_starting_point: projectParams.calculated.starting_point,
+                
+                // NUOVO: Metadata per debugging
+                frontend_version: "dynamic_v1.0",
+                parameter_collection_timestamp: new Date().toISOString(),
+                parameters_source: "frontend_dynamic_collection"
+            };
+            
+            console.log('📤 Invio configurazione enhanced al backend:', enhancedMaterialConfig);
+            formData.append('material_config', JSON.stringify(enhancedMaterialConfig));
             
             // CHIAMA ENDPOINT OTTIMIZZATO
             const response = await fetch('/api/enhanced-pack-from-preview', {
@@ -1195,101 +1228,132 @@ class WallPackingApp {
         const configCard = document.getElementById('configurationCard');
         if (!configCard) return;
         
-        console.log('🔧 DEBUG - Full data structure:', JSON.stringify(data, null, 2));
-        console.log('🔧 DEBUG - Config keys:', Object.keys(data.config || {}));
-        console.log('🔧 DEBUG - Enhanced info keys:', Object.keys(data.enhanced_info || {}));
-        console.log('🔧 DEBUG - Result keys:', Object.keys(data.result || {}));
+        console.log('🔧 Aggiornando Configuration Card con parametri dinamici');
         
-        // Controlla se esiste config estratto nel formato che hai mostrato
-        if (data.config_estratto_finale) {
-            console.log('🔧 DEBUG - Config estratto finale found:', data.config_estratto_finale);
+        // NUOVO: Usa sempre i parametri dinamici dell'utente se disponibili
+        let dynamicParams = null;
+        try {
+            dynamicParams = this.collectProjectParameters();
+            console.log('✅ Parametri dinamici raccolti per Configuration Card:', dynamicParams);
+        } catch (e) {
+            console.log('⚠️ Non riesco a raccogliere parametri dinamici, uso dati backend:', e);
         }
-        
-        // FORZA TUTTI I DATI - Mostra sempre tutte le sezioni con dati fittizi se necessario
-        console.log('🔧 FORCING ALL SECTIONS TO SHOW FOR DEBUGGING');
         
         let hasConfigData = false;
         
-        // Material section - FORZA SEMPRE VISIBILE
+        // Material section - USA PARAMETRI DINAMICI PRIMA
         const materialSection = document.getElementById('materialSection');
         const materialInfo = document.getElementById('materialInfo');
         let materialText = '';
         
-        // Prova prima nel config_estratto_finale
-        if (data.config_estratto_finale?.Materiale) {
+        if (dynamicParams?.material) {
+            // USA PARAMETRI DINAMICI DELL'UTENTE
+            const mat = dynamicParams.material;
+            materialText = `<div class="info-item"><strong>Tipo:</strong> ${mat.type.charAt(0).toUpperCase() + mat.type.slice(1)}</div>`;
+            materialText += `<div class="info-item"><strong>Spessore:</strong> ${mat.thickness_mm} mm</div>`;
+            materialText += `<div class="info-item"><strong>Densità:</strong> ${mat.density_kg_m3} kg/m³</div>`;
+            console.log('✅ Usando parametri dinamici per materiale');
+        } else if (data.config_estratto_finale?.Materiale) {
+            // Fallback ai dati backend
             const mat = data.config_estratto_finale.Materiale;
             if (mat.Spessore) materialText += `<strong>Spessore:</strong> ${mat.Spessore}<br>`;
             if (mat.Densità) materialText += `<strong>Densità:</strong> ${mat.Densità}<br>`;
             if (mat.Tipo) materialText += `<strong>Tipo:</strong> ${mat.Tipo}<br>`;
-            if (mat.Conduttività) materialText += `<strong>Conduttività:</strong> ${mat.Conduttività}`;
         } else {
-            // Fallback alle fonti precedenti
-            const materialSources = [
-                data.enhanced_info?.automatic_measurements?.material_parameters?.material_spec,
-                data.enhanced_info?.material_parameters?.material_spec,
-                data.config?.material_spec,
-                data.material_spec
-            ];
-            
-            for (const spec of materialSources) {
-                if (spec) {
-                    if (spec.thickness_mm) materialText += `<div class="info-item"><strong>Spessore:</strong> ${spec.thickness_mm} mm</div>`;
-                    if (spec.density_kg_m3) materialText += `<div class="info-item"><strong>Densità:</strong> ${spec.density_kg_m3} kg/m³</div>`;
-                    if (spec.thermal_conductivity) materialText += `<div class="info-item"><strong>Conduttività:</strong> ${spec.thermal_conductivity}</div>`;
-                    if (spec.material_type) materialText += `<div class="info-item"><strong>Tipo:</strong> ${spec.material_type}</div>`;
-                    break;
-                }
-            }
-        }
-        
-        // Se non hai dati, mostra placeholder per test
-        if (!materialText) {
+            // Ultimo fallback
             materialText = `<div class="info-item"><strong>Spessore:</strong> 18 mm</div><div class="info-item"><strong>Densità:</strong> 650 kg/m³</div><div class="info-item"><strong>Tipo:</strong> Standard</div>`;
         }
         
-        materialInfo.innerHTML = materialText;
-        materialSection.style.display = 'block';
-        hasConfigData = true;
+        if (materialInfo) {
+            materialInfo.innerHTML = materialText;
+            materialSection.style.display = 'block';
+            hasConfigData = true;
+        }
         
-        // Guide section - FORZA SEMPRE VISIBILE
+        // Guide section - USA PARAMETRI DINAMICI PRIMA  
         const guideSection = document.getElementById('guideSection');
         const guideInfo = document.getElementById('guideInfo');
         let guideText = '';
         
-        if (data.config_estratto_finale?.Guide) {
+        if (dynamicParams?.guide) {
+            // USA PARAMETRI DINAMICI DELL'UTENTE
+            const guide = dynamicParams.guide;
+            guideText = `<div class="info-item"><strong>Larghezza:</strong> ${guide.width_mm} mm</div>`;
+            guideText += `<div class="info-item"><strong>Tipo:</strong> ${guide.type}</div>`;
+            guideText += `<div class="info-item"><strong>Profondità:</strong> ${guide.depth_mm} mm</div>`;
+            if (guide.max_load_kg) {
+                guideText += `<div class="info-item"><strong>Carico Max:</strong> ${guide.max_load_kg} kg</div>`;
+            }
+            console.log('✅ Usando parametri dinamici per guide');
+        } else if (data.config_estratto_finale?.Guide) {
+            // Fallback ai dati backend
             const guide = data.config_estratto_finale.Guide;
             if (guide.Tipo) guideText += `<strong>Tipo:</strong> ${guide.Tipo}<br>`;
             if (guide.Larghezza) guideText += `<strong>Larghezza:</strong> ${guide.Larghezza}<br>`;
             if (guide.Profondità) guideText += `<strong>Profondità:</strong> ${guide.Profondità}<br>`;
-            if (guide['Carico Max']) guideText += `<div class="info-item"><strong>Carico Max:</strong> ${guide['Carico Max']}</div>`;
+        } else {
+            // Ultimo fallback
+            guideText = `<div class="info-item"><strong>Tipo:</strong> 75mm Standard</div><div class="info-item"><strong>Larghezza:</strong> 75 mm</div><div class="info-item"><strong>Profondità:</strong> 25 mm</div><div class="info-item"><strong>Carico Max:</strong> 40 kg</div>`;
+        }
+        
+        if (guideInfo) {
+            guideInfo.innerHTML = guideText;
+            guideSection.style.display = 'block';
+            hasConfigData = true;
+        }
+        
+        // NUOVO: Spessore Chiusura section - USA PARAMETRI DINAMICI
+        const closureSection = document.getElementById('closureSection');
+        const closureInfo = document.getElementById('closureInfo');
+        let closureText = '';
+        
+        if (dynamicParams?.calculated) {
+            // USA PARAMETRI CALCOLATI DINAMICAMENTE
+            const calc = dynamicParams.calculated;
+            closureText = `<div class="info-item"><strong>Formula:</strong> ${calc.formula_description}</div>`;
+            closureText += `<div class="info-item"><strong>Spessore Finale:</strong> ${calc.closure_thickness_mm} mm</div>`;
+            console.log('✅ Usando calcoli dinamici per spessore chiusura');
         } else {
             // Fallback
-            const guideSources = [
-                data.enhanced_info?.automatic_measurements?.material_parameters?.guide_spec,
-                data.enhanced_info?.material_parameters?.guide_spec,
-                data.config?.guide_spec,
-                data.guide_spec
-            ];
-            
-            for (const spec of guideSources) {
-                if (spec) {
-                    if (spec.material_type) guideText += `<div class="info-item"><strong>Tipo:</strong> ${spec.material_type}</div>`;
-                    if (spec.width_mm) guideText += `<div class="info-item"><strong>Larghezza:</strong> ${spec.width_mm} mm</div>`;
-                    if (spec.depth_mm) guideText += `<div class="info-item"><strong>Profondità:</strong> ${spec.depth_mm} mm</div>`;
-                    if (spec.max_load_kg) guideText += `<div class="info-item"><strong>Carico Max:</strong> ${spec.max_load_kg} kg</div>`;
-                    break;
-                }
+            closureText = `<div class="info-item"><strong>Spessore Finale:</strong> 93 mm</div><div class="info-item"><strong>Formula:</strong> 18mm + 75mm = 93mm</div>`;
+        }
+        
+        if (closureInfo) {
+            closureInfo.innerHTML = closureText;
+            if (closureSection) closureSection.style.display = 'block';
+            hasConfigData = true;
+        } else {
+            // Crea la sezione se non esiste
+            this.createClosureSectionInConfigCard(closureText);
+        }
+        
+        // NUOVO: Parete Position section - USA PARAMETRI DINAMICI
+        const wallSection = document.getElementById('wallSection');
+        const wallInfo = document.getElementById('wallInfo');
+        let wallText = '';
+        
+        if (dynamicParams?.wall) {
+            // USA PARAMETRI DINAMICI DELL'UTENTE
+            const wall = dynamicParams.wall;
+            wallText = `<div class="info-item"><strong>Tipo:</strong> ${wall.position === 'new' ? 'Parete Nuova' : 'Parete Attaccata'}</div>`;
+            if (wall.is_attached && wall.attachment_points.length > 0) {
+                wallText += `<div class="info-item"><strong>Punti Appoggio:</strong> ${wall.attachment_points.join(', ')}</div>`;
+                wallText += `<div class="info-item"><strong>Inizio da:</strong> ${dynamicParams.calculated.starting_point}</div>`;
             }
+            console.log('✅ Usando parametri dinamici per configurazione parete');
+        } else {
+            // Fallback
+            wallText = `<div class="info-item"><strong>Tipo:</strong> Parete Nuova</div><div class="info-item"><strong>Inizio da:</strong> sinistra</div>`;
         }
         
-        // Se non hai dati, mostra placeholder per test
-        if (!guideText) {
-            guideText = `<div class="info-item"><strong>Tipo:</strong> 75mm</div><div class="info-item"><strong>Larghezza:</strong> 75 mm</div><div class="info-item"><strong>Profondità:</strong> 25 mm</div><div class="info-item"><strong>Carico Max:</strong> 40.0 kg</div>`;
+        if (wallInfo) {
+            wallInfo.innerHTML = wallText;
+            if (wallSection) wallSection.style.display = 'block';
+            hasConfigData = true;
+        } else {
+            // Crea la sezione se non esiste
+            this.createWallSectionInConfigCard(wallText);
         }
-        
-        guideInfo.innerHTML = guideText;
-        guideSection.style.display = 'block';
-        hasConfigData = true;
         
         // Block section - con config_estratto_finale
         const blockSection = document.getElementById('blockSection');
@@ -1450,6 +1514,40 @@ class WallPackingApp {
                 construction: constructionSection.style.display !== 'none'
             }
         });
+        
+        console.log('🔧 Configuration Card aggiornata con parametri dinamici');
+    }
+    
+    // NUOVO: Crea sezione spessore chiusura se non esiste
+    createClosureSectionInConfigCard(closureText) {
+        const configCard = document.querySelector('.config-info-grid');
+        if (configCard) {
+            const closureSection = document.createElement('div');
+            closureSection.className = 'config-section';
+            closureSection.id = 'closureSection';
+            closureSection.innerHTML = `
+                <h4>Spessore Chiusura</h4>
+                <div id="closureInfo">${closureText}</div>
+            `;
+            configCard.appendChild(closureSection);
+            console.log('➕ Sezione spessore chiusura creata dinamicamente');
+        }
+    }
+    
+    // NUOVO: Crea sezione configurazione parete se non esiste
+    createWallSectionInConfigCard(wallText) {
+        const configCard = document.querySelector('.config-info-grid');
+        if (configCard) {
+            const wallSection = document.createElement('div');
+            wallSection.className = 'config-section';
+            wallSection.id = 'wallSection';
+            wallSection.innerHTML = `
+                <h4>Configurazione Parete</h4>
+                <div id="wallInfo">${wallText}</div>
+            `;
+            configCard.appendChild(wallSection);
+            console.log('➕ Sezione configurazione parete creata dinamicamente');
+        }
     }
     
     // ===== CONFIGURATION =====
@@ -1920,65 +2018,120 @@ class WallPackingApp {
     }
     
     collectProjectParameters() {
-        // Material parameters
+        console.log('🔧 Raccogliendo parametri di configurazione dinamici...');
+        
+        // Material parameters - DINAMICI
         const materialType = document.getElementById('materialType')?.value || 'melamine';
         const materialThickness = parseInt(document.getElementById('materialThickness')?.value) || 18;
         const materialDensity = parseInt(document.getElementById('materialDensity')?.value) || 650;
         
-        // Guide parameters
+        // Guide parameters - DINAMICI con validazione
         const selectedGuide = document.querySelector('input[name="guideType"]:checked');
         const guideType = selectedGuide ? selectedGuide.value : '75';
         const guideDepth = parseInt(document.getElementById('guideDepth')?.value) || 25;
         
-        // Wall position parameters
+        // Wall position parameters - DINAMICI con logica enhanced
         const selectedWallType = document.querySelector('input[name="wallType"]:checked');
         const wallType = selectedWallType ? selectedWallType.value : 'new';
         
+        // MIGLIORATO: Raccolta punti di appoggio più robusta
         const attachmentPoints = [];
+        const existingWallsSides = []; // Per backend compatibility
+        
         if (wallType === 'attached') {
             const checkboxes = document.querySelectorAll('.attachment-checkbox:checked');
             checkboxes.forEach(checkbox => {
-                attachmentPoints.push(checkbox.id.replace('attach', '').toLowerCase());
+                const side = checkbox.id.replace('attach', '').toLowerCase();
+                attachmentPoints.push(side);
+                existingWallsSides.push(side);
             });
+            
+            console.log('📍 Punti di appoggio rilevati:', attachmentPoints);
         }
         
-        // Ceiling parameters
+        // Ceiling parameters - DINAMICI
         const ceilingHeight = parseInt(document.getElementById('ceilingHeight')?.value) || 2700;
-        const enableMoretti = document.getElementById('enableMoretti')?.checked || true;
+        const enableMoretti = document.getElementById('enableMoretti')?.checked !== false; // Default true
         
-        // Advanced parameters
-        const enableAutoMeasurements = document.getElementById('enableAutoMeasurements')?.checked || true;
-        const enableCostEstimation = document.getElementById('enableCostEstimation')?.checked || true;
+        // Advanced parameters - DINAMICI 
+        const enableAutoMeasurements = document.getElementById('enableAutoMeasurements')?.checked !== false; // Default true
+        const enableCostEstimation = document.getElementById('enableCostEstimation')?.checked !== false; // Default true
         
-        return {
+        // NUOVO: Calcolo automatico spessore chiusura (per validazione frontend)
+        const calculatedClosureThickness = materialThickness + parseInt(guideType);
+        
+        // NUOVO: Fixed walls configuration per backend
+        const fixedWalls = attachmentPoints.map(side => ({
+            position: side,
+            type: "structural"
+        }));
+        
+        const params = {
+            // Material configuration
             material: {
                 type: materialType,
                 thickness_mm: materialThickness,
-                density_kg_m3: materialDensity
+                density_kg_m3: materialDensity,
+                // NUOVO: Aggiunti per completezza
+                strength_factor: 1.0,
+                thermal_conductivity: 0.15
             },
+            
+            // Guide configuration  
             guide: {
                 type: `${guideType}mm`,
                 width_mm: parseInt(guideType),
-                depth_mm: guideDepth
+                depth_mm: guideDepth,
+                // NUOVO: Carico massimo stimato
+                max_load_kg: parseInt(guideType) === 50 ? 30 : (parseInt(guideType) === 75 ? 40 : 50)
             },
+            
+            // Wall position configuration
             wall: {
                 position: wallType,
                 is_attached: wallType === 'attached',
-                attachment_points: attachmentPoints
+                is_attached_to_existing: wallType === 'attached', // Backend compatibility
+                attachment_points: attachmentPoints,
+                existing_walls_sides: existingWallsSides, // Backend compatibility
+                fixed_walls: fixedWalls // Enhanced backend format
             },
+            
+            // Ceiling and moretti configuration
             ceiling: {
                 height_mm: ceilingHeight,
-                enable_moretti_calculation: enableMoretti
+                enable_moretti_calculation: enableMoretti,
+                // NUOVO: Pre-calcolo se servono moretti
+                moretti_needed: enableMoretti && ceilingHeight > 2400
             },
+            
+            // Advanced options
             advanced: {
                 enable_automatic_measurements: enableAutoMeasurements,
-                enable_cost_estimation: enableCostEstimation
+                enable_cost_estimation: enableCostEstimation,
+                // NUOVO: Opzioni di calcolo
+                enable_enhanced_packing: true,
+                use_optimized_algorithms: true
+            },
+            
+            // NUOVO: Parametri calcolati (per validazione)
+            calculated: {
+                closure_thickness_mm: calculatedClosureThickness,
+                formula_description: `${materialThickness}mm + ${guideType}mm = ${calculatedClosureThickness}mm`,
+                starting_point: wallType === 'attached' && attachmentPoints.length > 0 ? attachmentPoints[0] : 'left'
             }
         };
+        
+        console.log('✅ Parametri raccolti dinamicamente:', params);
+        console.log(`📐 Spessore calcolato: ${params.calculated.formula_description}`);
+        console.log(`📍 Punto di partenza: ${params.calculated.starting_point}`);
+        
+        return params;
     }
     
     validateProjectParameters(params) {
-        // Basic validation
+        console.log('🔍 Validando parametri dinamici:', params);
+        
+        // Basic validation with enhanced messages
         if (params.material.thickness_mm < 10 || params.material.thickness_mm > 50) {
             this.showToast('Spessore materiale deve essere tra 10 e 50 mm', 'error');
             return false;
@@ -1989,9 +2142,32 @@ class WallPackingApp {
             return false;
         }
         
+        // NUOVO: Validazione specifica per pareti attaccate
         if (params.wall.is_attached && params.wall.attachment_points.length === 0) {
             this.showToast('Seleziona almeno un punto di appoggio per pareti attaccate', 'warning');
             return false;
+        }
+        
+        // NUOVO: Validazione guide
+        const validGuideWidths = [50, 75, 100];
+        if (!validGuideWidths.includes(params.guide.width_mm)) {
+            this.showToast('Seleziona una larghezza guide valida (50, 75, 100 mm)', 'error');
+            return false;
+        }
+        
+        // NUOVO: Validazione combinazioni materiale + guide
+        if (params.material.thickness_mm <= 12 && params.guide.width_mm >= 100) {
+            this.showToast('Materiali sottili (≤12mm) non sono compatibili con guide larghe (≥100mm)', 'warning');
+            return false;
+        }
+        
+        // NUOVO: Mostra calcolo spessore chiusura in tempo reale
+        const calculatedThickness = params.calculated.closure_thickness_mm;
+        console.log(`✅ Validazione superata. Spessore chiusura calcolato: ${calculatedThickness}mm`);
+        
+        // NUOVO: Mostra strategia di montaggio
+        if (params.wall.is_attached) {
+            console.log(`📍 Strategia montaggio: Iniziare da ${params.calculated.starting_point}`);
         }
         
         return true;
@@ -2028,10 +2204,100 @@ class WallPackingApp {
             summaryCeiling.textContent = `${params.ceiling.height_mm}mm`;
         }
         
-        // Store parameters for later use in processing
-        this.projectParameters = params;
+        // NUOVO: Aggiungi elementi calcolati dinamicamente 
+        this.updateDynamicCalculatedFields(params);
+    }
+    
+    // NUOVO: Funzione per aggiornare campi calcolati dinamicamente
+    updateDynamicCalculatedFields(params) {
+        // Update o crea spessore chiusura
+        let closureElement = document.getElementById('summaryClosureThickness');
+        if (!closureElement) {
+            const summaryContent = document.getElementById('paramsSummaryContent');
+            if (summaryContent) {
+                const closureItem = document.createElement('div');
+                closureItem.className = 'summary-item';
+                closureItem.innerHTML = `
+                    <span class="summary-label">Spessore Chiusura:</span>
+                    <span class="summary-value" id="summaryClosureThickness">${params.calculated.closure_thickness_mm}mm</span>
+                `;
+                summaryContent.appendChild(closureItem);
+            }
+        } else {
+            closureElement.textContent = `${params.calculated.closure_thickness_mm}mm`;
+        }
         
-        console.log('📋 Project parameters updated:', params);
+        // Update o crea punto di partenza
+        let startingElement = document.getElementById('summaryStartingPoint');
+        if (!startingElement) {
+            const summaryContent = document.getElementById('paramsSummaryContent');
+            if (summaryContent) {
+                const startingItem = document.createElement('div');
+                startingItem.className = 'summary-item';
+                startingItem.innerHTML = `
+                    <span class="summary-label">Punto di Partenza:</span>
+                    <span class="summary-value" id="summaryStartingPoint">Da ${params.calculated.starting_point}</span>
+                `;
+                summaryContent.appendChild(startingItem);
+            }
+        } else {
+            const startingText = params.wall.is_attached ? 
+                `Da ${params.calculated.starting_point}` : 'Da centro/sinistra';
+            startingElement.textContent = startingText;
+        }
+        
+        console.log(`📐 Aggiornati campi calcolati: Spessore ${params.calculated.closure_thickness_mm}mm, Start ${params.calculated.starting_point}`);
+    }
+    
+    // NUOVO: Setup listeners per aggiornamento real-time
+    setupRealTimeParametersUpdate() {
+        console.log('⚡ Setup listeners per aggiornamento parametri in tempo reale');
+        
+        // Materiale - aggiornamento immediato spessore chiusura
+        const materialThickness = document.getElementById('materialThickness');
+        materialThickness?.addEventListener('input', debounce(() => {
+            const params = this.collectProjectParameters();
+            this.updateDynamicCalculatedFields(params);
+            console.log(`📏 Nuovo spessore materiale: ${params.material.thickness_mm}mm → Chiusura: ${params.calculated.closure_thickness_mm}mm`);
+        }, 200));
+        
+        // Guide - aggiornamento immediato spessore chiusura
+        const guideRadios = document.querySelectorAll('input[name="guideType"]');
+        guideRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const params = this.collectProjectParameters();
+                this.updateDynamicCalculatedFields(params);
+                console.log(`🔧 Nuova guida: ${params.guide.width_mm}mm → Chiusura: ${params.calculated.closure_thickness_mm}mm`);
+            });
+        });
+        
+        // Parete attaccata - aggiornamento immediato punto partenza  
+        const wallTypeRadios = document.querySelectorAll('input[name="wallType"]');
+        wallTypeRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const params = this.collectProjectParameters();
+                this.updateDynamicCalculatedFields(params);
+                console.log(`🏠 Nuova tipologia parete: ${params.wall.position} → Start: ${params.calculated.starting_point}`);
+                
+                // Mostra/nasconde opzioni attachment
+                const attachmentPoints = document.getElementById('attachmentPoints');
+                if (attachmentPoints) {
+                    attachmentPoints.style.display = params.wall.is_attached ? 'block' : 'none';
+                }
+            });
+        });
+        
+        // Punti di appoggio - aggiornamento punto partenza
+        const attachmentCheckboxes = document.querySelectorAll('.attachment-checkbox');
+        attachmentCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const params = this.collectProjectParameters();
+                this.updateDynamicCalculatedFields(params);
+                console.log(`📍 Punti appoggio aggiornati: [${params.wall.attachment_points.join(', ')}] → Start: ${params.calculated.starting_point}`);
+            });
+        });
+        
+        console.log('✅ Real-time update listeners configurati');
     }
     
     // ===== NEW: PREVIEW STEP LISTENERS =====
