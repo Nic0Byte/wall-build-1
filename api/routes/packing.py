@@ -395,8 +395,19 @@ async def enhanced_pack_from_preview(
         
         # Apply optimization if available
         try:
-            result = opt_pass(result)
-            print("✅ Optimization pass applied")
+            if result.get("enhanced", False):
+                # Per risultati enhanced, l'ottimizzazione è già inclusa
+                print("✅ Enhanced result - optimization already included")
+            else:
+                # Per risultati standard, applica ottimizzazione sui blocchi
+                optimized_placed, optimized_custom = opt_pass(
+                    result["blocks_standard"], 
+                    result["blocks_custom"], 
+                    result["config"]["block_widths"]
+                )
+                result["blocks_standard"] = optimized_placed
+                result["blocks_custom"] = optimized_custom
+                print("✅ Standard optimization pass applied")
         except Exception as e:
             print(f"⚠️ Optimization pass failed: {e}")
         
@@ -932,8 +943,19 @@ async def enhanced_upload_and_process(
         
         # Apply optimization if available
         try:
-            result = opt_pass(result)
-            print("✅ Optimization pass applied")
+            if result.get("enhanced", False):
+                # Per risultati enhanced, l'ottimizzazione è già inclusa
+                print("✅ Enhanced result - optimization already included")
+            else:
+                # Per risultati standard, applica ottimizzazione sui blocchi
+                optimized_placed, optimized_custom = opt_pass(
+                    result["blocks_standard"], 
+                    result["blocks_custom"], 
+                    result["config"]["block_widths"]
+                )
+                result["blocks_standard"] = optimized_placed
+                result["blocks_custom"] = optimized_custom
+                print("✅ Standard optimization pass applied")
         except Exception as e:
             print(f"⚠️ Optimization pass failed: {e}")
         
