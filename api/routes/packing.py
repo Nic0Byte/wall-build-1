@@ -411,7 +411,9 @@ async def enhanced_pack_from_preview(
             'enhanced': result.get("enhanced", False),
             'file_bytes': preview_data.get("file_content"),  # Riutilizzo per salvataggio progetto
             'original_filename': original_filename,
-            'optimized_from_preview': True  # MARKER: Indica elaborazione ottimizzata
+            'optimized_from_preview': True,  # MARKER: Indica elaborazione ottimizzata
+            'wall_polygon': wall_exterior,  # NUOVO: Salva geometria originale per preview identico
+            'apertures': apertures  # NUOVO: Salva anche aperture originali
         }
         
         # Cleanup preview session (opzionale)
@@ -639,34 +641,48 @@ async def get_preview_image(session_id: str):
             # Enhanced session format
             data = session["data"]
             
-            # Reconstruct wall_polygon from wall_bounds
-            if "wall_bounds" in data:
-                wall_bounds = data["wall_bounds"]
-                wall_polygon = Polygon([
-                    (wall_bounds[0], wall_bounds[1]),  # minx, miny
-                    (wall_bounds[2], wall_bounds[1]),  # maxx, miny
-                    (wall_bounds[2], wall_bounds[3]),  # maxx, maxy
-                    (wall_bounds[0], wall_bounds[3])   # minx, maxy
-                ])
+            # NUOVO: Usa geometria salvata se disponibile, altrimenti ricostruisci dai bounds
+            if "wall_polygon" in session and session["wall_polygon"] is not None:
+                # ✅ USA GEOMETRIA ORIGINALE SALVATA - identica al preview iniziale
+                wall_polygon = session["wall_polygon"]
+                print("🎯 Usando geometria originale salvata - preview identico garantito!")
             else:
-                raise ValueError("wall_bounds non trovati nella sessione enhanced")
+                # Fallback: Reconstruct wall_polygon from wall_bounds  
+                if "wall_bounds" in data:
+                    wall_bounds = data["wall_bounds"]
+                    wall_polygon = Polygon([
+                        (wall_bounds[0], wall_bounds[1]),  # minx, miny
+                        (wall_bounds[2], wall_bounds[1]),  # maxx, miny
+                        (wall_bounds[2], wall_bounds[3]),  # maxx, maxy
+                        (wall_bounds[0], wall_bounds[3])   # minx, maxy
+                    ])
+                    print("⚠️ Ricostruendo geometria da bounds - potrebbe non essere identica")
+                else:
+                    raise ValueError("Né wall_polygon né wall_bounds trovati nella sessione enhanced")
             
             # Extract other required data for preview
             placed = data.get("blocks_standard", [])
             customs = data.get("blocks_custom", []) 
-            apertures_data = data.get("apertures", [])
             
-            # Convert apertures format if needed
-            apertures = []
-            for ap in apertures_data:
-                if "bounds" in ap:
-                    bounds = ap["bounds"]
-                    apertures.append(Polygon([
-                        (bounds[0], bounds[1]),
-                        (bounds[2], bounds[1]),
-                        (bounds[2], bounds[3]),
-                        (bounds[0], bounds[3])
-                    ]))
+            # NUOVO: Usa aperture salvate se disponibili, altrimenti ricostruisci
+            if "apertures" in session and session["apertures"] is not None:
+                # ✅ USA APERTURE ORIGINALI SALVATE - identiche al preview iniziale
+                apertures = session["apertures"]
+                print("🎯 Usando aperture originali salvate - preview identico garantito!")
+            else:
+                # Fallback: Convert apertures from data format
+                apertures_data = data.get("apertures", [])
+                apertures = []
+                for ap in apertures_data:
+                    if "bounds" in ap:
+                        bounds = ap["bounds"]
+                        apertures.append(Polygon([
+                            (bounds[0], bounds[1]),
+                            (bounds[2], bounds[1]),
+                            (bounds[2], bounds[3]),
+                            (bounds[0], bounds[3])
+                        ]))
+                print("⚠️ Ricostruendo aperture da bounds - potrebbero non essere identiche")
             
             config = data.get("config", {})
             color_theme = config.get("color_theme", {})
@@ -931,7 +947,9 @@ async def enhanced_upload_and_process(
             'material_config': material_params,  # Store for future reference
             'enhanced': result.get("enhanced", False),
             'file_bytes': file_content,  # IMPORTANTE: salva i bytes del file per il salvataggio progetto
-            'original_filename': file.filename
+            'original_filename': file.filename,
+            'wall_polygon': wall_exterior,  # NUOVO: Salva geometria originale per preview identico
+            'apertures': apertures  # NUOVO: Salva anche aperture originali
         }
         
         print(f"💾 Enhanced session {session_id} salvata per utente {current_user.username}")
