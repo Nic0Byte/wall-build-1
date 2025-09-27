@@ -275,17 +275,50 @@ def generate_preview_image(
         fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
         ax.set_aspect("equal")
 
-        # Calcola bounds e margini
-        minx, miny, maxx, maxy = wall_polygon.bounds
+        # Calcola bounds originali e normalizza coordinate
+        orig_minx, orig_miny, orig_maxx, orig_maxy = wall_polygon.bounds
+        
+        # Trasla tutto all'origine per coordinate più gestibili
+        from shapely.affinity import translate
+        
+        # Normalizza la parete
+        wall_normalized = translate(wall_polygon, -orig_minx, -orig_miny)
+        
+        # Normalizza aperture se presenti
+        apertures_normalized = []
+        if apertures:
+            for aperture in apertures:
+                apertures_normalized.append(translate(aperture, -orig_minx, -orig_miny))
+        
+        # Normalizza blocchi posizionati
+        placed_normalized = []
+        for blk in placed:
+            placed_normalized.append({
+                **blk,
+                'x': blk['x'] - orig_minx,
+                'y': blk['y'] - orig_miny
+            })
+            
+        # Normalizza pezzi custom
+        customs_normalized = []
+        for custom in customs:
+            customs_normalized.append({
+                **custom,
+                'x': custom['x'] - orig_minx,
+                'y': custom['y'] - orig_miny
+            })
+
+        # Calcola bounds normalizzati e margini
+        minx, miny, maxx, maxy = wall_normalized.bounds
         margin = max((maxx - minx), (maxy - miny)) * 0.05
         ax.set_xlim(minx - margin, maxx + margin)
         ax.set_ylim(miny - margin, maxy + margin)
 
-        # Disegna il contorno della parete
-        x, y = wall_polygon.exterior.xy
+        # Disegna il contorno della parete normalizzato
+        x, y = wall_normalized.exterior.xy
         ax.plot(x, y, color=wall_color, linewidth=wall_line_width, label="Parete")
 
-        # Crea labels dettagliate per i blocchi
+        # Crea labels dettagliate per i blocchi (usando quelli originali per le labels)
         if block_config and size_to_letter:
             detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(
                 placed,
@@ -297,8 +330,8 @@ def generate_preview_image(
             detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
             info("Preview using default size_to_letter mapping")
 
-        # Disegna blocchi standard
-        for i, blk in enumerate(placed):
+        # Disegna blocchi standard (con coordinate normalizzate)
+        for i, blk in enumerate(placed_normalized):
             rect = patches.Rectangle(
                 (blk["x"], blk["y"]),
                 blk["width"],
@@ -346,15 +379,19 @@ def generate_preview_image(
                 color="#2563eb",
             )
 
-        # Disegna pezzi custom
-        for i, cust in enumerate(customs):
+        # Disegna pezzi custom (con coordinate normalizzate)
+        for i, cust in enumerate(customs_normalized):
             try:
-                poly = shape(cust["geometry"])
+                # Usa la geometria originale ma trasla le coordinate per le etichette
+                orig_cust = customs[i]
+                poly = shape(orig_cust["geometry"])
+                # Trasla la geometria
+                poly_normalized = translate(poly, -orig_minx, -orig_miny)
             except Exception:
                 continue
 
             patch = patches.Polygon(
-                list(poly.exterior.coords),
+                list(poly_normalized.exterior.coords),
                 facecolor=custom_piece_color,
                 edgecolor=custom_piece_border,
                 linewidth=0.8,
@@ -363,7 +400,7 @@ def generate_preview_image(
             )
             ax.add_patch(patch)
 
-            # Aggiungi etichette ai pezzi custom
+            # Aggiungi etichette ai pezzi custom (con coordinate normalizzate)
             label_info = detailed_custom_labels.get(i)
             if not label_info:
                 continue
@@ -400,9 +437,9 @@ def generate_preview_image(
                 color="#065f46",
             )
 
-        # Disegna aperture (porte/finestre)
-        if apertures:
-            for ap in apertures:
+        # Disegna aperture (porte/finestre) - con coordinate normalizzate
+        if apertures_normalized:
+            for ap in apertures_normalized:
                 x, y = ap.exterior.xy
                 ax.plot(x, y, color=door_window_border, linestyle="--", linewidth=2)
                 ax.fill(x, y, color=door_window_color, alpha=0.15)
@@ -416,29 +453,29 @@ def generate_preview_image(
             title = f"Enhanced Preview - Spessore: {thickness_mm}mm - Start: {starting_pos}"
             ax.set_title(title, fontsize=11, fontweight="bold", color="#059669")
             
-            # Add directional arrows for starting position
+            # Add directional arrows for starting position (usa coordinate normalizzate)
             if starting_pos:
-                minx, miny, maxx, maxy = wall_polygon.bounds
+                norm_minx, norm_miny, norm_maxx, norm_maxy = wall_normalized.bounds
                 arrow_props = dict(arrowstyle='->', lw=2, color='#dc2626')
                 
                 if starting_pos.lower() == "left":
                     # Arrow pointing to bottom-left (start laying from left side of bottom row)
-                    ax.annotate("INIZIO", xy=(minx, miny), 
-                               xytext=(minx - (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
+                    ax.annotate("INIZIO", xy=(norm_minx, norm_miny), 
+                               xytext=(norm_minx - (norm_maxx - norm_minx) * 0.1, norm_miny - (norm_maxy - norm_miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626',
                                ha='center', va='center',
                                arrowprops=arrow_props)
                 elif starting_pos.lower() == "right":
                     # Arrow pointing to bottom-right (start laying from right side of bottom row)
-                    ax.annotate("INIZIO", xy=(maxx, miny),
-                               xytext=(maxx + (maxx - minx) * 0.1, miny - (maxy - miny) * 0.15),
+                    ax.annotate("INIZIO", xy=(norm_maxx, norm_miny),
+                               xytext=(norm_maxx + (norm_maxx - norm_minx) * 0.1, norm_miny - (norm_maxy - norm_miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626', 
                                ha='center', va='center',
                                arrowprops=arrow_props)
                 elif starting_pos.lower() == "bottom":
                     # Arrow pointing to bottom-center (start laying from center of bottom row)
-                    ax.annotate("INIZIO", xy=((minx + maxx) / 2, miny),
-                               xytext=((minx + maxx) / 2, miny - (maxy - miny) * 0.15),
+                    ax.annotate("INIZIO", xy=((norm_minx + norm_maxx) / 2, norm_miny),
+                               xytext=((norm_minx + norm_maxx) / 2, norm_miny - (norm_maxy - norm_miny) * 0.15),
                                fontsize=10, fontweight='bold', color='#dc2626',
                                ha='center', va='center',
                                arrowprops=arrow_props)

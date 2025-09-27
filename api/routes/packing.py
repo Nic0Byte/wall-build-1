@@ -82,44 +82,31 @@ async def preview_file_conversion(
         elif is_complex:
             geometry_type = "Forma personalizzata"
         
-        # ===== ESEGUI PACKING REALE PER PREVIEW =====
-        print(f"🧱 ESEGUENDO PACKING PER PREVIEW:")
+        # ===== PREVIEW INIZIALE - SOLO CONTORNO PARETE =====
+        print(f"🏗️ GENERANDO PREVIEW INIZIALE (solo contorno):")
         print(f"   📐 Wall bounds: {wall_exterior.bounds}")
         print(f"   📏 Wall area: {wall_exterior.area:.2f}")
         print(f"   🚪 Aperture: {len(apertures)}")
         
-        # Usa parametri di default per preview
-        default_widths = [1239, 826, 413]
-        default_height = 495
-        default_offset = 826
+        # Per il preview iniziale: NESSUN BLOCCO, solo contorno
+        placed = []  # Nessun blocco nel preview iniziale
+        custom = []  # Nessun pezzo custom nel preview iniziale
         
-        # *** CHIAMA PACK_WALL PER PREVIEW ***
-        placed, custom = pack_wall(
-            wall_exterior,
-            default_widths,
-            default_height,
-            row_offset=default_offset,
-            apertures=apertures
-        )
+        print(f"📋 PREVIEW INIZIALE:")
+        print(f"   🧱 Blocchi mostrati: 0 (solo contorno)")
+        print(f"   ✂️ Pezzi custom mostrati: 0 (solo contorno)")
         
-        print(f"🎯 RISULTATI PREVIEW PACKING:")
-        print(f"   🧱 Blocchi standard: {len(placed)}")
-        print(f"   ✂️ Pezzi custom: {len(custom)}")
-        
-        # Calcola summary per preview
-        summary = summarize_blocks(placed)
-        
-        # Configurazione base per preview
+        # Configurazione base per preview iniziale
         config = {
             "project_name": f"Preview - {file.filename}",
-            "show_measurements": True,
+            "show_measurements": False,  # Non mostrare misure nel preview iniziale
             "preview_mode": True
         }
         
         preview_base64 = generate_preview_image(
             wall_exterior,
-            placed,  # *** USA BLOCCHI REALI ***
-            custom,  # *** USA PEZZI CUSTOM REALI *** 
+            placed,  # *** ARRAY VUOTO - NESSUN BLOCCO ***
+            custom,  # *** ARRAY VUOTO - NESSUN CUSTOM *** 
             apertures,
             {},  # color_theme vuoto
             config,
@@ -200,16 +187,7 @@ async def preview_file_conversion(
             "conversion_timestamp": datetime.datetime.now(),
             "user_id": current_user.id,
             "username": current_user.username,
-            "preview_only": True,  # Marca come sessione di preview
-            # NUOVO: Aggiungi risultati packing per riutilizzo
-            "preview_placed": placed,
-            "preview_custom": custom,
-            "preview_summary": summary,
-            "preview_config": {
-                "block_widths": default_widths,
-                "block_height": default_height,
-                "row_offset": default_offset
-            }
+            "preview_only": True,  # Marca come sessione di preview - NESSUN PACKING ANCORA
         }
         
         return {
