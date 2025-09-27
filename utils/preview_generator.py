@@ -308,11 +308,11 @@ def generate_preview_image(
                 'y': custom['y'] - orig_miny
             })
 
-        # Calcola bounds normalizzati e margini
-        minx, miny, maxx, maxy = wall_normalized.bounds
-        margin = max((maxx - minx), (maxy - miny)) * 0.05
-        ax.set_xlim(minx - margin, maxx + margin)
-        ax.set_ylim(miny - margin, maxy + margin)
+        # Calcola bounds normalizzati e margini (salvali per dopo)
+        norm_minx, norm_miny, norm_maxx, norm_maxy = wall_normalized.bounds
+        # RIDUCO DRASTICAMENTE I MARGINI - da 5% a 1%
+        margin = max((norm_maxx - norm_minx), (norm_maxy - norm_miny)) * 0.01
+        # NON impostiamo i limiti ancora - li impostiamo alla fine dopo aver disegnato tutto
 
         # Disegna il contorno della parete normalizzato
         x, y = wall_normalized.exterior.xy
@@ -485,6 +485,14 @@ def generate_preview_image(
         
         ax.grid(True, alpha=0.3, color="#9ca3af")
         ax.tick_params(axis="both", which="major", labelsize=8, colors="#6b7280")
+        
+        # IMPORTANTE: Impostiamo i limiti degli assi ALLA FINE per evitare che le frecce espandano l'area
+        # Questo mantiene il focus sulla parete e evita spazi bianchi indesiderati
+        # USA SOLO I BOUNDS DELLA PARETE NORMALIZZATA - ignora tutto il resto
+        final_minx, final_miny, final_maxx, final_maxy = wall_normalized.bounds
+        tiny_margin = max((final_maxx - final_minx), (final_maxy - final_miny)) * 0.01
+        ax.set_xlim(final_minx - tiny_margin, final_maxx + tiny_margin)
+        ax.set_ylim(final_miny - tiny_margin, final_maxy + tiny_margin)
 
         # Add comprehensive configuration info box if enhanced
         if enhanced_info and enhanced_info.get("enhanced", False):
