@@ -722,6 +722,14 @@ class WallPackingApp {
                     displayElement.textContent = `${calculatedHeight}mm (calcolato automaticamente)`;
                 }
                 
+                // NUOVO: Pre-calcola anche le dimensioni reali per la Configuration Card
+                const realDimensions = this.getRealWallDimensions(data);
+                if (realDimensions) {
+                    console.log('✅ Dimensioni reali pareti pre-calcolate:', realDimensions);
+                    // Memorizza le dimensioni per uso successivo
+                    this.cachedWallDimensions = realDimensions;
+                }
+                
                 // Aggiorna anche il riassunto configurazione
                 this.updateConfigurationCard();
             }
@@ -810,6 +818,138 @@ class WallPackingApp {
         
         console.log('⚠️ Nessuna altezza trovata nei dati del file. Usando valore di default (2700mm).');
         return null; // Nessuna altezza trovata, usar à default
+    }
+
+    // NUOVO: Metodo per calcolare le dimensioni reali delle pareti dal file CAD
+    getRealWallDimensions(data = null) {
+        const projectData = data || this.currentData || this.projectData;
+        
+        if (!projectData) {
+            console.log('ℹ️ Nessun dato progetto disponibile per calcolare dimensioni pareti');
+            return null;
+        }
+        
+        console.log('📏 Calcolo dimensioni reali pareti dai dati elaborati:', projectData);
+        
+        const dimensions = {
+            height_mm: 0,
+            length_mm: 0,
+            thickness_mm: 0,
+            area_m2: 0,
+            wall_count: 0
+        };
+        
+        // 1. PRIORITÀ MASSIMA: Dati già elaborati dal secondo step
+        if (projectData.wall_area && projectData.wall_bounds) {
+            // Il backend ci ha già dato i dati calcolati
+            const bounds = projectData.wall_bounds;
+            dimensions.height_mm = Math.round(bounds.max_y - bounds.min_y);
+            dimensions.length_mm = Math.round(bounds.max_x - bounds.min_x);
+            dimensions.area_m2 = projectData.wall_area / 1000000; // mm² to m²
+            dimensions.wall_count = projectData.walls_count || 1;
+            
+            console.log(`✅ Dimensioni estratte dai dati elaborati del secondo step:`);
+            console.log(`   📐 Bounds: (${bounds.min_x}, ${bounds.min_y}) -> (${bounds.max_x}, ${bounds.max_y})`);
+            console.log(`   📏 Altezza: ${dimensions.height_mm}mm`);
+            console.log(`   📏 Lunghezza: ${dimensions.length_mm}mm`);
+            console.log(`   📐 Area: ${dimensions.area_m2.toFixed(2)}m²`);
+            
+            return dimensions;
+        }
+        
+        // 2. BACKUP: Cerca nei risultati elaborati (result section)
+        if (projectData.result) {
+            const result = projectData.result;
+            if (result.wall_area && result.wall_bounds) {
+                const bounds = result.wall_bounds;
+                dimensions.height_mm = Math.round(bounds.max_y - bounds.min_y);
+                dimensions.length_mm = Math.round(bounds.max_x - bounds.min_x);
+                dimensions.area_m2 = result.wall_area / 1000000;
+                dimensions.wall_count = result.walls_count || 1;
+                
+                console.log(`✅ Dimensioni estratte da projectData.result:`);
+                console.log(`   📏 Altezza: ${dimensions.height_mm}mm, Lunghezza: ${dimensions.length_mm}mm`);
+                
+                return dimensions;
+            }
+        }
+        
+        // 3. BACKUP: Cerca nei metadati se disponibili
+        if (projectData.metadata) {
+            if (projectData.metadata.wall_height) {
+                dimensions.height_mm = Math.round(projectData.metadata.wall_height);
+            }
+            if (projectData.metadata.wall_length) {
+                dimensions.length_mm = Math.round(projectData.metadata.wall_length);
+            }
+            if (projectData.metadata.wall_area) {
+                dimensions.area_m2 = projectData.metadata.wall_area;
+            }
+            
+            if (dimensions.height_mm > 0 || dimensions.length_mm > 0) {
+                console.log(`✅ Dimensioni estratte da metadata:`, dimensions);
+                return dimensions;
+            }
+        }
+        
+        // 4. ULTIMO BACKUP: Cerca nelle pareti individuali (vecchio metodo)
+        if (projectData.walls && projectData.walls.length > 0) {
+            let totalLength = 0;
+            let maxHeight = 0;
+            let maxThickness = 0;
+            
+            projectData.walls.forEach((wall, index) => {
+                const wallHeight = wall.height || wall.wall_info?.height || wall.dimensions?.height;
+                if (wallHeight && wallHeight > maxHeight) {
+                    maxHeight = wallHeight;
+                }
+                
+                const wallLength = wall.length || wall.wall_info?.length || wall.dimensions?.length;
+                if (wallLength) {
+                    totalLength += wallLength;
+                }
+                
+                const wallThickness = wall.thickness || wall.wall_info?.thickness || wall.dimensions?.thickness;
+                if (wallThickness && wallThickness > maxThickness) {
+                    maxThickness = wallThickness;
+                }
+            });
+            
+            if (maxHeight > 0 || totalLength > 0) {
+                dimensions.height_mm = maxHeight;
+                dimensions.length_mm = totalLength;
+                dimensions.thickness_mm = maxThickness;
+                dimensions.wall_count = projectData.walls.length;
+                
+                if (maxHeight > 0 && totalLength > 0) {
+                    dimensions.area_m2 = (maxHeight * totalLength) / 1000000;
+                }
+                
+                console.log(`✅ Dimensioni calcolate dalle pareti individuali:`, dimensions);
+                return dimensions;
+            }
+        }
+        
+        // 5. FALLBACK: drawing_bounds come ultima risorsa
+        if (projectData.drawing_bounds) {
+            if (projectData.drawing_bounds.height) {
+                dimensions.height_mm = Math.round(projectData.drawing_bounds.height);
+            }
+            if (projectData.drawing_bounds.width) {
+                dimensions.length_mm = Math.round(projectData.drawing_bounds.width);
+            }
+            
+            if (dimensions.height_mm > 0 || dimensions.length_mm > 0) {
+                if (dimensions.height_mm > 0 && dimensions.length_mm > 0) {
+                    dimensions.area_m2 = (dimensions.height_mm * dimensions.length_mm) / 1000000;
+                }
+                console.log(`✅ Dimensioni estratte da drawing_bounds:`, dimensions);
+                return dimensions;
+            }
+        }
+        
+        console.log('⚠️ Nessuna dimensione valida trovata nei dati del file');
+        return null;
     }
     
     async reconfigureAndProcess() {
@@ -1525,17 +1665,45 @@ class WallPackingApp {
             hasConfigData = true;
         }
         
-        // Dimensions section - FORZA SEMPRE VISIBILE
+        // Dimensions section - USA DIMENSIONI REALI DAL FILE CAD
         const dimensionsSection = document.getElementById('dimensionsSection');
         const dimensionsInfo = document.getElementById('dimensionsInfo');
         let dimensionsText = '';
         
-        if (data.config_estratto_finale?.Posizionamento) {
+        // NUOVO: Prova prima a ottenere dimensioni reali dal file
+        const realDimensions = this.getRealWallDimensions(data);
+        
+        if (realDimensions && (realDimensions.height_mm > 0 || realDimensions.length_mm > 0)) {
+            // USA DIMENSIONI REALI CALCOLATE DAL FILE CAD
+            console.log('✅ Usando dimensioni REALI dal file CAD:', realDimensions);
+            
+            if (realDimensions.height_mm > 0) {
+                dimensionsText += `<div class="info-item"><strong>Altezza Parete:</strong> ${realDimensions.height_mm.toFixed(1)} mm</div>`;
+            }
+            if (realDimensions.length_mm > 0) {
+                dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${realDimensions.length_mm.toFixed(1)} mm</div>`;
+            }
+            if (realDimensions.thickness_mm > 0) {
+                dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${realDimensions.thickness_mm.toFixed(1)} mm</div>`;
+            }
+            if (realDimensions.area_m2 > 0) {
+                dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${realDimensions.area_m2.toFixed(2)} m²</div>`;
+            }
+            if (realDimensions.wall_count > 0) {
+                dimensionsText += `<div class="info-item"><strong>Numero Pareti:</strong> ${realDimensions.wall_count}</div>`;
+            }
+            
+            // Aggiungi indicatore che sono dati reali
+            dimensionsText += `<div class="info-item real-data-indicator"><em>📏 Dimensioni estratte dal file CAD</em></div>`;
+            
+        } else if (data.config_estratto_finale?.Posizionamento) {
+            // Fallback ai dati backend esistenti
+            console.log('⚠️ Usando dati backend per dimensioni pareti');
             const pos = data.config_estratto_finale.Posizionamento;
-            if (pos['Altezza Parete']) dimensionsText += `<strong>Altezza Parete:</strong> ${pos['Altezza Parete']}<br>`;
-            if (pos['Lunghezza Parete']) dimensionsText += `<strong>Lunghezza:</strong> ${pos['Lunghezza Parete']}<br>`;
-            if (pos.Spessore) dimensionsText += `<strong>Spessore:</strong> ${pos.Spessore}<br>`;
-            if (pos.Superficie) dimensionsText += `<strong>Superficie:</strong> ${pos.Superficie}`;
+            if (pos['Altezza Parete']) dimensionsText += `<div class="info-item"><strong>Altezza Parete:</strong> ${pos['Altezza Parete']}</div>`;
+            if (pos['Lunghezza Parete']) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${pos['Lunghezza Parete']}</div>`;
+            if (pos.Spessore) dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${pos.Spessore}</div>`;
+            if (pos.Superficie) dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${pos.Superficie}</div>`;
         } else {
             // Fallback alle fonti precedenti
             const dimensionSources = [
@@ -1545,26 +1713,28 @@ class WallPackingApp {
                 data.config?.wall_dimensions
             ];
             
+            let foundDimensions = false;
             for (const dims of dimensionSources) {
                 if (dims) {
-                    if (dims.height_mm) dimensionsText += `<strong>Altezza:</strong> ${dims.height_mm} mm<br>`;
-                    if (dims.length_mm) dimensionsText += `<strong>Lunghezza:</strong> ${dims.length_mm} mm<br>`;
-                    if (dims.thickness_mm) dimensionsText += `<strong>Spessore:</strong> ${dims.thickness_mm} mm<br>`;
-                    if (dims.area_m2) dimensionsText += `<strong>Superficie:</strong> ${dims.area_m2.toFixed(2)} m²`;
+                    if (dims.height_mm) dimensionsText += `<div class="info-item"><strong>Altezza:</strong> ${dims.height_mm} mm</div>`;
+                    if (dims.length_mm) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${dims.length_mm} mm</div>`;
+                    if (dims.thickness_mm) dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${dims.thickness_mm} mm</div>`;
+                    if (dims.area_m2) dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${dims.area_m2.toFixed(2)} m²</div>`;
+                    foundDimensions = true;
                     break;
                 }
             }
             
-            // Ulteriore fallback
-            if (!dimensionsText && data.config) {
-                if (data.config.wall_height) dimensionsText += `<strong>Altezza:</strong> ${data.config.wall_height} mm<br>`;
-                if (data.config.wall_length) dimensionsText += `<strong>Lunghezza:</strong> ${data.config.wall_length} mm<br>`;
+            // Ulteriore fallback ai dati di configurazione
+            if (!foundDimensions && data.config) {
+                if (data.config.wall_height) dimensionsText += `<div class="info-item"><strong>Altezza:</strong> ${data.config.wall_height} mm</div>`;
+                if (data.config.wall_length) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${data.config.wall_length} mm</div>`;
             }
         }
         
-        // Se non hai dati, mostra placeholder per test
+        // ULTIMO RESORT: Se proprio non hai dati, mostra messaggio di caricamento
         if (!dimensionsText) {
-            dimensionsText = `<strong>Altezza Parete:</strong> 3000.0 mm<br><strong>Lunghezza:</strong> 10000 mm<br><strong>Superficie:</strong> 30.0 m²`;
+            dimensionsText = `<div class="info-item loading-placeholder"><em>⏳ Carica un file per vedere le dimensioni reali</em></div>`;
         }
         
         dimensionsInfo.innerHTML = dimensionsText;

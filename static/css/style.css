@@ -3713,3 +3713,30 @@ table tbody tr:hover {
         min-height: 250px;
     }
 }
+
+/* ===== REAL DATA INDICATORS ===== */
+.real-data-indicator {
+    background: linear-gradient(45deg, #10b981, #059669);
+    color: white;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-top: 8px;
+    text-align: center;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.loading-placeholder {
+    color: #6b7280;
+    font-style: italic;
+    text-align: center;
+    padding: 8px 0;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.user-modified {
+    background: linear-gradient(45deg, #3b82f6, #2563eb);
+    color: white;
+}
