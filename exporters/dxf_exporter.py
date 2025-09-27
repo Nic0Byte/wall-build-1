@@ -1752,6 +1752,15 @@ def pack_wall(polygon: Polygon,
     """
     Packer principale con altezza adattiva per ottimizzare l'uso dello spazio.
     """
+    print(f"🔍 PACK_WALL INPUT DEBUG:")
+    print(f"   📐 Polygon bounds: {polygon.bounds}")
+    print(f"   📏 Polygon area: {polygon.area}")
+    print(f"   🔲 Polygon valid: {polygon.is_valid}")
+    print(f"   📦 Block widths: {block_widths}")
+    print(f"   📏 Block height: {block_height}")
+    print(f"   ↔️ Row offset: {row_offset}")
+    print(f"   🚪 Apertures: {len(apertures) if apertures else 0}")
+    
     polygon = sanitize_polygon(polygon)
 
     # Aperture dal poligono + eventuali passate a parte
@@ -1771,13 +1780,15 @@ def pack_wall(polygon: Polygon,
     complete_rows = int(total_height / block_height)
     remaining_space = total_height - (complete_rows * block_height)
     
-    print(f" Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
+    print(f"📊 Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
 
     y = miny
     row = 0
 
     # FASE 1: Processa righe complete con altezza standard
     while row < complete_rows:
+        print(f"🔄 Processando riga {row}: y={y:.1f} -> {y + block_height:.1f}")
+        
         stripe_top = y + block_height
         stripe = box(minx, y, maxx, stripe_top)
         inter = polygon.intersection(stripe)
@@ -1785,10 +1796,14 @@ def pack_wall(polygon: Polygon,
             inter = inter.difference(keepout)
 
         comps = ensure_multipolygon(inter)
+        print(f"   📊 Componenti trovate: {len(comps)}")
 
-        for comp in comps:
+        for i, comp in enumerate(comps):
             if comp.is_empty or comp.area < AREA_EPS:
+                print(f"   ⚠️ Componente {i} vuota o troppo piccola (area={comp.area:.2f})")
                 continue
+            
+            print(f"   🔧 Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
 
             # offset candidates
             offset_candidates: List[int] = [0] if (row % 2 == 0) else []
@@ -1797,6 +1812,8 @@ def pack_wall(polygon: Polygon,
                     offset_candidates.append(int(row_offset))
                 offset_candidates.append(413)
 
+            print(f"   📍 Offset candidates: {offset_candidates}")
+
             best_placed = []
             best_custom = []
             best_score = (10**9, float("inf"))
@@ -1804,15 +1821,19 @@ def pack_wall(polygon: Polygon,
             for off in offset_candidates:
                 p_try, c_try = _pack_segment(comp, y, stripe_top, block_widths, offset=off)
                 score = _score_solution(p_try, c_try)
+                print(f"      📦 Offset {off}: {len(p_try)} placed, {len(c_try)} custom, score={score}")
                 if score < best_score:
                     best_score = score
                     best_placed, best_custom = p_try, c_try
 
+            print(f"   ✅ Best result: {len(best_placed)} placed, {len(best_custom)} custom")
             placed_all.extend(best_placed)
             custom_all.extend(best_custom)
 
         y = snap(y + block_height)
         row += 1
+        
+    print(f"✅ FASE 1 completata: {len(placed_all)} blocchi standard totali")
 
     # FASE 2: Riga adattiva se spazio sufficiente
     if remaining_space >= 150:  # Minimo ragionevole per blocchi

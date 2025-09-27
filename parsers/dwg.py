@@ -178,7 +178,8 @@ def _extract_dxfgrabber_geometries_by_layer(dwg, layer_name: str) -> List[List[T
         f"{len(geometries)} geometrie valide"
     )
 
-    if not geometries:
+    # Non usare fallback per le aperture - se il layer è vuoto, probabilmente non ci sono aperture
+    if not geometries and layer_name.lower() not in ["buchi", "0", "aperture", "holes"]:
         print(f" Layer '{layer_name}' non trovato o vuoto, cercando geometrie generiche...")
         for entity in dwg.entities:
             coords = _extract_coords_from_dxfgrabber_entity(entity)

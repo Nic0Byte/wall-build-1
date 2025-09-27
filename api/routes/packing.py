@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 
 from api.auth import get_current_active_user
 from api.models import User
+from exporters.dxf_exporter import pack_wall, summarize_blocks  # Import functions we need
+from parsers import parse_wall_file  # Import parser
 
 router = APIRouter()
 
@@ -52,7 +54,14 @@ async def preview_file_conversion(
         
         # Parse del file per estrarre geometria
         print(f"🔄 Parsing file: {file.filename} ({file_ext.upper()})")
-        wall_exterior, apertures = parse_wall_file(file_content, file.filename)
+        # Prova con layer specifici per questo file
+        try:
+            # Per questo file specifico, prova con layer PERIMETRO e 0
+            wall_exterior, apertures = parse_wall_file(file_content, file.filename, "PERIMETRO", "0")
+        except Exception as e:
+            print(f"⚠️ Tentativo con layer PERIMETRO/0 fallito: {e}")
+            # Fallback con layer standard
+            wall_exterior, apertures = parse_wall_file(file_content, file.filename)
         
         if not wall_exterior or wall_exterior.is_empty:
             raise HTTPException(status_code=400, detail="Nessuna geometria valida trovata nel file")
@@ -73,9 +82,32 @@ async def preview_file_conversion(
         elif is_complex:
             geometry_type = "Forma personalizzata"
         
-        # Genera preview image senza blocks (solo outline)
-        empty_placed = []
-        empty_customs = []
+        # ===== ESEGUI PACKING REALE PER PREVIEW =====
+        print(f"🧱 ESEGUENDO PACKING PER PREVIEW:")
+        print(f"   📐 Wall bounds: {wall_exterior.bounds}")
+        print(f"   📏 Wall area: {wall_exterior.area:.2f}")
+        print(f"   🚪 Aperture: {len(apertures)}")
+        
+        # Usa parametri di default per preview
+        default_widths = [1239, 826, 413]
+        default_height = 495
+        default_offset = 826
+        
+        # *** CHIAMA PACK_WALL PER PREVIEW ***
+        placed, custom = pack_wall(
+            wall_exterior,
+            default_widths,
+            default_height,
+            row_offset=default_offset,
+            apertures=apertures
+        )
+        
+        print(f"🎯 RISULTATI PREVIEW PACKING:")
+        print(f"   🧱 Blocchi standard: {len(placed)}")
+        print(f"   ✂️ Pezzi custom: {len(custom)}")
+        
+        # Calcola summary per preview
+        summary = summarize_blocks(placed)
         
         # Configurazione base per preview
         config = {
@@ -86,8 +118,8 @@ async def preview_file_conversion(
         
         preview_base64 = generate_preview_image(
             wall_exterior,
-            empty_placed,
-            empty_customs, 
+            placed,  # *** USA BLOCCHI REALI ***
+            custom,  # *** USA PEZZI CUSTOM REALI *** 
             apertures,
             {},  # color_theme vuoto
             config,
@@ -168,7 +200,16 @@ async def preview_file_conversion(
             "conversion_timestamp": datetime.datetime.now(),
             "user_id": current_user.id,
             "username": current_user.username,
-            "preview_only": True  # Marca come sessione di preview
+            "preview_only": True,  # Marca come sessione di preview
+            # NUOVO: Aggiungi risultati packing per riutilizzo
+            "preview_placed": placed,
+            "preview_custom": custom,
+            "preview_summary": summary,
+            "preview_config": {
+                "block_widths": default_widths,
+                "block_height": default_height,
+                "row_offset": default_offset
+            }
         }
         
         return {
@@ -269,15 +310,49 @@ async def enhanced_pack_from_preview(
         final_session_id = str(uuid.uuid4())
         
         print(f"🚀 Inizio packing ottimizzato (senza riconversione)")
+        print(f"🧱 DATI DI INPUT:")
+        print(f"   📐 Wall bounds: {wall_exterior.bounds}")
+        print(f"   📏 Wall area: {wall_exterior.area:.2f}")
+        print(f"   🚪 Aperture: {len(apertures)}")
+        if apertures:
+            for i, ap in enumerate(apertures):
+                print(f"      Apertura {i}: bounds={ap.bounds}, area={ap.area:.2f}")
+        print(f"   📦 Block widths: {widths_list}")
+        print(f"   📏 Block height: {block_schema['block_height']}")
+        print(f"   ↔️ Row offset: {row_offset}")
         
-        # Perform standard packing SUI DATI GIÀ CONVERTITI
-        placed, custom = pack_wall(
-            wall_exterior,
-            widths_list, 
-            block_schema["block_height"],
-            row_offset=row_offset,
-            apertures=apertures
+        # OTTIMIZZAZIONE: Controlla se possiamo riutilizzare i risultati del preview
+        preview_config = preview_data.get("preview_config", {})
+        can_reuse_preview = (
+            preview_config.get("block_widths") == widths_list and
+            preview_config.get("block_height") == block_schema["block_height"] and
+            preview_config.get("row_offset") == row_offset
         )
+        
+        if can_reuse_preview and "preview_placed" in preview_data:
+            print("⚡ RIUTILIZZO COMPLETO: Usando risultati packing del preview!")
+            placed = preview_data["preview_placed"]
+            custom = preview_data["preview_custom"]
+            summary = preview_data["preview_summary"]
+        else:
+            print("🔄 NUOVO PACKING: Parametri diversi dal preview, ricalcolo necessario")
+            # Perform standard packing SUI DATI GIÀ CONVERTITI
+            placed, custom = pack_wall(
+                wall_exterior,
+                widths_list, 
+                block_schema["block_height"],
+                row_offset=row_offset,
+                apertures=apertures
+            )
+            summary = summarize_blocks(placed)
+        
+        print(f"🎯 RISULTATI PACKING:")
+        print(f"   🧱 Blocchi standard posizionati: {len(placed)}")
+        print(f"   ✂️ Pezzi custom: {len(custom)}")
+        if placed:
+            print(f"   📍 Primo blocco: x={placed[0].get('x', 0)}, y={placed[0].get('y', 0)}, w={placed[0].get('width', 0)}, h={placed[0].get('height', 0)}")
+        if len(placed) > 1:
+            print(f"   📍 Ultimo blocco: x={placed[-1].get('x', 0)}, y={placed[-1].get('y', 0)}, w={placed[-1].get('width', 0)}, h={placed[-1].get('height', 0)}")
         
         # Calculate standard metrics
         summary = summarize_blocks(placed)
@@ -749,7 +824,14 @@ async def enhanced_upload_and_process(
         
         # Parse wall geometry
         print(f"🔍 Parsing file: {file.filename} ({file_ext})")
-        wall_exterior, apertures = parse_wall_file(file_content, file.filename)
+        # Prova con layer specifici per questo file
+        try:
+            # Per questo file specifico, prova con layer PERIMETRO e 0
+            wall_exterior, apertures = parse_wall_file(file_content, file.filename, "PERIMETRO", "0")
+        except Exception as e:
+            print(f"⚠️ Tentativo con layer PERIMETRO/0 fallito: {e}")
+            # Fallback con layer standard
+            wall_exterior, apertures = parse_wall_file(file_content, file.filename)
         
         if not wall_exterior or wall_exterior.is_empty:
             raise HTTPException(status_code=400, detail="Nessuna geometria valida trovata nel file")
@@ -765,6 +847,17 @@ async def enhanced_upload_and_process(
         
         # ===== ENHANCED PACKING LOGIC =====
         
+        print(f"🧱 DATI DI INPUT ENHANCED PACK:")
+        print(f"   📐 Wall bounds: {wall_exterior.bounds}")
+        print(f"   📏 Wall area: {wall_exterior.area:.2f}")
+        print(f"   🚪 Aperture: {len(apertures)}")
+        if apertures:
+            for i, ap in enumerate(apertures):
+                print(f"      Apertura {i}: bounds={ap.bounds}, area={ap.area:.2f}")
+        print(f"   📦 Block widths: {widths_list}")
+        print(f"   📏 Block height: {block_schema['block_height']}")
+        print(f"   ↔️ Row offset: {row_offset}")
+        
         # Perform standard packing
         placed, custom = pack_wall(
             wall_exterior, 
@@ -773,6 +866,14 @@ async def enhanced_upload_and_process(
             row_offset=row_offset, 
             apertures=apertures
         )
+        
+        print(f"🎯 RISULTATI ENHANCED PACK:")
+        print(f"   🧱 Blocchi standard posizionati: {len(placed)}")
+        print(f"   ✂️ Pezzi custom: {len(custom)}")
+        if placed:
+            print(f"   📍 Primo blocco: x={placed[0].get('x', 0)}, y={placed[0].get('y', 0)}, w={placed[0].get('width', 0)}, h={placed[0].get('height', 0)}")
+        if len(placed) > 1:
+            print(f"   📍 Ultimo blocco: x={placed[-1].get('x', 0)}, y={placed[-1].get('y', 0)}, w={placed[-1].get('width', 0)}, h={placed[-1].get('height', 0)}")
         
         # Calculate standard metrics
         summary = summarize_blocks(placed)
