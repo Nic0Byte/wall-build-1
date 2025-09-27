@@ -716,6 +716,17 @@ async def get_preview_image(session_id: str):
             config = session["config"]
             enhanced_info = {"enhanced": False}
         
+        # ===== FIX: Assicurati che block_config abbia size_to_letter =====
+        from utils.config import SIZE_TO_LETTER
+        
+        # Se config non ha size_to_letter, aggiungi quello di default
+        if config and "size_to_letter" not in config:
+            config["size_to_letter"] = SIZE_TO_LETTER
+            print(f"🔧 Aggiunta mappatura size_to_letter di default: {SIZE_TO_LETTER}")
+        elif not config:
+            config = {"size_to_letter": SIZE_TO_LETTER}
+            print(f"🔧 Creato config con size_to_letter di default: {SIZE_TO_LETTER}")
+        
         # Genera preview
         preview_base64 = generate_preview_image(
             wall_polygon,

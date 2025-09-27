@@ -1,4 +1,4 @@
-"""DXF exporter module."""
+﻿"""DXF exporter module."""
 
 from __future__ import annotations
 
@@ -1245,107 +1245,77 @@ def _optimize_cutting_layout(customs: List[Dict]) -> List[List[int]]:
 def _mk_std(x: float, y: float, w: int, h: int) -> Dict:
     return {"type": f"std_{w}x{h}", "width": w, "height": h, "x": snap(x), "y": snap(y)}
 
-def _mk_custom(geom: Polygon) -> Dict:
+def _mk_custom(geom: Polygon, available_widths: List[int] = None) -> Dict:
+    """Crea un pezzo custom con ottimizzazione del blocco sorgente."""
     geom = sanitize_polygon(geom)
     minx, miny, maxx, maxy = geom.bounds
+    required_width = snap(maxx - minx)
+    
+    # ðŸŽ¯ OTTIMIZZAZIONE: Trova il blocco che spreca meno materiale
+    source_block_width = required_width  # Default fallback
+    if available_widths:
+        source_block_width = choose_optimal_source_block_for_custom(required_width, available_widths)
+    
     return {
         "type": "custom",
-        "width": snap(maxx - minx),
+        "width": required_width,
         "height": snap(maxy - miny),
         "x": snap(minx),
         "y": snap(miny),
-        "geometry": mapping(geom)
+        "geometry": mapping(geom),
+        "source_block_width": source_block_width,  # NUOVO: blocco da cui tagliare
+        "waste": source_block_width - required_width  # NUOVO: spreco calcolato
     }
 
-def _score_solution(placed: List[Dict], custom: List[Dict]) -> Tuple[int, float]:
-    """Score lessicografico: (#custom, area_custom_totale)."""
-    total_area = 0.0
-    for c in custom:
-        poly = shape(c["geometry"])
-        total_area += poly.area
-    return (len(custom), total_area)
+# ===== FUNZIONI COMPLESSE RIMOSSE =====
+# Le funzioni _try_fill, _score_solution, _greedy_sequence sono state rimosse
+# Ora usiamo solo l'algoritmo greedy semplice in _pack_segment_with_order
 
-def _try_fill(comp: Polygon, y: float, stripe_top: float, widths: List[int], start_x: float) -> Tuple[List[Dict], List[Dict]]:
-    """Greedy semplice a partire da start_x con ordine widths."""
-    placed: List[Dict] = []
-    custom: List[Dict] = []
+# FUNZIONE COMPLESSA RIMOSSA: _score_solution
+# Usava tupla (num_custom, custom_area) per confrontare soluzioni
+# Non piÃ¹ necessaria con algoritmo greedy unico
 
-    seg_minx, _, seg_maxx, _ = comp.bounds
-    cursor = snap(start_x)
-    y = snap(y)
-    stripe_top = snap(stripe_top)
-
-    while cursor < seg_maxx - COORD_EPS:
-        placed_one = False
-        for bw in widths:
-            if cursor + bw <= seg_maxx + COORD_EPS:
-                candidate = box(cursor, y, cursor + bw, stripe_top)
-                intersec = candidate.intersection(comp)
-                if intersec.is_empty or intersec.area < AREA_EPS:
-                    continue
-                if math.isclose(intersec.area, candidate.area, rel_tol=1e-9):
-                    placed.append(_mk_std(cursor, y, bw, BLOCK_HEIGHT))
-                else:
-                    custom.append(_mk_custom(intersec))
-                cursor = snap(cursor + bw)
-                placed_one = True
-                break
-        if not placed_one:
-            remaining = comp.intersection(box(cursor, y, seg_maxx, stripe_top))
-            if not remaining.is_empty and remaining.area > AREA_EPS:
-                custom.append(_mk_custom(remaining))
-            break
-    return placed, custom
-
-def choose_optimal_block_for_space(remaining_width: float, widths_order: List[int], tolerance: float = 5.0) -> Optional[int]:
+def choose_optimal_source_block_for_custom(required_width: float, available_widths: List[int]) -> int:
     """
-     CONTROLLO DINAMICO: Sceglie il blocco ottimale per lo spazio rimanente.
+    ðŸŽ¯ OTTIMIZZAZIONE CUSTOM PIECES: Sceglie il blocco che minimizza lo spreco.
     
     Args:
-        remaining_width: Spazio disponibile in mm
-        widths_order: Lista delle larghezze disponibili (in ordine di priorit)
-        tolerance: Tolleranza per considerare uno spazio "troppo piccolo"
+        required_width: Larghezza richiesta per il pezzo custom (mm)
+        available_widths: Lista blocchi standard disponibili (es. [3000, 1500, 700])
     
     Returns:
-        Larghezza del blocco ottimale, o None se conviene creare custom piece
+        Larghezza del blocco ottimale da cui tagliare (spreco minimo)
+    
+    Esempio:
+        required_width = 600mm
+        available_widths = [3000, 1500, 700]
+        
+        Spreco per blocco:
+        - 3000mm: spreco = 3000-600 = 2400mm âŒ
+        - 1500mm: spreco = 1500-600 = 900mm  âš ï¸
+        - 700mm:  spreco = 700-600 = 100mm   âœ… OTTIMALE!
+        
+        Return: 700
     """
+    if not available_widths:
+        return available_widths[0] if available_widths else required_width
     
-    # Se lo spazio  troppo piccolo per qualsiasi blocco standard
-    min_width = min(widths_order)
-    if remaining_width < min_width + tolerance:
-        # Conviene creare un custom piece
-        return None
+    # Filtra solo blocchi abbastanza grandi
+    suitable_blocks = [w for w in available_widths if w >= required_width]
     
-    #  ALGORITMO PREDITTIVO: Valuta tutte le combinazioni possibili
-    best_option = None
-    min_total_waste = float('inf')
+    if not suitable_blocks:
+        # Nessun blocco abbastanza grande - prendi il piÃ¹ grande disponibile
+        print(f"âš ï¸ Custom {required_width:.0f}mm: nessun blocco sufficiente, uso {max(available_widths)}")
+        return max(available_widths)
     
-    # Prova ogni blocco e simula cosa succede dopo
-    for width in sorted(widths_order, reverse=True):  # Dal pi grande al pi piccolo
-        if remaining_width >= width + tolerance:
-            # Simula il piazzamento di questo blocco
-            waste_scenarios = simulate_future_placement(remaining_width, width, widths_order, tolerance)
-            
-            if waste_scenarios['total_waste'] < min_total_waste:
-                min_total_waste = waste_scenarios['total_waste']
-                best_option = width
-                
-    if best_option:
-        print(f"    Predittivo: Spazio {remaining_width:.0f}mm  Blocco {best_option}mm (spreco totale: {min_total_waste:.0f}mm)")
-        return best_option
+    # Trova il blocco con spreco minimo
+    optimal_block = min(suitable_blocks, key=lambda w: w - required_width)
+    waste = optimal_block - required_width
     
-    # Fallback: usa il pi piccolo se entra
-    smallest = min(widths_order)
-    if remaining_width >= smallest:
-        waste = remaining_width - smallest
-        print(f"    Fallback: Spazio {remaining_width:.0f}mm  Blocco minimo {smallest}mm (spreco: {waste:.0f}mm)")
-        return smallest
-    
-    # Spazio troppo piccolo
-    print(f"    Spazio {remaining_width:.0f}mm troppo piccolo  Custom piece")
-    return None
+    print(f"âœ‚ï¸ Custom {required_width:.0f}mm: taglio da {optimal_block}mm (spreco: {waste:.0f}mm)")
+    return optimal_block
 
-def simulate_future_placement(total_space: float, first_block: int, widths_order: List[int], tolerance: float) -> dict:
+# FUNZIONE COMPLESSA RIMOSSA: choose_optimal_block_for_space\n# Usava toleranza per selezione ottimale blocchi\n# Sostituita con greedy semplice inline\n\ndef simulate_future_placement(total_space: float, first_block: int, widths_order: List[int], tolerance: float) -> dict:
     """
      SIMULAZIONE PREDITTIVA: Simula il piazzamento futuro per minimizzare spreco totale.
     
@@ -1391,49 +1361,7 @@ def simulate_future_placement(total_space: float, first_block: int, widths_order
         'final_remainder': remaining
     }
 
-def choose_optimal_sequence_advanced(remaining_width: float, widths_order: List[int], tolerance: float = 5.0, max_look_ahead: int = 3) -> Optional[int]:
-    """
-     ALGORITMO PREDITTIVO AVANZATO: Considera sequenze multiple per ottimizzazione globale.
-    
-    Args:
-        remaining_width: Spazio disponibile
-        widths_order: Blocchi disponibili  
-        tolerance: Tolleranza
-        max_look_ahead: Numero massimo di blocchi da considerare in anticipo
-    
-    Returns:
-        Primo blocco della sequenza ottimale
-    """
-    
-    if remaining_width < min(widths_order) + tolerance:
-        return None
-    
-    # Genera tutte le possibili combinazioni di inizio
-    best_sequence = None
-    min_waste = float('inf')
-    
-    # Test diverse strategie di inizio
-    strategies = [
-        "maximize_first",  # Inizia con il blocco pi grande
-        "balance_sequence", # Bilancia la sequenza
-        "minimize_remainder" # Minimizza il resto finale
-    ]
-    
-    for strategy in strategies:
-        sequence_result = evaluate_strategy(remaining_width, widths_order, strategy, tolerance, max_look_ahead)
-        
-        if sequence_result and sequence_result['total_waste'] < min_waste:
-            min_waste = sequence_result['total_waste']
-            best_sequence = sequence_result
-    
-    if best_sequence:
-        first_block = best_sequence['sequence'][0]
-        print(f"    Avanzato: Spazio {remaining_width:.0f}mm  Sequenza {best_sequence['sequence']} (spreco: {min_waste:.0f}mm)")
-        return first_block
-    
-    return None
-
-def evaluate_strategy(space: float, widths: List[int], strategy: str, tolerance: float, max_depth: int) -> Optional[dict]:
+# FUNZIONE COMPLESSA RIMOSSA: choose_optimal_sequence_advanced\n# Usava look-ahead per ottimizzazione predittiva\n# Sostituita con greedy semplice inline\n\ndef evaluate_strategy(space: float, widths: List[int], strategy: str, tolerance: float, max_depth: int) -> Optional[dict]:
     """Valuta una strategia specifica di packing."""
     
     if strategy == "maximize_first":
@@ -1514,7 +1442,14 @@ def _find_minimal_remainder_sequence(space: float, widths: List[int], tolerance:
     return best_sequence or {'sequence': [], 'total_waste': space, 'efficiency': 0}
 
 def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_order: List[int], offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
-    """Esegue il packing su un singolo segmento (comp), con offset e ordine blocchi fissati."""
+    """
+    ALGORITMO GREEDY SEMPLICE - UNICO METODO DI POSIZIONAMENTO
+    
+    1. Vai da sinistra a destra
+    2. Per ogni posizione, prova blocchi in ordine: piÃ¹ grande â†’ piÃ¹ piccolo
+    3. Usa il primo blocco che si adatta
+    4. Se nessun blocco standard si adatta, crea un pezzo custom
+    """
     placed: List[Dict] = []
     custom: List[Dict] = []
 
@@ -1526,147 +1461,65 @@ def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_
 
     cursor = seg_minx
 
-    # offset iniziale (se richiesto)
+    # Gestisci offset iniziale per pattern mattoncino
     if offset and cursor + offset <= seg_maxx + COORD_EPS:
         candidate = box(cursor, y, cursor + offset, stripe_top)
         intersec = candidate.intersection(comp)
         if not intersec.is_empty and intersec.area >= AREA_EPS:
-            if math.isclose(intersec.area, candidate.area, rel_tol=1e-9):
+            if intersec.area / candidate.area >= 0.95:
                 placed.append(_mk_std(cursor, y, offset, BLOCK_HEIGHT))
             else:
-                custom.append(_mk_custom(intersec))
+                custom.append(_mk_custom(intersec, widths_order))
             cursor = snap(cursor + offset)
 
-    # storico per eventuale backtrack sul micro-resto
-    history = []  # (cursor_before, placed_index_len, custom_index_len)
+    # ===== ALGORITMO GREEDY SEMPLICE - UNICO ALGORITMO =====
     while cursor < seg_maxx - COORD_EPS:
-        history.append((cursor, len(placed), len(custom)))
-        
-        #  CONTROLLO DINAMICO: Calcola spazio rimanente e scegli blocco ottimale
-        remaining_width = seg_maxx - cursor
-        
-        #  USA ALGORITMO PREDITTIVO AVANZATO
-        optimal_width = choose_optimal_sequence_advanced(remaining_width, widths_order, tolerance=5.0, max_look_ahead=3)
-        
-        # Fallback al controllo dinamico semplice se l'avanzato non trova soluzioni
-        if optimal_width is None:
-            optimal_width = choose_optimal_block_for_space(remaining_width, widths_order)
-        
+        spazio_rimanente = seg_maxx - cursor
         placed_one = False
         
-        if optimal_width is not None:
-            # Prova prima il blocco ottimale suggerito
-            if cursor + optimal_width <= seg_maxx + COORD_EPS:
-                candidate = box(cursor, y, cursor + optimal_width, stripe_top)
+        # Prova blocchi in ordine di dimensione: piÃ¹ grande â†’ piÃ¹ piccolo
+        for block_width in widths_order:
+            if block_width <= spazio_rimanente + COORD_EPS:
+                candidate = box(cursor, y, cursor + block_width, stripe_top)
                 intersec = candidate.intersection(comp)
+                
                 if not intersec.is_empty and intersec.area >= AREA_EPS:
-                    if math.isclose(intersec.area, candidate.area, rel_tol=1e-9):
-                        placed.append(_mk_std(cursor, y, optimal_width, BLOCK_HEIGHT))
-                        cursor = snap(cursor + optimal_width)
+                    if intersec.area / candidate.area >= 0.95:
+                        # Blocco standard perfetto
+                        placed.append(_mk_std(cursor, y, block_width, BLOCK_HEIGHT))
+                        cursor = snap(cursor + block_width)
                         placed_one = True
-                    else:
-                        custom.append(_mk_custom(intersec))
-                        cursor = snap(cursor + optimal_width)
-                        placed_one = True
-        
-        # Se il blocco ottimale non funziona, fallback all'algoritmo originale
-        if not placed_one:
-            for bw in widths_order:
-                if cursor + bw <= seg_maxx + COORD_EPS:
-                    candidate = box(cursor, y, cursor + bw, stripe_top)
-                    intersec = candidate.intersection(comp)
-                    if intersec.is_empty or intersec.area < AREA_EPS:
-                        continue
-                    if math.isclose(intersec.area, candidate.area, rel_tol=1e-9):
-                        placed.append(_mk_std(cursor, y, bw, BLOCK_HEIGHT))
-                    else:
-                        custom.append(_mk_custom(intersec))
-                    cursor = snap(cursor + bw)
-                    placed_one = True
-                    break
-        
-        if not placed_one:
-            # residuo a fine segmento
-            remaining = comp.intersection(box(cursor, y, seg_maxx, stripe_top))
-            rem_width = seg_maxx - cursor
-            if rem_width < MICRO_REST_MM and history:
-                # backtrack 1 step e prova ordine alternativo fine-coda
-                cursor_prev, p_len, c_len = history[-1]
-                placed = placed[:p_len]
-                custom = custom[:c_len]
-                cursor = cursor_prev
-                # Use reversed order of current widths_order for backtracking
-                alt_order = list(reversed(widths_order))
-                p2, c2 = _try_fill(comp, y, stripe_top, alt_order, cursor)
-                baseline_custom_area = 0.0
-                if not remaining.is_empty and remaining.area > AREA_EPS:
-                    baseline_custom_area = remaining.area
-                score_backtrack = _score_solution(placed + p2, custom + c2)
-                score_baseline = (len(custom) + (1 if baseline_custom_area > 0 else 0), baseline_custom_area)
-                if score_backtrack < score_baseline:
-                    placed.extend(p2)
-                    custom.extend(c2)
-                    if p2:
-                        last = p2[-1]
-                        cursor = snap(last["x"] + last["width"])
-                    elif c2:
                         break
-                    continue
-                else:
-                    if baseline_custom_area > AREA_EPS:
-                        custom.append(_mk_custom(remaining))
-                    break
-            else:
-                if not remaining.is_empty and remaining.area > AREA_EPS:
-                    custom.append(_mk_custom(remaining))
-                break
+                    else:
+                        # Spazio non perfetto - crea pezzo custom
+                        custom.append(_mk_custom(intersec, widths_order))
+                        cursor = snap(cursor + block_width)
+                        placed_one = True
+                        break
+        
+        if not placed_one:
+            # Spazio rimanente troppo piccolo per qualsiasi blocco standard
+            # Crea un pezzo custom per il resto
+            if spazio_rimanente > MICRO_REST_MM:
+                remaining_box = box(cursor, y, seg_maxx, stripe_top)
+                remaining_intersec = remaining_box.intersection(comp)
+                if not remaining_intersec.is_empty and remaining_intersec.area >= AREA_EPS:
+                    custom.append(_mk_custom(remaining_intersec, widths_order))
+            break
 
     return placed, custom
 
 def _pack_segment(comp: Polygon, y: float, stripe_top: float, widths: List[int], offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
-    """Prova pi ordini e sceglie la soluzione migliore per il segmento."""
-    best_placed = []
-    best_custom = []
-    best_score = (10**9, float("inf"))
+    """Packing semplice GREEDY: prima i blocchi piÃ¹ grandi."""
     
-    # Genera ordini dinamici dalle dimensioni passate
-    orders = [
-        sorted(widths, reverse=True),  # Prima grandi, poi medi, poi piccoli
-        sorted(widths)[1:] + [sorted(widths)[0]]  # Prima medi, poi grandi, poi piccoli (se ci sono almeno 2 elementi)
-    ]
+    # ORDINE FISSO: sempre dal piÃ¹ grande al piÃ¹ piccolo (GREEDY)
+    greedy_order = sorted(widths, reverse=True)
     
-    for order in orders:
-        p_try, c_try = _pack_segment_with_order(comp, y, stripe_top, order, offset=offset)
-        score = _score_solution(p_try, c_try)
-        if score < best_score:
-            best_score = score
-            best_placed, best_custom = p_try, c_try
-    return best_placed, best_custom
+    return _pack_segment_with_order(comp, y, stripe_top, greedy_order, offset=offset)
 
-def _pack_segment_adaptive(comp: Polygon, y: float, stripe_top: float, widths: List[int], 
-                          adaptive_height: float, offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Pack segment con altezza adattiva per l'ultima riga.
-    Identico a _pack_segment ma con altezza blocchi personalizzata.
-    """
-    best_placed = []
-    best_custom = []
-    best_score = (10**9, float("inf"))
-    
-    # Genera ordini dinamici dalle dimensioni passate
-    orders = [
-        sorted(widths, reverse=True),  # Prima grandi, poi medi, poi piccoli
-        sorted(widths)[1:] + [sorted(widths)[0]]  # Prima medi, poi grandi, poi piccoli (se ci sono almeno 2 elementi)
-    ]
-    
-    for order in orders:
-        p_try, c_try = _pack_segment_with_order_adaptive(comp, y, stripe_top, order, 
-                                                        adaptive_height, offset=offset)
-        score = _score_solution(p_try, c_try)
-        if score < best_score:
-            best_score = score
-            best_placed, best_custom = p_try, c_try
-    return best_placed, best_custom
+# FUNZIONE COMPLESSA RIMOSSA: _pack_segment_adaptive 
+# Usava best_score e _score_solution per confrontare algoritmi multipli
+# Sostituita con chiamata diretta a _pack_segment_with_order_adaptive
 
 def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float, 
                                      widths_order: List[int], adaptive_height: float, 
@@ -1688,11 +1541,17 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
         remaining_width = maxx - x
         
         #  USA ALGORITMO PREDITTIVO AVANZATO ANCHE PER BLOCCHI ADATTIVI
-        optimal_width = choose_optimal_sequence_advanced(remaining_width, widths_order, tolerance=5.0, max_look_ahead=3)
+        # GREEDY SEMPLICE: usa primo blocco che si adatta
+        optimal_width = None
+        for width in widths_order:
+            if remaining_width >= width - 5.0:
+                optimal_width = width
+                break
         
         # Fallback al controllo dinamico semplice
         if optimal_width is None:
-            optimal_width = choose_optimal_block_for_space(remaining_width, widths_order)
+            # FALLBACK GIA GESTITO SOPRA - optimal_width rimane None
+            pass
         
         best_width = None
         
@@ -1752,14 +1611,14 @@ def pack_wall(polygon: Polygon,
     """
     Packer principale con altezza adattiva per ottimizzare l'uso dello spazio.
     """
-    print(f"🔍 PACK_WALL INPUT DEBUG:")
-    print(f"   📐 Polygon bounds: {polygon.bounds}")
-    print(f"   📏 Polygon area: {polygon.area}")
-    print(f"   🔲 Polygon valid: {polygon.is_valid}")
-    print(f"   📦 Block widths: {block_widths}")
-    print(f"   📏 Block height: {block_height}")
-    print(f"   ↔️ Row offset: {row_offset}")
-    print(f"   🚪 Apertures: {len(apertures) if apertures else 0}")
+    print(f"ðŸ” PACK_WALL INPUT DEBUG:")
+    print(f"   ðŸ“ Polygon bounds: {polygon.bounds}")
+    print(f"   ðŸ“ Polygon area: {polygon.area}")
+    print(f"   ðŸ”² Polygon valid: {polygon.is_valid}")
+    print(f"   ðŸ“¦ Block widths: {block_widths}")
+    print(f"   ðŸ“ Block height: {block_height}")
+    print(f"   â†”ï¸ Row offset: {row_offset}")
+    print(f"   ðŸšª Apertures: {len(apertures) if apertures else 0}")
     
     polygon = sanitize_polygon(polygon)
 
@@ -1780,14 +1639,14 @@ def pack_wall(polygon: Polygon,
     complete_rows = int(total_height / block_height)
     remaining_space = total_height - (complete_rows * block_height)
     
-    print(f"📊 Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
+    print(f"ðŸ“Š Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
 
     y = miny
     row = 0
 
     # FASE 1: Processa righe complete con altezza standard
     while row < complete_rows:
-        print(f"🔄 Processando riga {row}: y={y:.1f} -> {y + block_height:.1f}")
+        print(f"ðŸ”„ Processando riga {row}: y={y:.1f} -> {y + block_height:.1f}")
         
         stripe_top = y + block_height
         stripe = box(minx, y, maxx, stripe_top)
@@ -1796,44 +1655,41 @@ def pack_wall(polygon: Polygon,
             inter = inter.difference(keepout)
 
         comps = ensure_multipolygon(inter)
-        print(f"   📊 Componenti trovate: {len(comps)}")
+        print(f"   ðŸ“Š Componenti trovate: {len(comps)}")
 
         for i, comp in enumerate(comps):
             if comp.is_empty or comp.area < AREA_EPS:
-                print(f"   ⚠️ Componente {i} vuota o troppo piccola (area={comp.area:.2f})")
+                print(f"   âš ï¸ Componente {i} vuota o troppo piccola (area={comp.area:.2f})")
                 continue
             
-            print(f"   🔧 Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
+            # ===== USA SOLO L'ALGORITMO GREEDY SEMPLICE =====
+            print(f"   ðŸ”§ Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
 
-            # offset candidates
-            offset_candidates: List[int] = [0] if (row % 2 == 0) else []
-            if row % 2 == 1:
-                if row_offset is not None:
-                    offset_candidates.append(int(row_offset))
-                offset_candidates.append(413)
+            # Determina offset per pattern mattoncino
+            if row % 2 == 0:
+                # Riga pari: inizia da sinistra (offset=0)
+                offset = 0
+                print(f"   ðŸ§± Riga PARI {row}: inizia da sinistra (offset=0)")
+            else:
+                # Riga dispari: usa offset per alternare i giunti
+                offset = row_offset if row_offset is not None else min(block_widths)
+                print(f"   ðŸ§± Riga DISPARI {row}: offset mattoncino = {offset}mm")
 
-            print(f"   📍 Offset candidates: {offset_candidates}")
-
-            best_placed = []
-            best_custom = []
-            best_score = (10**9, float("inf"))
-
-            for off in offset_candidates:
-                p_try, c_try = _pack_segment(comp, y, stripe_top, block_widths, offset=off)
-                score = _score_solution(p_try, c_try)
-                print(f"      📦 Offset {off}: {len(p_try)} placed, {len(c_try)} custom, score={score}")
-                if score < best_score:
-                    best_score = score
-                    best_placed, best_custom = p_try, c_try
-
-            print(f"   ✅ Best result: {len(best_placed)} placed, {len(best_custom)} custom")
-            placed_all.extend(best_placed)
-            custom_all.extend(best_custom)
+            # UNICO ALGORITMO: Greedy semplice con pattern mattoncino
+            placed_row, custom_row = _pack_segment_with_order(
+                comp, y, stripe_top, 
+                sorted(block_widths, reverse=True),  # GREEDY: grande â†’ piccolo
+                offset=offset
+            )
+            
+            print(f"   âœ… Risultato: {len(placed_row)} placed, {len(custom_row)} custom")
+            placed_all.extend(placed_row)
+            custom_all.extend(custom_row)
 
         y = snap(y + block_height)
         row += 1
         
-    print(f"✅ FASE 1 completata: {len(placed_all)} blocchi standard totali")
+    print(f"âœ… FASE 1 completata: {len(placed_all)} blocchi standard totali")
 
     # FASE 2: Riga adattiva se spazio sufficiente
     if remaining_space >= 150:  # Minimo ragionevole per blocchi
@@ -1852,28 +1708,25 @@ def pack_wall(polygon: Polygon,
             if comp.is_empty or comp.area < AREA_EPS:
                 continue
 
-            # offset candidates per riga adattiva
-            offset_candidates: List[int] = [0] if (row % 2 == 0) else []
-            if row % 2 == 1:
-                if row_offset is not None:
-                    offset_candidates.append(int(row_offset))
-                offset_candidates.append(413)
+            # ===== GREEDY SEMPLICE ANCHE PER RIGA ADATTIVA =====
+            # Determina offset per pattern mattoncino
+            if row % 2 == 0:
+                # Riga pari: inizia da sinistra
+                offset = 0
+            else:
+                # Riga dispari: usa offset per pattern mattoncino  
+                offset = row_offset if row_offset is not None else min(block_widths)
 
-            best_placed = []
-            best_custom = []
-            best_score = (10**9, float("inf"))
-
-            for off in offset_candidates:
-                # MODIFICA: Usa pack_segment specializzato per altezza adattiva
-                p_try, c_try = _pack_segment_adaptive(comp, y, stripe_top, block_widths, 
-                                                     adaptive_height, offset=off)
-                score = _score_solution(p_try, c_try)
-                if score < best_score:
-                    best_score = score
-                    best_placed, best_custom = p_try, c_try
-
-            placed_all.extend(best_placed)
-            custom_all.extend(best_custom)
+            # CHIAMATA DIRETTA SENZA CONFRONTI
+            placed_row, custom_row = _pack_segment_with_order_adaptive(
+                comp, y, stripe_top, 
+                sorted(block_widths, reverse=True),  # GREEDY: grande  piccolo
+                adaptive_height, 
+                offset=offset
+            )
+            
+            placed_all.extend(placed_row)
+            custom_all.extend(custom_row)
     else:
         print(f" Spazio rimanente {remaining_space:.0f}mm insufficiente per riga adattiva")
 
