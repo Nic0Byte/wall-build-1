@@ -1718,87 +1718,7 @@ class WallPackingApp {
             blockSection.style.display = 'block';
             hasConfigData = true;
         }
-        
-        // Dimensions section - USA DIMENSIONI REALI DAL STEP 2 (formato identico)
-        const dimensionsSection = document.getElementById('dimensionsSection');
-        const dimensionsInfo = document.getElementById('dimensionsInfo');
-        let dimensionsText = '';
-        
-        // NUOVO: Prova prima a ottenere dimensioni reali dal file (formato Step 2)
-        const realDimensions = this.getRealWallDimensions(data);
-        
-        if (realDimensions && (realDimensions.area_total > 0 || realDimensions.max_width > 0 || realDimensions.max_height > 0)) {
-            // USA DIMENSIONI REALI IDENTICHE ALLO STEP 2
-            console.log('✅ Usando dimensioni REALI dal Step 2 (formato identico):', realDimensions);
-            
-            dimensionsText += `<div class="info-item"><strong>📏 Dimensioni Rilevate</strong></div>`;
-            
-            if (realDimensions.area_total > 0) {
-                dimensionsText += `<div class="info-item"><strong>Area Totale:</strong> ${realDimensions.area_total} m²</div>`;
-            }
-            if (realDimensions.max_width > 0) {
-                dimensionsText += `<div class="info-item"><strong>Larghezza Massima:</strong> ${realDimensions.max_width} mm</div>`;
-            }
-            if (realDimensions.max_height > 0) {
-                dimensionsText += `<div class="info-item"><strong>Altezza Massima:</strong> ${realDimensions.max_height} mm</div>`;
-            }
-            if (realDimensions.apertures_count !== undefined) {
-                dimensionsText += `<div class="info-item"><strong>Aperture Rilevate:</strong> ${realDimensions.apertures_count} elementi</div>`;
-            }
-            if (realDimensions.perimeter > 0) {
-                dimensionsText += `<div class="info-item"><strong>Perimetro:</strong> ${realDimensions.perimeter} mm</div>`;
-            }
-            if (realDimensions.geometry_type) {
-                dimensionsText += `<div class="info-item"><strong>Geometria:</strong> ${realDimensions.geometry_type}</div>`;
-            }
-            
-            // Aggiungi indicatore che sono dati reali IDENTICI allo step 2
-            dimensionsText += `<div class="info-item real-data-indicator"><em>� Dati identici allo Step 2</em></div>`;
-            
-        } else if (data.config_estratto_finale?.Posizionamento) {
-            // Fallback ai dati backend esistenti
-            console.log('⚠️ Usando dati backend per dimensioni pareti');
-            const pos = data.config_estratto_finale.Posizionamento;
-            if (pos['Altezza Parete']) dimensionsText += `<div class="info-item"><strong>Altezza Parete:</strong> ${pos['Altezza Parete']}</div>`;
-            if (pos['Lunghezza Parete']) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${pos['Lunghezza Parete']}</div>`;
-            if (pos.Spessore) dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${pos.Spessore}</div>`;
-            if (pos.Superficie) dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${pos.Superficie}</div>`;
-        } else {
-            // Fallback alle fonti precedenti
-            const dimensionSources = [
-                data.enhanced_info?.automatic_measurements?.wall_dimensions,
-                data.enhanced_info?.wall_dimensions,
-                data.wall_dimensions,
-                data.config?.wall_dimensions
-            ];
-            
-            let foundDimensions = false;
-            for (const dims of dimensionSources) {
-                if (dims) {
-                    if (dims.height_mm) dimensionsText += `<div class="info-item"><strong>Altezza:</strong> ${dims.height_mm} mm</div>`;
-                    if (dims.length_mm) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${dims.length_mm} mm</div>`;
-                    if (dims.thickness_mm) dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${dims.thickness_mm} mm</div>`;
-                    if (dims.area_m2) dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${dims.area_m2.toFixed(2)} m²</div>`;
-                    foundDimensions = true;
-                    break;
-                }
-            }
-            
-            // Ulteriore fallback ai dati di configurazione
-            if (!foundDimensions && data.config) {
-                if (data.config.wall_height) dimensionsText += `<div class="info-item"><strong>Altezza:</strong> ${data.config.wall_height} mm</div>`;
-                if (data.config.wall_length) dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${data.config.wall_length} mm</div>`;
-            }
-        }
-        
-        // ULTIMO RESORT: Se proprio non hai dati, mostra messaggio per caricare file
-        if (!dimensionsText) {
-            dimensionsText = `<div class="info-item loading-placeholder"><em>⏳ Carica un file nello Step 2 per vedere le dimensioni reali</em></div>`;
-        }
-        
-        dimensionsInfo.innerHTML = dimensionsText;
-        dimensionsSection.style.display = 'block';
-        hasConfigData = true;
+
         
         // Moretti section - FORZA SEMPRE VISIBILE
         const morettiSection = document.getElementById('morettiSection');
@@ -1872,7 +1792,6 @@ class WallPackingApp {
                 material: materialSection.style.display !== 'none',
                 guide: guideSection.style.display !== 'none', 
                 block: blockSection.style.display !== 'none',
-                dimensions: dimensionsSection.style.display !== 'none',
                 moretti: morettiSection.style.display !== 'none',
                 construction: constructionSection.style.display !== 'none'
             }
