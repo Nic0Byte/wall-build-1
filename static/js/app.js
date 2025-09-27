@@ -12,6 +12,10 @@ class WallPackingApp {
         this.previewSessionId = null; // NUOVO: Store preview session ID per riutilizzo
         this.currentSection = 'app'; // Track current section
         
+        // NUOVO: Cache per le dimensioni calcolate
+        this.calculatedDimensions = null;
+        this.cachedWallDimensions = null;
+        
         // Bind methods
         this.handleFileSelect = this.handleFileSelect.bind(this);
         this.handleDragOver = this.handleDragOver.bind(this);
@@ -824,6 +828,12 @@ class WallPackingApp {
     getRealWallDimensions(data = null) {
         const projectData = data || this.currentData || this.projectData;
         
+        // Se abbiamo già calcolato le dimensioni e non ci sono nuovi dati, riutilizza
+        if (this.calculatedDimensions && !data) {
+            console.log('✅ Riutilizzando dimensioni già calcolate:', this.calculatedDimensions);
+            return this.calculatedDimensions;
+        }
+        
         if (!projectData) {
             console.log('ℹ️ Nessun dato progetto disponibile per calcolare dimensioni pareti');
             return null;
@@ -836,67 +846,108 @@ class WallPackingApp {
             length_mm: 0,
             thickness_mm: 0,
             area_m2: 0,
-            wall_count: 0
+            wall_count: 0,
+            // NUOVO: Aggiungiamo i campi formattati come nello step 2
+            area_total: 0,      // Area Totale (m²)
+            max_width: 0,       // Larghezza Massima (mm)
+            max_height: 0,      // Altezza Massima (mm)
+            apertures_count: 0, // Aperture Rilevate
+            perimeter: 0,       // Perimetro (mm)
+            geometry_type: 'rettangolare' // Tipo geometria
         };
         
-        // 1. PRIORITÀ MASSIMA: Dati già elaborati dal secondo step
-        if (projectData.wall_area && projectData.wall_bounds) {
-            // Il backend ci ha già dato i dati calcolati
-            const bounds = projectData.wall_bounds;
-            dimensions.height_mm = Math.round(bounds.max_y - bounds.min_y);
-            dimensions.length_mm = Math.round(bounds.max_x - bounds.min_x);
-            dimensions.area_m2 = projectData.wall_area / 1000000; // mm² to m²
-            dimensions.wall_count = projectData.walls_count || 1;
+        // 1. PRIORITÀ MASSIMA: Cerca nelle measurements esistenti (come nello step 2)
+        if (projectData.measurements) {
+            console.log('✅ Trovate measurements dirette dai dati elaborati:', projectData.measurements);
+            const m = projectData.measurements;
             
-            console.log(`✅ Dimensioni estratte dai dati elaborati del secondo step:`);
-            console.log(`   📐 Bounds: (${bounds.min_x}, ${bounds.min_y}) -> (${bounds.max_x}, ${bounds.max_y})`);
-            console.log(`   📏 Altezza: ${dimensions.height_mm}mm`);
-            console.log(`   📏 Lunghezza: ${dimensions.length_mm}mm`);
-            console.log(`   📐 Area: ${dimensions.area_m2.toFixed(2)}m²`);
+            dimensions.area_total = parseFloat(m.area_total) || 0;
+            dimensions.max_width = parseInt(m.max_width) || 0;
+            dimensions.max_height = parseInt(m.max_height) || 0;
+            dimensions.apertures_count = parseInt(m.apertures_count) || 0;
+            dimensions.perimeter = parseInt(m.perimeter) || 0;
+            dimensions.geometry_type = m.geometry_type || 'rettangolare';
             
+            // Mappa anche nei campi standard
+            dimensions.area_m2 = dimensions.area_total;
+            dimensions.length_mm = dimensions.max_width;
+            dimensions.height_mm = dimensions.max_height;
+            
+            // MEMORIZZA in cache
+            this.calculatedDimensions = dimensions;
+            console.log('💾 Dimensioni memorizzate in cache da measurements');
             return dimensions;
         }
         
-        // 2. BACKUP: Cerca nei risultati elaborati (result section)
+        // 2. BACKUP: Dati già elaborati dal secondo step (wall_area + wall_bounds)
+        if (projectData.wall_area && projectData.wall_bounds) {
+            const bounds = projectData.wall_bounds;
+            const width = Math.round(bounds.max_x - bounds.min_x);
+            const height = Math.round(bounds.max_y - bounds.min_y);
+            const area = projectData.wall_area / 1000000; // mm² to m²
+            
+            dimensions.area_total = parseFloat(area.toFixed(2));
+            dimensions.max_width = width;
+            dimensions.max_height = height;
+            dimensions.apertures_count = projectData.apertures_count || 0;
+            dimensions.perimeter = 2 * (width + height); // Calcolo perimetro rettangolare
+            dimensions.geometry_type = 'rettangolare';
+            
+            // Mappa anche nei campi standard
+            dimensions.area_m2 = dimensions.area_total;
+            dimensions.length_mm = dimensions.max_width;
+            dimensions.height_mm = dimensions.max_height;
+            dimensions.wall_count = projectData.walls_count || 1;
+            
+            console.log(`✅ Dimensioni estratte dai dati elaborati del secondo step:`);
+            console.log(`   📐 Area Totale: ${dimensions.area_total} m²`);
+            console.log(`   📏 Larghezza Massima: ${dimensions.max_width} mm`);
+            console.log(`   📏 Altezza Massima: ${dimensions.max_height} mm`);
+            console.log(`   � Aperture Rilevate: ${dimensions.apertures_count} elementi`);
+            
+            // MEMORIZZA in cache
+            this.calculatedDimensions = dimensions;
+            console.log('💾 Dimensioni memorizzate in cache da wall_area + wall_bounds');
+            return dimensions;
+        }
+        
+        // 3. BACKUP: Cerca nei risultati elaborati (result section)
         if (projectData.result) {
             const result = projectData.result;
             if (result.wall_area && result.wall_bounds) {
                 const bounds = result.wall_bounds;
-                dimensions.height_mm = Math.round(bounds.max_y - bounds.min_y);
-                dimensions.length_mm = Math.round(bounds.max_x - bounds.min_x);
-                dimensions.area_m2 = result.wall_area / 1000000;
+                const width = Math.round(bounds.max_x - bounds.min_x);
+                const height = Math.round(bounds.max_y - bounds.min_y);
+                const area = result.wall_area / 1000000;
+                
+                dimensions.area_total = parseFloat(area.toFixed(2));
+                dimensions.max_width = width;
+                dimensions.max_height = height;
+                dimensions.apertures_count = result.apertures_count || 0;
+                dimensions.perimeter = 2 * (width + height);
+                dimensions.geometry_type = 'rettangolare';
+                
+                // Mappa nei campi standard
+                dimensions.area_m2 = dimensions.area_total;
+                dimensions.length_mm = dimensions.max_width;
+                dimensions.height_mm = dimensions.max_height;
                 dimensions.wall_count = result.walls_count || 1;
                 
                 console.log(`✅ Dimensioni estratte da projectData.result:`);
-                console.log(`   📏 Altezza: ${dimensions.height_mm}mm, Lunghezza: ${dimensions.length_mm}mm`);
+                console.log(`   📐 Area: ${dimensions.area_total} m², Dimensioni: ${dimensions.max_width}×${dimensions.max_height}mm`);
                 
+                // MEMORIZZA in cache
+                this.calculatedDimensions = dimensions;
+                console.log('💾 Dimensioni memorizzate in cache da projectData.result');
                 return dimensions;
             }
         }
         
-        // 3. BACKUP: Cerca nei metadati se disponibili
-        if (projectData.metadata) {
-            if (projectData.metadata.wall_height) {
-                dimensions.height_mm = Math.round(projectData.metadata.wall_height);
-            }
-            if (projectData.metadata.wall_length) {
-                dimensions.length_mm = Math.round(projectData.metadata.wall_length);
-            }
-            if (projectData.metadata.wall_area) {
-                dimensions.area_m2 = projectData.metadata.wall_area;
-            }
-            
-            if (dimensions.height_mm > 0 || dimensions.length_mm > 0) {
-                console.log(`✅ Dimensioni estratte da metadata:`, dimensions);
-                return dimensions;
-            }
-        }
-        
-        // 4. ULTIMO BACKUP: Cerca nelle pareti individuali (vecchio metodo)
+        // 4. FALLBACK: Calcolo da pareti individuali (metodo originale)
         if (projectData.walls && projectData.walls.length > 0) {
             let totalLength = 0;
             let maxHeight = 0;
-            let maxThickness = 0;
+            let maxWidth = 0;
             
             projectData.walls.forEach((wall, index) => {
                 const wallHeight = wall.height || wall.wall_info?.height || wall.dimensions?.height;
@@ -907,43 +958,31 @@ class WallPackingApp {
                 const wallLength = wall.length || wall.wall_info?.length || wall.dimensions?.length;
                 if (wallLength) {
                     totalLength += wallLength;
-                }
-                
-                const wallThickness = wall.thickness || wall.wall_info?.thickness || wall.dimensions?.thickness;
-                if (wallThickness && wallThickness > maxThickness) {
-                    maxThickness = wallThickness;
+                    if (wallLength > maxWidth) maxWidth = wallLength;
                 }
             });
             
-            if (maxHeight > 0 || totalLength > 0) {
-                dimensions.height_mm = maxHeight;
-                dimensions.length_mm = totalLength;
-                dimensions.thickness_mm = maxThickness;
+            if (maxHeight > 0 || maxWidth > 0) {
+                const area = maxHeight > 0 && maxWidth > 0 ? (maxHeight * maxWidth) / 1000000 : 0;
+                
+                dimensions.area_total = parseFloat(area.toFixed(2));
+                dimensions.max_width = maxWidth;
+                dimensions.max_height = maxHeight;
+                dimensions.apertures_count = 0; // Non rilevabili dalle pareti individuali
+                dimensions.perimeter = maxWidth > 0 && maxHeight > 0 ? 2 * (maxWidth + maxHeight) : 0;
+                dimensions.geometry_type = 'calcolata';
+                
+                // Mappa nei campi standard
+                dimensions.area_m2 = dimensions.area_total;
+                dimensions.length_mm = dimensions.max_width;
+                dimensions.height_mm = dimensions.max_height;
                 dimensions.wall_count = projectData.walls.length;
                 
-                if (maxHeight > 0 && totalLength > 0) {
-                    dimensions.area_m2 = (maxHeight * totalLength) / 1000000;
-                }
-                
                 console.log(`✅ Dimensioni calcolate dalle pareti individuali:`, dimensions);
-                return dimensions;
-            }
-        }
-        
-        // 5. FALLBACK: drawing_bounds come ultima risorsa
-        if (projectData.drawing_bounds) {
-            if (projectData.drawing_bounds.height) {
-                dimensions.height_mm = Math.round(projectData.drawing_bounds.height);
-            }
-            if (projectData.drawing_bounds.width) {
-                dimensions.length_mm = Math.round(projectData.drawing_bounds.width);
-            }
-            
-            if (dimensions.height_mm > 0 || dimensions.length_mm > 0) {
-                if (dimensions.height_mm > 0 && dimensions.length_mm > 0) {
-                    dimensions.area_m2 = (dimensions.height_mm * dimensions.length_mm) / 1000000;
-                }
-                console.log(`✅ Dimensioni estratte da drawing_bounds:`, dimensions);
+                
+                // MEMORIZZA in cache
+                this.calculatedDimensions = dimensions;
+                console.log('💾 Dimensioni memorizzate in cache da pareti individuali');
                 return dimensions;
             }
         }
@@ -1502,6 +1541,21 @@ class WallPackingApp {
         const configCard = document.getElementById('configurationCard');
         if (!configCard) return;
         
+        // NUOVO: Se non ci sono dati, prova a usare le dimensioni in cache
+        if (!data && this.calculatedDimensions) {
+            console.log('🔄 Usando dimensioni dalla cache per Configuration Card:', this.calculatedDimensions);
+            data = { 
+                measurements: {
+                    area_total: this.calculatedDimensions.area_total,
+                    max_width: this.calculatedDimensions.max_width,
+                    max_height: this.calculatedDimensions.max_height,
+                    apertures_count: this.calculatedDimensions.apertures_count,
+                    perimeter: this.calculatedDimensions.perimeter,
+                    geometry_type: this.calculatedDimensions.geometry_type
+                }
+            };
+        }
+        
         console.log('🔧 Aggiornando Configuration Card con parametri dinamici');
         
         // NUOVO: Usa sempre i parametri dinamici dell'utente se disponibili
@@ -1665,36 +1719,41 @@ class WallPackingApp {
             hasConfigData = true;
         }
         
-        // Dimensions section - USA DIMENSIONI REALI DAL FILE CAD
+        // Dimensions section - USA DIMENSIONI REALI DAL STEP 2 (formato identico)
         const dimensionsSection = document.getElementById('dimensionsSection');
         const dimensionsInfo = document.getElementById('dimensionsInfo');
         let dimensionsText = '';
         
-        // NUOVO: Prova prima a ottenere dimensioni reali dal file
+        // NUOVO: Prova prima a ottenere dimensioni reali dal file (formato Step 2)
         const realDimensions = this.getRealWallDimensions(data);
         
-        if (realDimensions && (realDimensions.height_mm > 0 || realDimensions.length_mm > 0)) {
-            // USA DIMENSIONI REALI CALCOLATE DAL FILE CAD
-            console.log('✅ Usando dimensioni REALI dal file CAD:', realDimensions);
+        if (realDimensions && (realDimensions.area_total > 0 || realDimensions.max_width > 0 || realDimensions.max_height > 0)) {
+            // USA DIMENSIONI REALI IDENTICHE ALLO STEP 2
+            console.log('✅ Usando dimensioni REALI dal Step 2 (formato identico):', realDimensions);
             
-            if (realDimensions.height_mm > 0) {
-                dimensionsText += `<div class="info-item"><strong>Altezza Parete:</strong> ${realDimensions.height_mm.toFixed(1)} mm</div>`;
+            dimensionsText += `<div class="info-item"><strong>📏 Dimensioni Rilevate</strong></div>`;
+            
+            if (realDimensions.area_total > 0) {
+                dimensionsText += `<div class="info-item"><strong>Area Totale:</strong> ${realDimensions.area_total} m²</div>`;
             }
-            if (realDimensions.length_mm > 0) {
-                dimensionsText += `<div class="info-item"><strong>Lunghezza:</strong> ${realDimensions.length_mm.toFixed(1)} mm</div>`;
+            if (realDimensions.max_width > 0) {
+                dimensionsText += `<div class="info-item"><strong>Larghezza Massima:</strong> ${realDimensions.max_width} mm</div>`;
             }
-            if (realDimensions.thickness_mm > 0) {
-                dimensionsText += `<div class="info-item"><strong>Spessore:</strong> ${realDimensions.thickness_mm.toFixed(1)} mm</div>`;
+            if (realDimensions.max_height > 0) {
+                dimensionsText += `<div class="info-item"><strong>Altezza Massima:</strong> ${realDimensions.max_height} mm</div>`;
             }
-            if (realDimensions.area_m2 > 0) {
-                dimensionsText += `<div class="info-item"><strong>Superficie:</strong> ${realDimensions.area_m2.toFixed(2)} m²</div>`;
+            if (realDimensions.apertures_count !== undefined) {
+                dimensionsText += `<div class="info-item"><strong>Aperture Rilevate:</strong> ${realDimensions.apertures_count} elementi</div>`;
             }
-            if (realDimensions.wall_count > 0) {
-                dimensionsText += `<div class="info-item"><strong>Numero Pareti:</strong> ${realDimensions.wall_count}</div>`;
+            if (realDimensions.perimeter > 0) {
+                dimensionsText += `<div class="info-item"><strong>Perimetro:</strong> ${realDimensions.perimeter} mm</div>`;
+            }
+            if (realDimensions.geometry_type) {
+                dimensionsText += `<div class="info-item"><strong>Geometria:</strong> ${realDimensions.geometry_type}</div>`;
             }
             
-            // Aggiungi indicatore che sono dati reali
-            dimensionsText += `<div class="info-item real-data-indicator"><em>📏 Dimensioni estratte dal file CAD</em></div>`;
+            // Aggiungi indicatore che sono dati reali IDENTICI allo step 2
+            dimensionsText += `<div class="info-item real-data-indicator"><em>� Dati identici allo Step 2</em></div>`;
             
         } else if (data.config_estratto_finale?.Posizionamento) {
             // Fallback ai dati backend esistenti
@@ -1732,9 +1791,9 @@ class WallPackingApp {
             }
         }
         
-        // ULTIMO RESORT: Se proprio non hai dati, mostra messaggio di caricamento
+        // ULTIMO RESORT: Se proprio non hai dati, mostra messaggio per caricare file
         if (!dimensionsText) {
-            dimensionsText = `<div class="info-item loading-placeholder"><em>⏳ Carica un file per vedere le dimensioni reali</em></div>`;
+            dimensionsText = `<div class="info-item loading-placeholder"><em>⏳ Carica un file nello Step 2 per vedere le dimensioni reali</em></div>`;
         }
         
         dimensionsInfo.innerHTML = dimensionsText;
