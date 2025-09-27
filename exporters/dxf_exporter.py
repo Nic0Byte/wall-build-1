@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import datetime
 import math
+import io
+import base64
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from shapely.geometry import Polygon, box, shape, mapping
 from shapely.ops import unary_union
+
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    plt = None
+    patches = None
+    MATPLOTLIB_AVAILABLE = False
 
 from exporters.labels import create_block_labels, create_detailed_block_labels
 from utils.file_manager import get_organized_output_path
