@@ -275,6 +275,32 @@ class WallPackingApp {
                 this.updatePresetButtons(value);
             });
         });
+        
+        // NUOVO: Ceiling height automatic calculation listener
+        const ceilingHeightInput = document.getElementById('ceilingHeight');
+        if (ceilingHeightInput) {
+            ceilingHeightInput.addEventListener('change', (e) => {
+                const value = parseInt(e.target.value);
+                if (value && value > 0) {
+                    console.log(`👤 Utente ha modificato altezza soffitto: ${value}mm`);
+                    
+                    // Aggiorna il display se esiste
+                    const displayElement = document.querySelector('.ceiling-height-display');
+                    if (displayElement) {
+                        displayElement.textContent = `${value}mm (modificato manualmente)`;
+                        displayElement.classList.add('user-modified');
+                    }
+                    
+                    // Aggiorna il riassunto configurazione
+                    this.updateConfigurationCard();
+                }
+            });
+            
+            ceilingHeightInput.addEventListener('focus', (e) => {
+                // Quando l'utente clicca sul campo, mostra un suggerimento
+                console.log('💡 Campo altezza soffitto selezionato - valore calcolato automaticamente');
+            });
+        }
     }
     
     updatePresetButtons(activeValue) {
@@ -681,6 +707,111 @@ class WallPackingApp {
         }
     }
     
+    // NUOVO: Metodo per calcolare e impostare automaticamente l'altezza soffitto
+    setAutomaticCeilingHeight(data) {
+        const calculatedHeight = this.getCalculatedCeilingHeight(data);
+        if (calculatedHeight) {
+            const ceilingInput = document.getElementById('ceilingHeight');
+            if (ceilingInput) {
+                ceilingInput.value = calculatedHeight;
+                console.log(`✅ Altezza soffitto calcolata automaticamente: ${calculatedHeight}mm`);
+                
+                // Aggiorna il display in real-time se esiste
+                const displayElement = document.querySelector('.ceiling-height-display');
+                if (displayElement) {
+                    displayElement.textContent = `${calculatedHeight}mm (calcolato automaticamente)`;
+                }
+                
+                // Aggiorna anche il riassunto configurazione
+                this.updateConfigurationCard();
+            }
+        }
+    }
+
+    // NUOVO: Metodo per calcolare l'altezza dal file elaborato
+    getCalculatedCeilingHeight(data = null) {
+        const projectData = data || this.currentData || this.projectData;
+        
+        if (!projectData) {
+            console.log('ℹ️ Nessun dato progetto disponibile per calcolare altezza soffitto');
+            return null;
+        }
+        
+        console.log('🔍 Ricerca altezza soffitto nei dati:', projectData);
+        
+        // 1. Cerca l'altezza nei dati delle pareti
+        if (projectData.walls && projectData.walls.length > 0) {
+            let maxHeight = 0;
+            projectData.walls.forEach((wall, index) => {
+                // Controlla wall.height
+                if (wall.height && wall.height > maxHeight) {
+                    maxHeight = wall.height;
+                    console.log(`📏 Altezza trovata in wall[${index}].height: ${wall.height}mm`);
+                }
+                // Controlla wall.wall_info.height
+                if (wall.wall_info && wall.wall_info.height && wall.wall_info.height > maxHeight) {
+                    maxHeight = wall.wall_info.height;
+                    console.log(`📏 Altezza trovata in wall[${index}].wall_info.height: ${wall.wall_info.height}mm`);
+                }
+                // Controlla wall.dimensions.height
+                if (wall.dimensions && wall.dimensions.height && wall.dimensions.height > maxHeight) {
+                    maxHeight = wall.dimensions.height;
+                    console.log(`📏 Altezza trovata in wall[${index}].dimensions.height: ${wall.dimensions.height}mm`);
+                }
+            });
+            
+            if (maxHeight > 0) {
+                console.log(`✅ Altezza soffitto calcolata da pareti: ${Math.round(maxHeight)}mm`);
+                return Math.round(maxHeight);
+            }
+        }
+        
+        // 2. Controlla nei metadati generali
+        if (projectData.metadata) {
+            if (projectData.metadata.ceiling_height) {
+                console.log(`✅ Altezza trovata in metadata.ceiling_height: ${projectData.metadata.ceiling_height}mm`);
+                return Math.round(projectData.metadata.ceiling_height);
+            }
+            if (projectData.metadata.wall_height) {
+                console.log(`✅ Altezza trovata in metadata.wall_height: ${projectData.metadata.wall_height}mm`);
+                return Math.round(projectData.metadata.wall_height);
+            }
+            if (projectData.metadata.height) {
+                console.log(`✅ Altezza trovata in metadata.height: ${projectData.metadata.height}mm`);
+                return Math.round(projectData.metadata.height);
+            }
+        }
+        
+        // 3. Controlla in drawing_bounds se disponibile
+        if (projectData.drawing_bounds) {
+            if (projectData.drawing_bounds.height) {
+                console.log(`✅ Altezza trovata in drawing_bounds.height: ${projectData.drawing_bounds.height}mm`);
+                return Math.round(projectData.drawing_bounds.height);
+            }
+            if (projectData.drawing_bounds.max_y && projectData.drawing_bounds.min_y) {
+                const calculatedHeight = projectData.drawing_bounds.max_y - projectData.drawing_bounds.min_y;
+                console.log(`✅ Altezza calcolata da drawing_bounds (max_y - min_y): ${calculatedHeight}mm`);
+                return Math.round(calculatedHeight);
+            }
+        }
+        
+        // 4. Controlla in analysis_results se disponibile
+        if (projectData.analysis_results && projectData.analysis_results.wall_analysis) {
+            const wallAnalysis = projectData.analysis_results.wall_analysis;
+            if (wallAnalysis.average_height) {
+                console.log(`✅ Altezza trovata in analysis_results.wall_analysis.average_height: ${wallAnalysis.average_height}mm`);
+                return Math.round(wallAnalysis.average_height);
+            }
+            if (wallAnalysis.max_height) {
+                console.log(`✅ Altezza trovata in analysis_results.wall_analysis.max_height: ${wallAnalysis.max_height}mm`);
+                return Math.round(wallAnalysis.max_height);
+            }
+        }
+        
+        console.log('⚠️ Nessuna altezza trovata nei dati del file. Usando valore di default (2700mm).');
+        return null; // Nessuna altezza trovata, usar à default
+    }
+    
     async reconfigureAndProcess() {
         if (!this.currentSessionId) {
             this.showToast('Nessuna sessione attiva', 'error');
@@ -917,6 +1048,9 @@ class WallPackingApp {
     }
     
     showResults(data) {
+        // NUOVO: Calcola e imposta automaticamente l'altezza soffitto se disponibile
+        this.setAutomaticCeilingHeight(data);
+        
         // Update configuration UI with backend values
         this.updateConfigurationUI(data.config);
         
@@ -2049,8 +2183,8 @@ class WallPackingApp {
             console.log('📍 Punti di appoggio rilevati:', attachmentPoints);
         }
         
-        // Ceiling parameters - DINAMICI
-        const ceilingHeight = parseInt(document.getElementById('ceilingHeight')?.value) || 2700;
+        // Ceiling parameters - DINAMICI CON CALCOLO AUTOMATICO
+        const ceilingHeight = this.getCalculatedCeilingHeight() || parseInt(document.getElementById('ceilingHeight')?.value) || 2700;
         const enableMoretti = document.getElementById('enableMoretti')?.checked !== false; // Default true
         
         // Advanced parameters - DINAMICI 
