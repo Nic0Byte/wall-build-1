@@ -59,6 +59,44 @@ except ImportError:  # pragma: no cover
 __all__ = ["export_to_dxf", "pack_wall", "opt_pass", "EZDXF_AVAILABLE"]
 
 
+def _split_component_into_horizontal_segments(component: Polygon, y: float, stripe_top: float) -> List[Polygon]:
+    """
+    Divide una componente in segmenti orizzontali continui.
+    Questo permette al greedy di lavorare su aree rettangolari anche con aperture.
+    """
+    segments = []
+    
+    # Ottieni bounds della componente
+    minx, miny, maxx, maxy = component.bounds
+    
+    # Dividi in strisce verticali di larghezza minima blocco
+    min_width = 413  # Larghezza minima blocco
+    stripe_width = min_width * 2  # Larghezza strisce per segmentazione
+    
+    current_x = minx
+    while current_x < maxx:
+        next_x = min(current_x + stripe_width, maxx)
+        
+        # Crea rettangolo di test
+        test_rect = box(current_x, y, next_x, stripe_top)
+        
+        # Intersezione con componente
+        intersection = component.intersection(test_rect)
+        
+        if not intersection.is_empty and intersection.area > AREA_EPS:
+            if isinstance(intersection, Polygon):
+                segments.append(intersection)
+            else:
+                # MultiPolygon - aggiungi tutti i pezzi
+                for geom in intersection.geoms:
+                    if isinstance(geom, Polygon) and geom.area > AREA_EPS:
+                        segments.append(geom)
+        
+        current_x = next_x
+    
+    return segments
+
+
 def opt_pass(placed: List[Dict], custom: List[Dict], block_widths: List[int]) -> Tuple[List[Dict], List[Dict]]:
     """Hook di ottimizzazione (attualmente noop)."""
     return placed, custom
@@ -1636,10 +1674,43 @@ def pack_wall(polygon: Polygon,
     # Aperture dal poligono + eventuali passate a parte
     hole_polys = polygon_holes(polygon)
     ap_list = list(apertures) if apertures else []
+    print(f"   🕳️ Holes nel poligono: {len(hole_polys)}")
+    print(f"   🚪 Aperture passate: {len(ap_list)}")
+    
+    # FILTRO CRITICO: Escludi aperture troppo grandi (probabilmente la parete stessa)
+    wall_area = polygon.area
+    valid_apertures = []
+    for i, ap in enumerate(ap_list):
+        ap_area = ap.area
+        area_ratio = ap_area / wall_area
+        print(f"   🔍 Apertura {i}: area={ap_area:.0f}, ratio={area_ratio:.3f}")
+        
+        if area_ratio > 0.8:  # Se copre più dell'80% è probabilmente la parete stessa
+            print(f"   ❌ Apertura {i} SCARTATA: troppo grande (ratio {area_ratio:.1%})")
+            continue
+        
+        if ap_area < 1000:  # Scarta aperture troppo piccole (< 1m²)
+            print(f"   ❌ Apertura {i} SCARTATA: troppo piccola ({ap_area:.0f}mm²)")
+            continue
+            
+        valid_apertures.append(ap)
+        print(f"   ✅ Apertura {i} VALIDA: {ap_area:.0f}mm² ({area_ratio:.1%})")
+    
+    print(f"   📊 Aperture valide: {len(valid_apertures)} su {len(ap_list)}")
+    
     keepout = None
-    if hole_polys or ap_list:
-        u = unary_union([*hole_polys, *ap_list])
-        keepout = u.buffer(KEEP_OUT_MM) if not u.is_empty else None
+    if hole_polys or valid_apertures:
+        u = unary_union([*hole_polys, *valid_apertures])
+        # TEMPORANEO: No buffer per testare
+        keepout = u if not u.is_empty else None
+        print(f"   ⚠️ BUFFER DISABILITATO per test")
+        print(f"   🔲 Area keepout: {keepout.area if keepout else 0:.2f}")
+        print(f"   📐 Area poligono: {polygon.area:.2f}")
+        if keepout:
+            coverage = (keepout.area / polygon.area) * 100
+            print(f"   📊 Copertura keepout: {coverage:.1f}%")
+    else:
+        print(f"   ✅ Nessuna apertura valida trovata")
 
     minx, miny, maxx, maxy = polygon.bounds
     placed_all: List[Dict] = []

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="8000" height="2500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Parete principale (perimetro esterno) -->
+  <rect x="0" y="0" width="8000" height="2500" 
+        fill="none" stroke="blue" stroke-width="8" 
+        id="parete-principale"/>
+  
+  <!-- Una sola apertura centrale -->
+  <rect x="3000" y="500" width="1200" height="1500" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="15,10"
+        id="finestra-centrale"/>
+  
+  <!-- Testo informativo -->
+  <text x="4000" y="2200" text-anchor="middle" font-family="Arial" font-size="80" fill="green">
+    Simple Test Wall - 1 Apertura - 8m x 2.5m
+  </text>
+  
+  <!-- Legenda -->
+  <text x="100" y="2350" font-family="Arial" font-size="50" fill="blue">
+    Parete: 8000x2500mm | Apertura: 1200x1500mm
+  </text>
+</svg>
