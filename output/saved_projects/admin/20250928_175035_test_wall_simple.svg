@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="10000" height="3000" xmlns="http://www.w3.org/2000/svg">
+  <!-- Parete principale (perimetro esterno) -->
+  <rect x="0" y="0" width="10000" height="3000" 
+        fill="none" stroke="blue" stroke-width="10" 
+        id="parete-principale"/>
+  
+  <!-- Apertura 1: Porta grande a sinistra -->
+  <rect x="1000" y="0" width="800" height="2000" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="20,10"
+        id="porta-1"/>
+  
+  <!-- Apertura 2: Finestra centrale -->
+  <rect x="4000" y="600" width="1500" height="1000" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="20,10"
+        id="finestra-1"/>
+  
+  <!-- Apertura 3: Porta piccola a destra -->
+  <rect x="7500" y="0" width="600" height="1800" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="20,10"
+        id="porta-2"/>
+  
+  <!-- Testo informativo -->
+  <text x="5000" y="2700" text-anchor="middle" font-family="Arial" font-size="100" fill="green">
+    Test Wall - 3 Aperture - 10m x 3m
+  </text>
+  
+  <!-- Legenda -->
+  <text x="100" y="2800" font-family="Arial" font-size="60" fill="blue">
+    Parete: 10000x3000mm
+  </text>
+  <text x="100" y="2900" font-family="Arial" font-size="60" fill="red">
+    Aperture: 800x2000, 1500x1000, 600x1800
+  </text>
+</svg>

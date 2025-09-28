@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 
 from api.auth import get_current_active_user
 from api.models import User
-from exporters.dxf_exporter import pack_wall, summarize_blocks  # Import functions we need
+from core.wall_builder import pack_wall
+from utils.block_utils import summarize_blocks
 from parsers import parse_wall_file  # Import parser
 
 router = APIRouter()

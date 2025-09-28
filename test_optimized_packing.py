@@ -4,7 +4,7 @@ Test dell'algoritmo di packing ottimizzato con logica "a mattoncino"
 """
 
 from shapely.geometry import Polygon
-from exporters.dxf_exporter import pack_wall
+from core.wall_builder import pack_wall
 
 def test_optimized_packing():
     """Test della logica ottimizzata"""

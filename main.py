@@ -41,13 +41,9 @@ from utils.file_manager import setup_output_directories, get_organized_output_pa
 from exporters.json_exporter import export_to_json
 from exporters.pdf_exporter import export_to_pdf, REPORTLAB_AVAILABLE as reportlab_available
 from exporters.labels import create_block_labels, create_detailed_block_labels
-from exporters.dxf_exporter import (
-    export_to_dxf,
-    pack_wall,
-    opt_pass,
-    summarize_blocks as summarize_blocks_helper,
-    EZDXF_AVAILABLE as ezdxf_available,
-)
+from exporters.dxf_exporter import export_to_dxf, EZDXF_AVAILABLE as ezdxf_available
+from core.wall_builder import pack_wall, opt_pass
+from utils.block_utils import summarize_blocks as summarize_blocks_helper
 from utils.geometry_utils import snap, snap_bounds, polygon_holes, sanitize_polygon, ensure_multipolygon, SNAP_MM
 from utils.config import (
     SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
