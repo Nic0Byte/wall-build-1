@@ -54,12 +54,12 @@
                             <span>Applicazione</span>
                         </div>
                         <div class="nav-item" data-section="library">
-                            <i class="fas fa-folder-open"></i>
-                            <span>Libreria</span>
-                        </div>
-                        <div class="nav-item" data-section="settings">
                             <i class="fas fa-cog"></i>
                             <span>Impostazioni Globali</span>
+                        </div>
+                        <div class="nav-item" data-section="settings">
+                            <i class="fas fa-history"></i>
+                            <span>Progetti Passati</span>
                         </div>
                     </nav>
                     
@@ -736,11 +736,11 @@
                 <div id="librarySection" class="content-section">
                     <div class="page-header">
                         <div class="page-icon">
-                            <i class="fas fa-folder-open"></i>
+                            <i class="fas fa-cog"></i>
                         </div>
                         <div class="page-info">
-                            <h1>Libreria Progetti</h1>
-                            <p>Gestione e archivio dei progetti salvati</p>
+                            <h1>Impostazioni Globali</h1>
+                            <p>Configurazioni generali del sistema e personalizzazioni</p>
                         </div>
                     </div>
                     
@@ -917,67 +917,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="feature-card past-projects-card" onclick="togglePastProjectsPanel()">
-                            <div class="feature-icon">
-                                <i class="fas fa-history"></i>
-                            </div>
-                            <div class="feature-content">
-                                <h3>
-                                    Progetti Passati 
-                                    <span class="projects-count-badge" id="projectsCountBadge" style="display: none;">0</span>
-                                    <i class="fas fa-chevron-down expand-icon" id="pastProjectsExpandIcon"></i>
-                                </h3>
-                                <p>Riutilizza progetti precedenti con le stesse configurazioni</p>
-                                
-                                <!-- Past Projects Panel (Initially Hidden) -->
-                                <div class="past-projects-panel" id="pastProjectsPanel" style="display: none;">
-                                    <div class="past-projects-header">
-                                        <div class="search-bar">
-                                            <i class="fas fa-search"></i>
-                                            <input type="text" id="projectSearchInput" placeholder="Cerca progetti..." class="search-input">
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Projects List Container -->
-                                    <div class="past-projects-list" id="pastProjectsList">
-                                        <div class="loading-placeholder">
-                                            <i class="fas fa-spinner fa-spin"></i>
-                                            <span>Caricamento progetti...</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Empty State -->
-                                    <div class="empty-projects-state" id="emptyProjectsState" style="display: none;">
-                                        <i class="fas fa-folder-open"></i>
-                                        <h4>Nessun progetto presente</h4>
-                                        <p>Completa un progetto per salvarlo e poterlo riutilizzare in futuro</p>
-                                    </div>
-                                    
-                                    <!-- Action Buttons -->
-                                    <div class="past-projects-actions">
-                                        <button class="refresh-btn" onclick="event.stopPropagation(); refreshPastProjects()">
-                                            <i class="fas fa-sync-alt"></i> Aggiorna Lista
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- SETTINGS SECTION -->
-                <div id="settingsSection" class="content-section">
-                    <div class="page-header">
-                        <div class="page-icon">
-                            <i class="fas fa-cog"></i>
-                        </div>
-                        <div class="page-info">
-                            <h1>Impostazioni Globali</h1>
-                            <p>Configurazione generale del sistema</p>
-                        </div>
-                    </div>
-                    
-                    <div class="features-grid">
+                        
                         <!-- Color Theme Customization Card -->
                         <div class="feature-card color-theme-card" onclick="toggleColorThemePanel()">
                             <div class="feature-icon">
@@ -1110,31 +1050,66 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="feature-card">
-                            <div class="feature-icon">
-                                <i class="fas fa-cube"></i>
-                            </div>
-                            <div class="feature-content">
-                                <h3>Blocchi Predefiniti</h3>
-                                <p>Configura le dimensioni standard dei blocchi</p>
-                            </div>
+                    </div>
+                </div>
+                
+                <!-- SETTINGS SECTION -->
+                <div id="settingsSection" class="content-section">
+                    <div class="page-header">
+                        <div class="page-icon">
+                            <i class="fas fa-history"></i>
                         </div>
-                        <div class="feature-card">
-                            <div class="feature-icon">
-                                <i class="fas fa-download"></i>
-                            </div>
-                            <div class="feature-content">
-                                <h3>Formati Export</h3>
-                                <p>Personalizza i formati di esportazione disponibili</p>
-                            </div>
+                        <div class="page-info">
+                            <h1>Progetti Passati</h1>
+                            <p>Archivio e gestione dei progetti completati</p>
                         </div>
-                        <div class="feature-card">
+                    </div>
+                    
+                    <div class="features-grid">
+                        <!-- Past Projects Card -->
+                        <div class="feature-card past-projects-card" onclick="togglePastProjectsPanel()">
                             <div class="feature-icon">
-                                <i class="fas fa-user-cog"></i>
+                                <i class="fas fa-folder-open"></i>
                             </div>
                             <div class="feature-content">
-                                <h3>Preferenze Utente</h3>
-                                <p>Imposta le tue preferenze personali</p>
+                                <h3>
+                                    Progetti Salvati 
+                                    <span class="projects-count-badge" id="projectsCountBadge" style="display: none;">0</span>
+                                    <i class="fas fa-chevron-down expand-icon" id="pastProjectsExpandIcon"></i>
+                                </h3>
+                                <p>Riutilizza progetti precedenti con le stesse configurazioni</p>
+                                
+                                <!-- Past Projects Panel (Initially Hidden) -->
+                                <div class="past-projects-panel" id="pastProjectsPanel" style="display: none;">
+                                    <div class="past-projects-header">
+                                        <div class="search-bar">
+                                            <i class="fas fa-search"></i>
+                                            <input type="text" id="projectSearchInput" placeholder="Cerca progetti..." class="search-input">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Projects List Container -->
+                                    <div class="past-projects-list" id="pastProjectsList">
+                                        <div class="loading-placeholder">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                            <span>Caricamento progetti...</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Empty State -->
+                                    <div class="empty-projects-state" id="emptyProjectsState" style="display: none;">
+                                        <i class="fas fa-folder-open"></i>
+                                        <h4>Nessun progetto presente</h4>
+                                        <p>Completa un progetto per salvarlo e poterlo riutilizzare in futuro</p>
+                                    </div>
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="past-projects-actions">
+                                        <button class="refresh-btn" onclick="event.stopPropagation(); refreshPastProjects()">
+                                            <i class="fas fa-sync-alt"></i> Aggiorna Lista
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

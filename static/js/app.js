@@ -52,10 +52,10 @@ class WallPackingApp {
     handleNavigation(e) {
         const targetSection = e.currentTarget.dataset.section;
         if (targetSection) {
-            // Prevent access to library and settings when a file is loaded
-            if (this.currentFile && (targetSection === 'library' || targetSection === 'settings')) {
+            // Prevent access to global settings when a file is loaded (projects history should remain accessible)
+            if (this.currentFile && targetSection === 'library') {
                 this.showToast(
-                    'Non puoi accedere a questa sezione dopo aver caricato un file. Inizia un nuovo progetto per modificare le impostazioni.',
+                    'Non puoi accedere alle impostazioni globali dopo aver caricato un file. Inizia un nuovo progetto per modificare le configurazioni.',
                     'warning',
                     5000
                 );
@@ -128,7 +128,7 @@ class WallPackingApp {
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             const section = item.dataset.section;
-            if (this.currentFile && (section === 'library' || section === 'settings')) {
+            if (this.currentFile && section === 'library') {
                 item.classList.add('disabled');
                 item.title = 'Non disponibile dopo aver caricato un file';
             } else {
@@ -370,7 +370,7 @@ class WallPackingApp {
         this.currentFile = file;
         this.showFileInfo(file);
         
-        // Update navigation state to disable library and settings
+        // Update navigation state to disable global settings (projects history remains accessible)
         this.updateNavigationState();
         
         // Show success message and auto-progress to preview
@@ -405,7 +405,7 @@ class WallPackingApp {
         // Unlock block dimensions editing when file is removed
         this.unlockBlockDimensionsEditing();
         
-        // Update navigation state to re-enable library and settings
+        // Update navigation state to re-enable global settings
         this.updateNavigationState();
         
         this.showSection('upload');
@@ -1971,7 +1971,7 @@ class WallPackingApp {
         // Unlock block dimensions editing when app is reset
         this.unlockBlockDimensionsEditing();
         
-        // Update navigation state to re-enable library and settings
+        // Update navigation state to re-enable global settings
         this.updateNavigationState();
         
         // Show upload section and switch to app
@@ -3043,21 +3043,21 @@ function updateMiniPreviews(dimensions) {
     });
 }
 
-// Open block library (switch to library section)
+// Open global settings (switch to library section - now containing global settings)
 function openBlockLibrary() {
-    console.log('📚 Opening block library');
+    console.log('⚙️ Opening global settings');
     
-    // Check if a file is loaded - if so, prevent access to library
+    // Check if a file is loaded - if so, prevent access to global settings
     if (window.wallPackingApp && window.wallPackingApp.currentFile) {
         window.wallPackingApp.showToast(
-            'Non puoi modificare i blocchi dopo aver caricato un file. Inizia un nuovo progetto per modificare le dimensioni.',
+            'Non puoi modificare le impostazioni globali dopo aver caricato un file. Inizia un nuovo progetto per modificare le configurazioni.',
             'warning',
             5000
         );
         return;
     }
     
-    // Switch to library section
+    // Switch to global settings section (library)
     if (window.wallPackingApp) {
         window.wallPackingApp.showMainSection('library');
         
@@ -4076,7 +4076,7 @@ async function loadAndProcessProjectFile(projectId, project) {
             window.wallPackingApp.isReusedProject = true; // Mark as reused project to prevent saving
             window.wallPackingApp.showFileInfo(file, false); // false = don't reset flags since we're reusing
             
-            // Update navigation state to disable library and settings
+            // Update navigation state to disable global settings (projects history remains accessible)
             window.wallPackingApp.updateNavigationState();
         }
         
