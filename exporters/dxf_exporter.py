@@ -56,10 +56,34 @@ def export_to_dxf(summary: Dict[str, int],
                   out_path: str = "schema_taglio.dxf",
                   params: Optional[Dict] = None,
                   color_theme: Optional[Dict] = None,
-                  block_config: Optional[Dict] = None) -> str:
+                  block_config: Optional[Dict] = None,
+                  mode: str = "technical",
+                  enhanced_info: Optional[Dict] = None) -> str:
     """
-    Genera DXF con layout: SOPRA assemblato completo + SOTTO schema taglio raggruppato.
+    Genera DXF con layout specifico in base al mode:
+    - mode='technical': Layout tecnico tradizionale (SOPRA assemblato + SOTTO schema taglio)
+    - mode='step5': Layout Step 5 visualizzazione (identico all'interfaccia web)
+    
+    Args:
+        mode: 'technical' (default) or 'step5' per diversi layout
+        enhanced_info: Dati enhanced per mode='step5' con configurazione completa
     """
+    # Controlla mode e delega alla funzione specifica
+    if mode == "step5":
+        return export_step5_visualization_dxf(
+            summary=summary,
+            customs=customs,
+            placed=placed,
+            wall_polygon=wall_polygon,
+            apertures=apertures,
+            project_name=project_name,
+            out_path=out_path,
+            enhanced_info=enhanced_info,
+            color_theme=color_theme,
+            block_config=block_config
+        )
+    
+    # Mode 'technical' (default) - mantiene comportamento originale
     if not EZDXF_AVAILABLE:
         raise RuntimeError("ezdxf non disponibile. Installa con: pip install ezdxf")
     
@@ -651,4 +675,550 @@ def _add_main_dimensions(msp, wall_polygon: Polygon, offset_x: float, offset_y: 
         text=f"{wall_height:.0f}",
         dimstyle="Standard",
         dxfattribs={"layer": "QUOTE"}
+    )
+
+
+def export_step5_visualization_dxf(
+    summary: Dict[str, int], 
+    customs: List[Dict], 
+    placed: List[Dict], 
+    wall_polygon: Polygon,
+    apertures: Optional[List[Polygon]] = None,
+    project_name: str = "Step 5 - Visualizzazione Progetto",
+    out_path: str = "step5_visualization.dxf",
+    enhanced_info: Optional[Dict] = None,
+    color_theme: Optional[Dict] = None,
+    block_config: Optional[Dict] = None
+) -> str:
+    """
+    Genera DXF con layout Step 5 identico all'interfaccia web:
+    - Preview Parete (sinistra) con ricostruzione vettoriale
+    - Blocchi Standard/Custom (destra) con tabelle raggruppate  
+    - Configurazione Progetto (bottom) con tutti i parametri
+    
+    Args:
+        summary: Riassunto blocchi standard
+        customs: Lista pezzi custom con geometrie
+        placed: Lista blocchi standard posizionati
+        wall_polygon: Geometria parete principale
+        apertures: Aperture (porte/finestre) opzionali
+        project_name: Nome progetto per header
+        out_path: Percorso file output
+        enhanced_info: Dati enhanced con configurazione completa
+        color_theme: Tema colori personalizzato
+        block_config: Configurazione blocchi personalizzata
+        
+    Returns:
+        Percorso file DXF generato
+    """
+    if not EZDXF_AVAILABLE:
+        raise RuntimeError("ezdxf non disponibile. Installa con: pip install ezdxf")
+    
+    # Usa il sistema di organizzazione automatica
+    organized_path = get_organized_output_path(out_path, 'dxf')
+    
+    try:
+        # Crea nuovo documento DXF
+        doc = ezdxf.new('R2010')
+        msp = doc.modelspace()
+        
+        # Setup layer per Step 5
+        _setup_step5_layers(doc)
+        
+        # Layout constants (coordinate in mm)
+        CANVAS_WIDTH = 700
+        CANVAS_HEIGHT = 720
+        
+        # Areas coordinates
+        PREVIEW_X, PREVIEW_Y = 50, 400
+        PREVIEW_W, PREVIEW_H = 450, 300
+        
+        STD_TABLE_X, STD_TABLE_Y = 50, 100  
+        STD_TABLE_W, STD_TABLE_H = 300, 280
+        
+        CUSTOM_TABLE_X, CUSTOM_TABLE_Y = 370, 100
+        CUSTOM_TABLE_W, CUSTOM_TABLE_H = 280, 280
+        
+        CONFIG_X, CONFIG_Y = 50, 20
+        CONFIG_W, CONFIG_H = 600, 70
+        
+        # 1. SEZIONE PREVIEW PARETE (replica vettoriale)
+        _draw_step5_preview_section(
+            msp, wall_polygon, placed, customs, apertures,
+            PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H,
+            enhanced_info, color_theme, block_config
+        )
+        
+        # 2. SEZIONE TABELLE DATI (Standard + Custom)
+        _draw_step5_tables_section(
+            msp, summary, customs, placed, 
+            STD_TABLE_X, STD_TABLE_Y, STD_TABLE_W, STD_TABLE_H,
+            CUSTOM_TABLE_X, CUSTOM_TABLE_Y, CUSTOM_TABLE_W, CUSTOM_TABLE_H,
+            block_config
+        )
+        
+        # 3. SEZIONE CONFIGURAZIONE PROGETTO
+        _draw_step5_configuration_section(
+            msp, enhanced_info, CONFIG_X, CONFIG_Y, CONFIG_W, CONFIG_H
+        )
+        
+        # 4. BORDI E LAYOUT FRAME
+        _draw_step5_layout_frame(msp, CANVAS_WIDTH, CANVAS_HEIGHT)
+        
+        # Salva documento
+        doc.saveas(organized_path)
+        print(f"✅ DXF Step 5 salvato: {organized_path}")
+        
+        return organized_path
+        
+    except Exception as e:
+        print(f"❌ Errore export Step 5 DXF: {e}")
+        raise
+
+
+def _setup_step5_layers(doc):
+    """Setup layers specifici per Step 5."""
+    layers_config = {
+        # Preview layers
+        'STEP5_HEADER': {'color': 7, 'linetype': 'CONTINUOUS'},
+        'STEP5_PREVIEW_BORDER': {'color': 8, 'linetype': 'CONTINUOUS'},
+        'STEP5_PREVIEW_WALL': {'color': 5, 'linetype': 'CONTINUOUS'},      # Blu
+        'STEP5_PREVIEW_BLOCKS': {'color': 253, 'linetype': 'CONTINUOUS'},  # Grigio
+        'STEP5_PREVIEW_CUSTOM': {'color': 6, 'linetype': 'DASHED'},        # Viola
+        'STEP5_PREVIEW_LABELS': {'color': 1, 'linetype': 'CONTINUOUS'},    # Rosso
+        
+        # Tables layers  
+        'STEP5_TABLE_STD': {'color': 7, 'linetype': 'CONTINUOUS'},
+        'STEP5_TABLE_CUSTOM': {'color': 7, 'linetype': 'CONTINUOUS'},
+        'STEP5_TABLE_BORDERS': {'color': 8, 'linetype': 'CONTINUOUS'},
+        
+        # Configuration layers
+        'STEP5_CONFIG_GRID': {'color': 8, 'linetype': 'CONTINUOUS'},
+        'STEP5_CONFIG_TEXT': {'color': 7, 'linetype': 'CONTINUOUS'},
+        'STEP5_CONFIG_HEADERS': {'color': 4, 'linetype': 'CONTINUOUS'},    # Cyan
+        
+        # Layout frame
+        'STEP5_FRAME': {'color': 8, 'linetype': 'CONTINUOUS'}
+    }
+    
+    for layer_name, properties in layers_config.items():
+        layer = doc.layers.add(layer_name)
+        layer.color = properties['color']
+        layer.linetype = properties['linetype']
+
+
+def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
+                               x, y, width, height, enhanced_info, color_theme, block_config):
+    """Disegna sezione preview con ricostruzione vettoriale identica all'interfaccia."""
+    
+    # Header con titolo
+    header_text = "🔄 Preview Parete"
+    msp.add_text(
+        header_text,
+        height=12,
+        dxfattribs={"layer": "STEP5_HEADER"}
+    ).set_placement((x, y + height + 20), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Subtitle con info sessione
+    session_info = "Enhanced Preview - Sessione: 93cm - Start: left"
+    if enhanced_info and enhanced_info.get("automatic_measurements"):
+        # Estrai info reale dalla sessione 
+        session_info = f"Enhanced Preview - Sessione: {enhanced_info.get('session_width', '93')}cm - Start: left"
+    
+    msp.add_text(
+        session_info,
+        height=8,
+        dxfattribs={"layer": "STEP5_HEADER"}
+    ).set_placement((x, y + height + 5), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Bordo area preview
+    msp.add_lwpolyline(
+        [(x, y), (x + width, y), (x + width, y + height), (x, y + height), (x, y)],
+        dxfattribs={"layer": "STEP5_PREVIEW_BORDER"}
+    )
+    
+    # Calcola scaling per fit preview area
+    wall_bounds = wall_polygon.bounds
+    wall_w = wall_bounds[2] - wall_bounds[0]
+    wall_h = wall_bounds[3] - wall_bounds[1]
+    
+    # Scale con margine
+    margin = 20
+    scale_x = (width - 2 * margin) / wall_w if wall_w > 0 else 1
+    scale_y = (height - 2 * margin) / wall_h if wall_h > 0 else 1
+    scale = min(scale_x, scale_y)
+    
+    # Centro preview area
+    center_x = x + width / 2
+    center_y = y + height / 2
+    
+    # Offset per centrare parete
+    offset_x = center_x - (wall_bounds[0] + wall_w / 2) * scale
+    offset_y = center_y - (wall_bounds[1] + wall_h / 2) * scale
+    
+    # 1. Disegna contorno parete (blu)
+    wall_coords = [(px * scale + offset_x, py * scale + offset_y) 
+                   for px, py in wall_polygon.exterior.coords]
+    msp.add_lwpolyline(
+        wall_coords,
+        close=True,
+        dxfattribs={"layer": "STEP5_PREVIEW_WALL", "lineweight": 50}
+    )
+    
+    # 2. Disegna blocchi standard (grigi)
+    for i, block in enumerate(placed):
+        bx = block['x'] * scale + offset_x
+        by = block['y'] * scale + offset_y
+        bw = block['width'] * scale
+        bh = block['height'] * scale
+        
+        # Rectangle grigio
+        msp.add_lwpolyline(
+            [(bx, by), (bx + bw, by), (bx + bw, by + bh), (bx, by + bh), (bx, by)],
+            close=True,
+            dxfattribs={"layer": "STEP5_PREVIEW_BLOCKS"}
+        )
+        
+        # Label categoria (A, B, C)
+        if block_config and block_config.get('size_to_letter'):
+            size_key = f"{block['width']}x{block['height']}"
+            label = block_config['size_to_letter'].get(size_key, f"STD{i+1}")
+        else:
+            # Default labeling
+            label = f"STD{i+1}"
+            
+        msp.add_text(
+            label,
+            height=6,
+            dxfattribs={"layer": "STEP5_PREVIEW_LABELS"}
+        ).set_placement((bx + bw/2, by + bh/2), align=TextEntityAlignment.MIDDLE_CENTER)
+    
+    # 3. Disegna pezzi custom (viola tratteggiato)
+    for i, custom in enumerate(customs):
+        try:
+            geom = shape(custom['geometry'])
+            custom_coords = [(px * scale + offset_x, py * scale + offset_y) 
+                           for px, py in geom.exterior.coords]
+            
+            # Polyline viola tratteggiata
+            msp.add_lwpolyline(
+                custom_coords,
+                close=True,
+                dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"}
+            )
+            
+            # Hatch pattern per area viola
+            hatch = msp.add_hatch(color=6, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})
+            hatch.paths.add_polyline_path(custom_coords, is_closed=True)
+            hatch.set_pattern_fill("ANSI31", scale=2.0)
+            
+        except Exception as e:
+            print(f"Errore drawing custom {i}: {e}")
+    
+    # 4. Marker "INIZIO" (rosso in basso)
+    start_marker_x = x + 20
+    start_marker_y = y + 10
+    msp.add_text(
+        "INIZIO",
+        height=8,
+        dxfattribs={"layer": "STEP5_PREVIEW_LABELS", "color": 1}
+    ).set_placement((start_marker_x, start_marker_y), align=TextEntityAlignment.BOTTOM_LEFT)
+
+
+def _draw_step5_tables_section(msp, summary, customs, placed, 
+                             std_x, std_y, std_w, std_h,
+                             custom_x, custom_y, custom_w, custom_h, 
+                             block_config):
+    """Disegna sezioni tabelle Standard e Custom identiche all'interfaccia."""
+    
+    # TABELLA BLOCCHI STANDARD (sinistra)
+    _draw_standard_blocks_table(msp, summary, placed, std_x, std_y, std_w, std_h, block_config)
+    
+    # TABELLA PEZZI CUSTOM (destra)  
+    _draw_custom_blocks_table(msp, customs, custom_x, custom_y, custom_w, custom_h)
+
+
+def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block_config):
+    """Disegna tabella blocchi standard raggruppati."""
+    
+    # Header tabella
+    header_text = "🧱 Blocchi Standard (Raggruppati)"
+    msp.add_text(
+        header_text,
+        height=10,
+        dxfattribs={"layer": "STEP5_TABLE_STD"}
+    ).set_placement((x, y + height + 10), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Bordo tabella
+    msp.add_lwpolyline(
+        [(x, y), (x + width, y), (x + width, y + height), (x, y + height), (x, y)],
+        close=True,
+        dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
+    )
+    
+    # Headers colonne
+    col_headers = ["CATEGORIA", "QUANTITÀ", "DIMENSIONI"]
+    col_widths = [width * 0.3, width * 0.3, width * 0.4]
+    col_x = x + 10
+    
+    header_y = y + height - 30
+    for i, (header, col_width) in enumerate(zip(col_headers, col_widths)):
+        msp.add_text(
+            header,
+            height=8,
+            dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
+        ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        col_x += col_width
+    
+    # Dati raggruppati (simula logica dell'interfaccia)
+    if create_grouped_block_labels and group_blocks_by_category:
+        try:
+            # Usa sistema avanzato di raggruppamento
+            grouped_data = group_blocks_by_category(placed, block_config)
+            
+            row_y = header_y - 25
+            for category, blocks in grouped_data.items():
+                if not blocks:
+                    continue
+                    
+                # Categoria
+                msp.add_text(
+                    category,
+                    height=7,
+                    dxfattribs={"layer": "STEP5_TABLE_STD"}
+                ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                # Nome categoria
+                category_name = f"Categoria {category}"
+                msp.add_text(
+                    category_name,
+                    height=7,
+                    dxfattribs={"layer": "STEP5_TABLE_STD"}
+                ).set_placement((x + 50, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                # Quantità
+                quantity = len(blocks)
+                msp.add_text(
+                    str(quantity),
+                    height=7,
+                    dxfattribs={"layer": "STEP5_TABLE_STD"}
+                ).set_placement((x + col_widths[0] + col_widths[1] - 20, row_y), 
+                              align=TextEntityAlignment.BOTTOM_RIGHT)
+                
+                # Dimensioni (prendi dal primo blocco del gruppo)
+                if blocks:
+                    first_block = blocks[0]
+                    dimensions = f"{first_block['width']:.0f} × {first_block['height']:.0f} mm"
+                    msp.add_text(
+                        dimensions,
+                        height=7,
+                        dxfattribs={"layer": "STEP5_TABLE_STD"}
+                    ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
+                                  align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                row_y -= 20
+                
+        except Exception as e:
+            print(f"Errore raggruppamento standard: {e}")
+            # Fallback semplice
+            _draw_simple_standard_table(msp, summary, x, y, width, height)
+    else:
+        _draw_simple_standard_table(msp, summary, x, y, width, height)
+
+
+def _draw_simple_standard_table(msp, summary, x, y, width, height):
+    """Fallback per tabella standard semplice."""
+    row_y = y + height - 60
+    for size, quantity in summary.items():
+        if quantity > 0:
+            msp.add_text(
+                f"{size}: {quantity}",
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            row_y -= 15
+
+
+def _draw_custom_blocks_table(msp, customs, x, y, width, height):
+    """Disegna tabella pezzi custom raggruppati."""
+    
+    # Header tabella
+    header_text = "🧩 Pezzi Custom (Raggruppati)"
+    msp.add_text(
+        header_text,
+        height=10,
+        dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+    ).set_placement((x, y + height + 10), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Bordo tabella
+    msp.add_lwpolyline(
+        [(x, y), (x + width, y), (x + width, y + height), (x, y + height), (x, y)],
+        close=True,
+        dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
+    )
+    
+    # Headers colonne
+    col_headers = ["QUANTITÀ", "DIMENSIONI", "NUMERAZIONE"]
+    col_widths = [width * 0.25, width * 0.4, width * 0.35]
+    col_x = x + 10
+    
+    header_y = y + height - 30
+    for i, (header, col_width) in enumerate(zip(col_headers, col_widths)):
+        msp.add_text(
+            header,
+            height=8,
+            dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
+        ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        col_x += col_width
+    
+    # Raggruppa custom per dimensioni
+    custom_groups = {}
+    for i, custom in enumerate(customs):
+        dims_key = f"{custom.get('width', 0):.0f} × {custom.get('height', 0):.0f} mm"
+        if dims_key not in custom_groups:
+            custom_groups[dims_key] = []
+        custom_groups[dims_key].append(f"CU{i+1}")
+    
+    # Disegna righe raggruppate
+    row_y = header_y - 25
+    for dimensions, items in custom_groups.items():
+        # Quantità
+        msp.add_text(
+            str(len(items)),
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        # Dimensioni
+        msp.add_text(
+            dimensions,
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        # Numerazione
+        numerazione = ", ".join(items)
+        msp.add_text(
+            numerazione,
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
+                      align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        row_y -= 20
+
+
+def _draw_step5_configuration_section(msp, enhanced_info, x, y, width, height):
+    """Disegna sezione configurazione con 6 pannelli come nell'interfaccia."""
+    
+    # Header configurazione
+    header_text = "🔧 RIASSUNTO CONFIGURAZIONE PROGETTO"
+    msp.add_text(
+        header_text,
+        height=12,
+        dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
+    ).set_placement((x, y + height + 15), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Griglia 3x2 pannelli
+    panel_width = width / 3
+    panel_height = height / 2
+    
+    panels_config = [
+        # Row 1
+        {"title": "MATERIALE", "x": x, "y": y + panel_height},
+        {"title": "GUIDE", "x": x + panel_width, "y": y + panel_height},
+        {"title": "BLOCCHI", "x": x + 2 * panel_width, "y": y + panel_height},
+        # Row 2  
+        {"title": "MORETTI", "x": x, "y": y},
+        {"title": "COSTRUZIONE", "x": x + panel_width, "y": y},
+        {"title": "SPESSORE CHIUSURA", "x": x + 2 * panel_width, "y": y}
+    ]
+    
+    # Estrai dati da enhanced_info
+    config_data = _extract_configuration_data(enhanced_info)
+    
+    for panel in panels_config:
+        _draw_configuration_panel(
+            msp, panel["title"], panel["x"], panel["y"], 
+            panel_width, panel_height, config_data.get(panel["title"], {})
+        )
+
+
+def _extract_configuration_data(enhanced_info):
+    """Estrae dati configurazione da enhanced_info."""
+    if not enhanced_info:
+        return {}
+    
+    auto_measurements = enhanced_info.get("automatic_measurements", {})
+    material_params = auto_measurements.get("material_parameters", {})
+    
+    return {
+        "MATERIALE": {
+            "Tipo": material_params.get("material_type", "Malatime"),
+            "Spessore": f"{material_params.get('thickness', 18)} mm",
+            "Densità": f"{material_params.get('density', 650)} kg/m³"
+        },
+        "GUIDE": {
+            "Larghezza": f"{material_params.get('guide_width', 75)} mm",
+            "Tipo": f"{material_params.get('guide_width', 75)}mm",
+            "Profondità": f"{material_params.get('guide_depth', 25)} mm"
+        },
+        "BLOCCHI": {
+            "Larghezza": f"{material_params.get('block_width', 625)}mm",
+            "Altezza": f"{material_params.get('block_height', 435)} mm"
+        },
+        "MORETTI": {
+            "Richiesti": str(material_params.get('moretti_required', 9)),
+            "Altezza": f"{material_params.get('moretti_height', 150)} mm",
+            "Quantità": str(material_params.get('moretti_quantity', 8))
+        },
+        "COSTRUZIONE": {
+            "Filari Totali": str(auto_measurements.get('total_rows', 6)),
+            "Punti di Partenza": str(auto_measurements.get('start_points', 2)),
+            "Metodo": auto_measurements.get('method', 'Standard')
+        },
+        "SPESSORE CHIUSURA": {
+            "Formula": f"{material_params.get('thickness', 18)}mm + {material_params.get('guide_width', 75)}mm + {material_params.get('thickness', 18)}mm",
+            "Spessore Finale": f"{material_params.get('final_thickness', 35)} mm"
+        }
+    }
+
+
+def _draw_configuration_panel(msp, title, x, y, width, height, data):
+    """Disegna singolo pannello configurazione."""
+    
+    # Bordo pannello
+    msp.add_lwpolyline(
+        [(x, y), (x + width, y), (x + width, y + height), (x, y + height), (x, y)],
+        close=True,
+        dxfattribs={"layer": "STEP5_CONFIG_GRID"}
+    )
+    
+    # Header pannello
+    msp.add_text(
+        title,
+        height=8,
+        dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
+    ).set_placement((x + 5, y + height - 10), align=TextEntityAlignment.BOTTOM_LEFT)
+    
+    # Dati pannello
+    text_y = y + height - 25
+    for key, value in data.items():
+        text_line = f"{key}: {value}"
+        msp.add_text(
+            text_line,
+            height=6,
+            dxfattribs={"layer": "STEP5_CONFIG_TEXT"}
+        ).set_placement((x + 5, text_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        text_y -= 12
+
+
+def _draw_step5_layout_frame(msp, canvas_width, canvas_height):
+    """Disegna frame generale del layout."""
+    
+    # Bordo esterno canvas
+    msp.add_lwpolyline(
+        [(0, 0), (canvas_width, 0), (canvas_width, canvas_height), (0, canvas_height), (0, 0)],
+        close=True,
+        dxfattribs={"layer": "STEP5_FRAME", "lineweight": 25}
     )

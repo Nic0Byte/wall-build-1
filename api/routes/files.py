@@ -93,12 +93,53 @@ async def download_result(session_id: str, format: str):
                 filename=filename
             )
             
-        elif format.lower() == "dxf":
+        elif format.lower() == "dxf" or format.lower() == "dxf-step5":
             # Export DXF
             if not ezdxf_available:
                 raise HTTPException(status_code=501, detail="Export DXF non disponibile")
             
-            filename = f"schema_{session_id[:8]}_{timestamp}.dxf"
+            # Determina mode e filename in base al formato
+            if format.lower() == "dxf-step5":
+                mode = "step5"
+                filename = f"step5_visual_{session_id[:8]}_{timestamp}.dxf"
+                print(f"🎨 Export DXF Step 5 visualization per session {session_id[:8]}")
+            else:
+                mode = "technical"
+                filename = f"schema_{session_id[:8]}_{timestamp}.dxf"
+                print(f"📐 Export DXF technical per session {session_id[:8]}")
+            
+            # Prepara enhanced_info per Step 5
+            enhanced_info = None
+            if mode == "step5":
+                enhanced_info = {
+                    "enhanced": True,
+                    "session_width": config.get("wall_width", "93"),
+                    "automatic_measurements": {
+                        "material_parameters": {
+                            "material_type": config.get("material_type", "Malatime"),
+                            "thickness": config.get("thickness", 18),
+                            "density": config.get("density", 650),
+                            "guide_width": config.get("guide_width", 75),
+                            "guide_depth": config.get("guide_depth", 25),
+                            "block_width": config.get("block_width", 625),
+                            "block_height": config.get("block_height", 435),
+                            "moretti_required": config.get("moretti_required", 9),
+                            "moretti_height": config.get("moretti_height", 150),
+                            "moretti_quantity": config.get("moretti_quantity", 8),
+                            "final_thickness": config.get("final_thickness", 35)
+                        },
+                        "total_rows": session.get("metrics", {}).get("total_rows", 6),
+                        "start_points": session.get("metrics", {}).get("start_points", 2),
+                        "method": session.get("metrics", {}).get("method", "Standard")
+                    }
+                }
+                
+                # Se sessione enhanced, estrai dati reali
+                if "data" in session and session.get("enhanced", False):
+                    session_data = session["data"]
+                    if "enhanced_info" in session_data:
+                        enhanced_info.update(session_data["enhanced_info"])
+            
             dxf_path = export_to_dxf(
                 summary,
                 customs,
@@ -109,7 +150,9 @@ async def download_result(session_id: str, format: str):
                 out_path=filename,
                 params=build_run_params(row_offset),
                 color_theme=config.get("color_theme", {}),
-                block_config=config
+                block_config=config,
+                mode=mode,
+                enhanced_info=enhanced_info
             )
             
             return FileResponse(

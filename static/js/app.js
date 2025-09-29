@@ -209,7 +209,7 @@ class WallPackingApp {
         
         document.getElementById('downloadDXF')?.addEventListener('click', () => {
             console.log('DXF download clicked');
-            this.downloadResult('dxf');
+            this.downloadResult('dxf-step5');
         });
         
         document.getElementById('downloadJSON')?.addEventListener('click', () => {
@@ -1108,7 +1108,7 @@ class WallPackingApp {
         }
         
         // Validation format
-        const validFormats = ['pdf', 'json', 'dxf'];
+        const validFormats = ['pdf', 'json', 'dxf', 'dxf-step5'];
         if (!validFormats.includes(format.toLowerCase())) {
             this.showToast(`Formato ${format} non supportato`, 'error');
             return;
