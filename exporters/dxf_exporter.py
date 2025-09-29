@@ -725,22 +725,22 @@ def export_step5_visualization_dxf(
         # Setup layer per Step 5
         _setup_step5_layers(doc)
         
-        # Layout constants (coordinate in mm)
-        CANVAS_WIDTH = 700
-        CANVAS_HEIGHT = 720
+        # Layout constants (coordinate in mm) - SPAZI ESTREMI PER EVITARE SOVRAPPOSIZIONI
+        CANVAS_WIDTH = 2800
+        CANVAS_HEIGHT = 2400
         
-        # Areas coordinates
-        PREVIEW_X, PREVIEW_Y = 50, 400
-        PREVIEW_W, PREVIEW_H = 450, 300
+        # Areas coordinates - DISTANZE MASSIME TRA SEZIONI
+        PREVIEW_X, PREVIEW_Y = 150, 1800
+        PREVIEW_W, PREVIEW_H = 1000, 700
         
-        STD_TABLE_X, STD_TABLE_Y = 50, 100  
-        STD_TABLE_W, STD_TABLE_H = 300, 280
+        STD_TABLE_X, STD_TABLE_Y = 150, 950  
+        STD_TABLE_W, STD_TABLE_H = 700, 650
         
-        CUSTOM_TABLE_X, CUSTOM_TABLE_Y = 370, 100
-        CUSTOM_TABLE_W, CUSTOM_TABLE_H = 280, 280
+        CUSTOM_TABLE_X, CUSTOM_TABLE_Y = 1000, 950
+        CUSTOM_TABLE_W, CUSTOM_TABLE_H = 700, 650
         
-        CONFIG_X, CONFIG_Y = 50, 20
-        CONFIG_W, CONFIG_H = 600, 70
+        CONFIG_X, CONFIG_Y = 150, 150
+        CONFIG_W, CONFIG_H = 1550, 650
         
         # 1. SEZIONE PREVIEW PARETE (replica vettoriale)
         _draw_step5_preview_section(
@@ -942,7 +942,7 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
     """Disegna tabella blocchi standard raggruppati."""
     
     # Header tabella
-    header_text = "🧱 Blocchi Standard (Raggruppati)"
+    header_text = "Blocchi Standard (Raggruppati)"
     msp.add_text(
         header_text,
         height=10,
@@ -956,9 +956,9 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
         dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
     )
     
-    # Headers colonne
-    col_headers = ["CATEGORIA", "QUANTITÀ", "DIMENSIONI"]
-    col_widths = [width * 0.3, width * 0.3, width * 0.4]
+    # Headers colonne con NUMERAZIONE come primo
+    col_headers = ["NUMERAZIONE", "CATEGORIA", "QUANTITÀ", "DIMENSIONI"]
+    col_widths = [width * 0.25, width * 0.25, width * 0.25, width * 0.25]
     col_x = x + 10
     
     header_y = y + height - 30
@@ -977,43 +977,48 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
             grouped_data = group_blocks_by_category(placed, block_config)
             
             row_y = header_y - 25
+            item_counter = 1  # Contatore per numerazione
+            
             for category, blocks in grouped_data.items():
                 if not blocks:
                     continue
+                
+                # Genera numerazione (A1, A2, ..., B1, B2, ..., C1, C2, ...)
+                numerazione = f"{category}{item_counter}"
+                item_counter += 1
                     
-                # Categoria
+                # Colonna NUMERAZIONE
                 msp.add_text(
-                    category,
+                    numerazione,
                     height=7,
                     dxfattribs={"layer": "STEP5_TABLE_STD"}
                 ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
                 
-                # Nome categoria
-                category_name = f"Categoria {category}"
+                # Colonna CATEGORIA
                 msp.add_text(
-                    category_name,
+                    category,
                     height=7,
                     dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + 50, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
                 
-                # Quantità
+                # Colonna QUANTITÀ
                 quantity = len(blocks)
                 msp.add_text(
                     str(quantity),
                     height=7,
                     dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + col_widths[0] + col_widths[1] - 20, row_y), 
-                              align=TextEntityAlignment.BOTTOM_RIGHT)
+                ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
+                              align=TextEntityAlignment.BOTTOM_LEFT)
                 
-                # Dimensioni (prendi dal primo blocco del gruppo)
+                # Colonna DIMENSIONI (prendi dal primo blocco del gruppo)
                 if blocks:
                     first_block = blocks[0]
-                    dimensions = f"{first_block['width']:.0f} × {first_block['height']:.0f} mm"
+                    dimensions = f"{first_block['width']:.0f} x {first_block['height']:.0f} mm"
                     msp.add_text(
                         dimensions,
                         height=7,
                         dxfattribs={"layer": "STEP5_TABLE_STD"}
-                    ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
+                    ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), 
                                   align=TextEntityAlignment.BOTTOM_LEFT)
                 
                 row_y -= 20
@@ -1043,7 +1048,7 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
     """Disegna tabella pezzi custom raggruppati."""
     
     # Header tabella
-    header_text = "🧩 Pezzi Custom (Raggruppati)"
+    header_text = "Pezzi Custom (Raggruppati)"
     msp.add_text(
         header_text,
         height=10,
@@ -1057,9 +1062,9 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
         dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
     )
     
-    # Headers colonne
-    col_headers = ["QUANTITÀ", "DIMENSIONI", "NUMERAZIONE"]
-    col_widths = [width * 0.25, width * 0.4, width * 0.35]
+    # Headers colonne con NUMERAZIONE come primo (consistente con std table)
+    col_headers = ["NUMERAZIONE", "QUANTITÀ", "DIMENSIONI"]
+    col_widths = [width * 0.3, width * 0.3, width * 0.4]
     col_x = x + 10
     
     header_y = y + height - 30
@@ -1071,39 +1076,40 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
         ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
         col_x += col_width
     
-    # Raggruppa custom per dimensioni
+    # Raggruppa custom per dimensioni con numerazione C1, C2, etc.
     custom_groups = {}
+    c_counter = 1
     for i, custom in enumerate(customs):
-        dims_key = f"{custom.get('width', 0):.0f} × {custom.get('height', 0):.0f} mm"
+        dims_key = f"{custom.get('width', 0):.0f} x {custom.get('height', 0):.0f} mm"
         if dims_key not in custom_groups:
             custom_groups[dims_key] = []
-        custom_groups[dims_key].append(f"CU{i+1}")
+        custom_groups[dims_key].append(f"C{c_counter}")
+        c_counter += 1
     
     # Disegna righe raggruppate
     row_y = header_y - 25
     for dimensions, items in custom_groups.items():
-        # Quantità
-        msp.add_text(
-            str(len(items)),
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-        
-        # Dimensioni
-        msp.add_text(
-            dimensions,
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-        
-        # Numerazione
+        # Colonna NUMERAZIONE
         numerazione = ", ".join(items)
         msp.add_text(
             numerazione,
             height=7,
             dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
-                      align=TextEntityAlignment.BOTTOM_LEFT)
+        ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        # Colonna QUANTITÀ
+        msp.add_text(
+            str(len(items)),
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        # Colonna DIMENSIONI
+        msp.add_text(
+            dimensions,
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
         
         row_y -= 20
 
@@ -1117,21 +1123,24 @@ def _draw_step5_configuration_section(msp, enhanced_info, x, y, width, height):
         header_text,
         height=12,
         dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
-    ).set_placement((x, y + height + 15), align=TextEntityAlignment.BOTTOM_LEFT)
+    ).set_placement((x, y + height + 25), align=TextEntityAlignment.BOTTOM_LEFT)
     
-    # Griglia 3x2 pannelli
-    panel_width = width / 3
-    panel_height = height / 2
+    # Griglia 3x2 pannelli con MARGINI ENORMI
+    panel_width = (width - 60) / 3  # Riduco larghezza pannelli per più spazio
+    panel_height = (height - 100) / 2  # Riduco altezza pannelli per più spazio
+    
+    margin_x = 30  # Margine orizzontale tra pannelli
+    margin_y = 50  # Margine verticale tra righe
     
     panels_config = [
-        # Row 1
-        {"title": "MATERIALE", "x": x, "y": y + panel_height},
-        {"title": "GUIDE", "x": x + panel_width, "y": y + panel_height},
-        {"title": "BLOCCHI", "x": x + 2 * panel_width, "y": y + panel_height},
-        # Row 2  
+        # Row 1 (sopra) - Y più alto per evitare sovrapposizioni
+        {"title": "MATERIALE", "x": x, "y": y + panel_height + margin_y},
+        {"title": "GUIDE", "x": x + panel_width + margin_x, "y": y + panel_height + margin_y},
+        {"title": "BLOCCHI", "x": x + 2 * (panel_width + margin_x), "y": y + panel_height + margin_y},
+        # Row 2 (sotto) 
         {"title": "MORETTI", "x": x, "y": y},
-        {"title": "COSTRUZIONE", "x": x + panel_width, "y": y},
-        {"title": "SPESSORE CHIUSURA", "x": x + 2 * panel_width, "y": y}
+        {"title": "COSTRUZIONE", "x": x + panel_width + margin_x, "y": y},
+        {"title": "SPESSORE CHIUSURA", "x": x + 2 * (panel_width + margin_x), "y": y}
     ]
     
     # Estrai dati da enhanced_info
@@ -1187,6 +1196,13 @@ def _extract_configuration_data(enhanced_info):
 def _draw_configuration_panel(msp, title, x, y, width, height, data):
     """Disegna singolo pannello configurazione."""
     
+    # Header pannello MOLTO SOPRA il rettangolo per evitare sovrapposizioni
+    msp.add_text(
+        title,
+        height=8,
+        dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
+    ).set_placement((x + 5, y + height + 30), align=TextEntityAlignment.BOTTOM_LEFT)
+    
     # Bordo pannello
     msp.add_lwpolyline(
         [(x, y), (x + width, y), (x + width, y + height), (x, y + height), (x, y)],
@@ -1194,23 +1210,16 @@ def _draw_configuration_panel(msp, title, x, y, width, height, data):
         dxfattribs={"layer": "STEP5_CONFIG_GRID"}
     )
     
-    # Header pannello
-    msp.add_text(
-        title,
-        height=8,
-        dxfattribs={"layer": "STEP5_CONFIG_HEADERS"}
-    ).set_placement((x + 5, y + height - 10), align=TextEntityAlignment.BOTTOM_LEFT)
-    
-    # Dati pannello
-    text_y = y + height - 25
+    # Dati pannello DENTRO il rettangolo con più spazio dal bordo
+    text_y = y + height - 20
     for key, value in data.items():
         text_line = f"{key}: {value}"
         msp.add_text(
             text_line,
             height=6,
             dxfattribs={"layer": "STEP5_CONFIG_TEXT"}
-        ).set_placement((x + 5, text_y), align=TextEntityAlignment.BOTTOM_LEFT)
-        text_y -= 12
+        ).set_placement((x + 8, text_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        text_y -= 15  # Più spazio tra le righe di testo
 
 
 def _draw_step5_layout_frame(msp, canvas_width, canvas_height):
