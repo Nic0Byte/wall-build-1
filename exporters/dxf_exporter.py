@@ -938,8 +938,54 @@ def _draw_step5_tables_section(msp, summary, customs, placed,
     _draw_custom_blocks_table(msp, customs, custom_x, custom_y, custom_w, custom_h)
 
 
+def _create_html_compatible_type_map(block_config):
+    """Crea type mapping identico all'HTML usando block_config.size_to_letter."""
+    type_map = {}
+    
+    if block_config and 'size_to_letter' in block_config:
+        # Usa configurazione del backend (identico all'HTML)
+        size_to_letter = block_config['size_to_letter']
+        block_height = block_config.get('block_height', 495)  # Default height
+        
+        print(f"[DEBUG] Using block_config.size_to_letter: {size_to_letter}")
+        
+        for width_str, letter in size_to_letter.items():
+            width = int(width_str)
+            std_type = f"std_{width}x{block_height}"
+            
+            type_map[std_type] = {
+                'name': f'Categoria {letter}',
+                'size': f'{width} x {block_height}',
+                'category': letter,
+                'width': width,
+                'height': block_height
+            }
+    else:
+        # Fallback con mapping default
+        print("[DEBUG] Using fallback default mapping")
+        default_mapping = {
+            1239: 'A',
+            826: 'B', 
+            413: 'C'
+        }
+        default_height = 495
+        
+        for width, letter in default_mapping.items():
+            std_type = f"std_{width}x{default_height}"
+            type_map[std_type] = {
+                'name': f'Categoria {letter}',
+                'size': f'{width} x {default_height}',
+                'category': letter,
+                'width': width,
+                'height': default_height
+            }
+    
+    print(f"[DEBUG] Created type_map: {type_map}")
+    return type_map
+
+
 def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block_config):
-    """Disegna tabella blocchi standard raggruppati."""
+    """Disegna tabella blocchi standard raggruppati IDENTICA all'HTML."""
     
     # Header tabella
     header_text = "Blocchi Standard (Raggruppati)"
@@ -970,67 +1016,79 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
         ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
         col_x += col_width
     
-    # Dati raggruppati (simula logica dell'interfaccia)
-    if create_grouped_block_labels and group_blocks_by_category:
-        try:
-            # Usa sistema avanzato di raggruppamento
-            grouped_data = group_blocks_by_category(placed, block_config)
+    # ⭐ NUOVA LOGICA: Replica esatta dell'HTML Step 5
+    try:
+        # Crea type mapping IDENTICO all'HTML
+        type_map = _create_html_compatible_type_map(block_config)
+        
+        # Popola tabella usando SUMMARY come nell'HTML (non placed!)
+        row_y = header_y - 25
+        
+        for std_type, count in (summary or {}).items():
+            if count <= 0:
+                continue
+                
+            # Ottieni info dal type mapping
+            type_info = type_map.get(std_type, {
+                'name': f'Categoria {std_type}',
+                'size': 'N/A',
+                'category': 'X',
+                'width': 0,
+                'height': 0
+            })
             
-            row_y = header_y - 25
+            # Colonna CATEGORIA
+            category = type_info['category']
+            msp.add_text(
+                category,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
             
-            for category, blocks in grouped_data.items():
-                if not blocks:
-                    continue
-                
-                # Colonna CATEGORIA
-                msp.add_text(
-                    category,
-                    height=7,
-                    dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-                
-                # Colonna QUANTITÀ
-                quantity = len(blocks)
-                msp.add_text(
-                    str(quantity),
-                    height=7,
-                    dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-                
-                # Colonna DIMENSIONI (prendi dal primo blocco del gruppo)
-                if blocks:
-                    first_block = blocks[0]
-                    dimensions = f"{first_block['width']:.0f} x {first_block['height']:.0f} mm"
-                    msp.add_text(
-                        dimensions,
-                        height=7,
-                        dxfattribs={"layer": "STEP5_TABLE_STD"}
-                    ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
-                                  align=TextEntityAlignment.BOTTOM_LEFT)
-                
-                # Colonna NUMERAZIONE (genera lista A1, A2, A3... per categoria)
-                item_counter = 1
-                numerazione_list = []
-                for i in range(quantity):
-                    numerazione_list.append(f"{category}{item_counter}")
-                    item_counter += 1
-                
-                numerazione = ", ".join(numerazione_list)
-                msp.add_text(
-                    numerazione,
-                    height=7,
-                    dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), 
-                              align=TextEntityAlignment.BOTTOM_LEFT)
-                
-                row_y -= 20
-                
-        except Exception as e:
-            print(f"Errore raggruppamento standard: {e}")
-            # Fallback semplice
-            _draw_simple_standard_table(msp, summary, x, y, width, height)
-    else:
-        _draw_simple_standard_table(msp, summary, x, y, width, height)
+            # Colonna QUANTITÀ
+            msp.add_text(
+                str(count),
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Colonna DIMENSIONI
+            dimensions = type_info['size']
+            msp.add_text(
+                dimensions,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
+                          align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Colonna NUMERAZIONE (A1, A2, A3... per categoria)
+            numerazione_list = [f"{category}{i+1}" for i in range(count)]
+            numerazione = ", ".join(numerazione_list)
+            msp.add_text(
+                numerazione,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), 
+                          align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            row_y -= 20
+            
+        # Se nessun dato, mostra messaggio
+        if not summary or all(count <= 0 for count in summary.values()):
+            msp.add_text(
+                "Nessun blocco standard",
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_STD"}
+            ).set_placement((x + width/2, row_y), align=TextEntityAlignment.MIDDLE_CENTER)
+            
+    except Exception as e:
+        print(f"Errore tabella standard: {e}")
+        # Fallback per debug
+        msp.add_text(
+            f"ERRORE: {str(e)}",
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_STD"}
+        ).set_placement((x + 10, header_y - 25), align=TextEntityAlignment.BOTTOM_LEFT)
 
 
 def _draw_simple_standard_table(msp, summary, x, y, width, height):
@@ -1047,7 +1105,7 @@ def _draw_simple_standard_table(msp, summary, x, y, width, height):
 
 
 def _draw_custom_blocks_table(msp, customs, x, y, width, height):
-    """Disegna tabella pezzi custom raggruppati."""
+    """Disegna tabella pezzi custom raggruppati IDENTICA all'HTML."""
     
     # Header tabella
     header_text = "Pezzi Custom (Raggruppati)"
@@ -1078,49 +1136,105 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
         ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
         col_x += col_width
     
-    # Raggruppa custom per dimensioni con categoria C per tutti
-    custom_groups = {}
-    c_counter = 1
-    for i, custom in enumerate(customs):
-        dims_key = f"{custom.get('width', 0):.0f} x {custom.get('height', 0):.0f} mm"
-        if dims_key not in custom_groups:
-            custom_groups[dims_key] = []
-        custom_groups[dims_key].append(f"C{c_counter}")
-        c_counter += 1
+    # ⭐ NUOVA LOGICA: Replica esatta dell'HTML Step 5
+    try:
+        # Raggruppa custom IDENTICO all'HTML con tolleranza 5mm
+        custom_groups = _group_custom_blocks_html_style(customs)
+        
+        row_y = header_y - 25
+        category_letter = 'D'  # Inizia da D per custom (come nell'HTML)
+        
+        for dimensions, blocks in custom_groups.items():
+            if not blocks:
+                continue
+                
+            count = len(blocks)
+            
+            # Colonna CATEGORIA
+            msp.add_text(
+                category_letter,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+            ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Colonna QUANTITÀ
+            msp.add_text(
+                str(count),
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+            ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Colonna DIMENSIONI
+            dimensions_text = f"{dimensions} mm"  # Come nell'HTML
+            msp.add_text(
+                dimensions_text,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+            ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            # Colonna NUMERAZIONE (D1, D2, D3, ... come nell'HTML)
+            numerazione_list = [f"{category_letter}{i+1}" for i in range(count)]
+            numerazione = ", ".join(numerazione_list)
+            msp.add_text(
+                numerazione,
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+            ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+            
+            row_y -= 20
+            
+            # Prossima categoria (E, F, G...)
+            category_letter = chr(ord(category_letter) + 1)
+            
+        # Se nessun custom, mostra messaggio
+        if not customs:
+            msp.add_text(
+                "Nessun pezzo custom",
+                height=7,
+                dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+            ).set_placement((x + width/2, row_y), align=TextEntityAlignment.MIDDLE_CENTER)
+            
+    except Exception as e:
+        print(f"Errore tabella custom: {e}")
+        # Fallback per debug
+        msp.add_text(
+            f"ERRORE: {str(e)}",
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + 10, header_y - 25), align=TextEntityAlignment.BOTTOM_LEFT)
+
+
+def _group_custom_blocks_html_style(customs):
+    """Raggruppa custom IDENTICO all'HTML con tolleranza 5mm."""
+    groups = {}
+    tolerance = 5  # mm di tolleranza come nell'HTML
     
-    # Disegna righe raggruppate
-    row_y = header_y - 25
-    for dimensions, items in custom_groups.items():
-        # Colonna CATEGORIA (sempre "C" per custom)
-        msp.add_text(
-            "C",
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+    for block in customs:
+        width = round(block.get('width', 0))
+        height = round(block.get('height', 0))
+        key = f"{width} x {height}"  # Formato identico all'HTML
         
-        # Colonna QUANTITÀ
-        msp.add_text(
-            str(len(items)),
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        # Cerca gruppo esistente con dimensioni simili (IDENTICO all'HTML)
+        found_group = None
+        for existing_key, existing_blocks in groups.items():
+            existing_parts = existing_key.split(' x ')
+            if len(existing_parts) == 2:
+                try:
+                    existing_w, existing_h = int(existing_parts[0]), int(existing_parts[1])
+                    if (abs(width - existing_w) <= tolerance and 
+                        abs(height - existing_h) <= tolerance):
+                        found_group = existing_key
+                        break
+                except ValueError:
+                    continue
         
-        # Colonna DIMENSIONI
-        msp.add_text(
-            dimensions,
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-        
-        # Colonna NUMERAZIONE (C1, C2, C3, ...)
-        numerazione = ", ".join(items)
-        msp.add_text(
-            numerazione,
-            height=7,
-            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
-        ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
-        
-        row_y -= 20
+        if found_group:
+            groups[found_group].append(block)
+        else:
+            groups[key] = [block]
+    
+    print(f"[DEBUG] Custom groups created: {list(groups.keys())}")
+    return groups
 
 
 def _draw_step5_configuration_section(msp, enhanced_info, x, y, width, height):
