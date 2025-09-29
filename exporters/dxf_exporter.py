@@ -956,9 +956,9 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
         dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
     )
     
-    # Headers colonne con NUMERAZIONE come primo
-    col_headers = ["NUMERAZIONE", "CATEGORIA", "QUANTITÀ", "DIMENSIONI"]
-    col_widths = [width * 0.25, width * 0.25, width * 0.25, width * 0.25]
+    # Headers colonne UNIFORMI: Categoria, Quantità, Dimensioni, Numerazione
+    col_headers = ["CATEGORIA", "QUANTITÀ", "DIMENSIONI", "NUMERAZIONE"]
+    col_widths = [width * 0.2, width * 0.2, width * 0.3, width * 0.3]
     col_x = x + 10
     
     header_y = y + height - 30
@@ -977,29 +977,17 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
             grouped_data = group_blocks_by_category(placed, block_config)
             
             row_y = header_y - 25
-            item_counter = 1  # Contatore per numerazione
             
             for category, blocks in grouped_data.items():
                 if not blocks:
                     continue
-                
-                # Genera numerazione (A1, A2, ..., B1, B2, ..., C1, C2, ...)
-                numerazione = f"{category}{item_counter}"
-                item_counter += 1
-                    
-                # Colonna NUMERAZIONE
-                msp.add_text(
-                    numerazione,
-                    height=7,
-                    dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
                 
                 # Colonna CATEGORIA
                 msp.add_text(
                     category,
                     height=7,
                     dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+                ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
                 
                 # Colonna QUANTITÀ
                 quantity = len(blocks)
@@ -1007,8 +995,7 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
                     str(quantity),
                     height=7,
                     dxfattribs={"layer": "STEP5_TABLE_STD"}
-                ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
-                              align=TextEntityAlignment.BOTTOM_LEFT)
+                ).set_placement((x + col_widths[0] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
                 
                 # Colonna DIMENSIONI (prendi dal primo blocco del gruppo)
                 if blocks:
@@ -1018,8 +1005,23 @@ def _draw_standard_blocks_table(msp, summary, placed, x, y, width, height, block
                         dimensions,
                         height=7,
                         dxfattribs={"layer": "STEP5_TABLE_STD"}
-                    ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), 
+                    ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), 
                                   align=TextEntityAlignment.BOTTOM_LEFT)
+                
+                # Colonna NUMERAZIONE (genera lista A1, A2, A3... per categoria)
+                item_counter = 1
+                numerazione_list = []
+                for i in range(quantity):
+                    numerazione_list.append(f"{category}{item_counter}")
+                    item_counter += 1
+                
+                numerazione = ", ".join(numerazione_list)
+                msp.add_text(
+                    numerazione,
+                    height=7,
+                    dxfattribs={"layer": "STEP5_TABLE_STD"}
+                ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), 
+                              align=TextEntityAlignment.BOTTOM_LEFT)
                 
                 row_y -= 20
                 
@@ -1062,9 +1064,9 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
         dxfattribs={"layer": "STEP5_TABLE_BORDERS"}
     )
     
-    # Headers colonne con NUMERAZIONE come primo (consistente con std table)
-    col_headers = ["NUMERAZIONE", "QUANTITÀ", "DIMENSIONI"]
-    col_widths = [width * 0.3, width * 0.3, width * 0.4]
+    # Headers colonne UNIFORMI: Categoria, Quantità, Dimensioni, Numerazione (identici a Standard)
+    col_headers = ["CATEGORIA", "QUANTITÀ", "DIMENSIONI", "NUMERAZIONE"]
+    col_widths = [width * 0.2, width * 0.2, width * 0.3, width * 0.3]
     col_x = x + 10
     
     header_y = y + height - 30
@@ -1076,7 +1078,7 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
         ).set_placement((col_x, header_y), align=TextEntityAlignment.BOTTOM_LEFT)
         col_x += col_width
     
-    # Raggruppa custom per dimensioni con numerazione C1, C2, etc.
+    # Raggruppa custom per dimensioni con categoria C per tutti
     custom_groups = {}
     c_counter = 1
     for i, custom in enumerate(customs):
@@ -1089,10 +1091,9 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
     # Disegna righe raggruppate
     row_y = header_y - 25
     for dimensions, items in custom_groups.items():
-        # Colonna NUMERAZIONE
-        numerazione = ", ".join(items)
+        # Colonna CATEGORIA (sempre "C" per custom)
         msp.add_text(
-            numerazione,
+            "C",
             height=7,
             dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
         ).set_placement((x + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
@@ -1110,6 +1111,14 @@ def _draw_custom_blocks_table(msp, customs, x, y, width, height):
             height=7,
             dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
         ).set_placement((x + col_widths[0] + col_widths[1] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
+        
+        # Colonna NUMERAZIONE (C1, C2, C3, ...)
+        numerazione = ", ".join(items)
+        msp.add_text(
+            numerazione,
+            height=7,
+            dxfattribs={"layer": "STEP5_TABLE_CUSTOM"}
+        ).set_placement((x + col_widths[0] + col_widths[1] + col_widths[2] + 10, row_y), align=TextEntityAlignment.BOTTOM_LEFT)
         
         row_y -= 20
 
