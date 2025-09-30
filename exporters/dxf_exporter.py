@@ -114,14 +114,14 @@ def export_to_dxf(summary: Dict[str, int],
         cutting_width = wall_width  # Stessa larghezza del main
         cutting_height = _calculate_cutting_height_grouped_all(summary, customs, placed)
         cutting_zone = layout.add_zone("cutting", cutting_width, cutting_height, 
-                                     anchor="below", ref_zone="main", margin=2000)  # Separazione aumentata
+                                     anchor="below", ref_zone="main", margin=6000)  # Separazione MASSIMA per evitare sovrapposizioni
         _draw_cutting_schema_fixed(msp, customs, cutting_zone)
         
         # 3. CARTIGLIO compatto (angolo basso destro)
-        cartridge_width = 2000
-        cartridge_height = 1000
+        cartridge_width = 3500    # Larghezza MASSIMA (+40% da 2500)
+        cartridge_height = 2100   # Altezza MASSIMA (+40% da 1500)
         cartridge_zone = layout.add_zone("cartridge", cartridge_width, cartridge_height,
-                                       anchor="below_right", ref_zone="cutting", margin=500)
+                                       anchor="below_right", ref_zone="cutting", margin=1200)  # Margine MASSIMO (+50% da 800)
         _draw_compact_cartridge(msp, project_name, summary, customs, params, cartridge_zone)
         
         # Salva documento
@@ -238,16 +238,16 @@ def _calculate_cutting_height_grouped_all(summary: Dict[str, int], customs: List
     
     total_categories += len(custom_categories)
     
-    # Calcola layout griglia con sezioni più grandi
+    # Calcola layout griglia con sezioni più grandi e SPAZIO ABBONDANTE
     sections_per_row = 2  # Ridotto a 2 per dare più spazio
     rows_needed = (total_categories + sections_per_row - 1) // sections_per_row
     
-    section_height = 900  # Altezza maggiore per ogni sezione
-    title_space = 800     # Spazio per titoli
-    margin_between_rows = 150  # Maggior margine tra righe
+    section_height = 2100     # Altezza MASSIMA per ogni sezione (+40% da 1500)
+    title_space = 1700        # Spazio MASSIMO per titoli (+40% da 1200)
+    margin_between_rows = 450 # TRIPLO margine tra righe (+50% da 300)
     
     total_height = title_space + (rows_needed * section_height) + ((rows_needed - 1) * margin_between_rows)
-    return max(total_height, 2000)  # Minimo 2000mm per più spazio
+    return max(total_height, 5000)  # Minimo MASSIMO a 5000mm (+43% da 3500)
 
 
 def _draw_compact_cartridge(msp, project_name: str, summary: Dict[str, int], 
@@ -315,11 +315,11 @@ def _draw_main_layout(msp, wall_polygon: Polygon, placed: List[Dict], customs: L
     # Quote principali
     _add_main_dimensions(msp, wall_polygon, offset_x, offset_y)
     
-    # Titolo sezione - SPOSTATO PIÙ IN ALTO
+    # Titolo sezione - ALTISSIMO per evitare qualsiasi sovrapposizione
     msp.add_text("LAYOUT PARETE PRINCIPALE", height=300, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
-    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 800), 
+    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 1800), 
                     align=TextEntityAlignment.MIDDLE_CENTER)
 
 
@@ -328,17 +328,17 @@ def _draw_cutting_schema_fixed(msp, customs: List[Dict], zone: Dict):
     offset_x = zone['x']
     offset_y = zone['y']
     
-    # Titolo sezione
+    # Titolo sezione - ALTISSIMO per evitare qualsiasi sovrapposizione
     msp.add_text("SCHEMA DI TAGLIO COMPLETO", height=300, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
-    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 600), 
+    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 1500), 
                     align=TextEntityAlignment.MIDDLE_CENTER)
     
     msp.add_text("TUTTI I BLOCCHI RAGGRUPPATI PER CATEGORIA", height=200, dxfattribs={
         "layer": "TESTI",
         "style": "Standard"
-    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 300), 
+    }).set_placement((offset_x + zone['width']/2, offset_y + zone['height'] + 1100), 
                     align=TextEntityAlignment.MIDDLE_CENTER)
     
     # FORZA la creazione delle categorie con fallback completo
@@ -725,22 +725,22 @@ def export_step5_visualization_dxf(
         # Setup layer per Step 5
         _setup_step5_layers(doc)
         
-        # Layout constants (coordinate in mm) - SPAZI ESTREMI PER EVITARE SOVRAPPOSIZIONI
-        CANVAS_WIDTH = 2800
-        CANVAS_HEIGHT = 2400
+        # Layout constants (coordinate in mm) - CANVAS PIÙ GRANDE
+        CANVAS_WIDTH = 4200   # AUMENTATO da 2800 (+50% larghezza)
+        CANVAS_HEIGHT = 3200  # AUMENTATO da 2400 (+33% altezza)
         
-        # Areas coordinates - DISTANZE MASSIME TRA SEZIONI
+        # Areas coordinates - TABELLE PIÙ LARGHE E DISTANZIATE
         PREVIEW_X, PREVIEW_Y = 150, 1800
         PREVIEW_W, PREVIEW_H = 1000, 700
         
         STD_TABLE_X, STD_TABLE_Y = 150, 950  
-        STD_TABLE_W, STD_TABLE_H = 700, 650
+        STD_TABLE_W, STD_TABLE_H = 950, 650   # LARGHEZZA AUMENTATA da 700 a 950
         
-        CUSTOM_TABLE_X, CUSTOM_TABLE_Y = 1000, 950
-        CUSTOM_TABLE_W, CUSTOM_TABLE_H = 700, 650
+        CUSTOM_TABLE_X, CUSTOM_TABLE_Y = 1400, 950  # X SPOSTATO da 1000 a 1400 (più distanza)
+        CUSTOM_TABLE_W, CUSTOM_TABLE_H = 950, 650   # LARGHEZZA AUMENTATA da 700 a 950
         
         CONFIG_X, CONFIG_Y = 150, 150
-        CONFIG_W, CONFIG_H = 1550, 650
+        CONFIG_W, CONFIG_H = 2200, 650  # LARGHEZZA AUMENTATA da 1550 a 2200 per coprire le nuove tabelle
         
         # 1. SEZIONE PREVIEW PARETE (replica vettoriale)
         _draw_step5_preview_section(
