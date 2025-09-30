@@ -1,54 +1,52 @@
-# ==== Core geometry & plotting ====
-shapely>=2.0.0,<2.1
-numpy>=1.26.0,<3.0
-matplotlib>=3.8.0,<3.10
-svgpathtools>=1.6.0,<2.0
+# ==== DIPENDENZE PRINCIPALI ====
+# Versioni verificate e testate per wall-build_v3
 
-# ==== API server & Web Framework ====
-fastapi>=0.110.0,<1.0
-uvicorn[standard]>=0.24.0,<0.30
-python-multipart>=0.0.6
-jinja2>=3.1.0,<4.0          # Template engine per FastAPI
+# ==== Core Geometry & Math ====
+shapely>=2.0.0,<2.1         # Geometrie complesse e operazioni spaziali  
+numpy>=1.26.0,<3.0          # Calcoli numerici e array
+matplotlib>=3.8.0,<3.10     # Generazione grafici e preview immagini
+svgpathtools>=1.6.0,<2.0    # Parser e manipolazione SVG paths
+
+# ==== API Server & Web Framework ====
+fastapi>=0.110.0,<1.0       # Framework API REST moderno
+uvicorn[standard]>=0.24.0,<0.30  # Server ASGI ad alte prestazioni
+python-multipart>=0.0.6     # Gestione upload file multipart
+jinja2>=3.1.0,<4.0          # Template engine per HTML
 
 # ==== Database & ORM ====
-sqlalchemy>=2.0.0,<2.1
-alembic>=1.13.0,<2.0        # Database migrations (opzionale)
+sqlalchemy>=2.0.0,<2.1      # ORM e database abstraction
+alembic>=1.13.0,<2.0        # Database migrations
 
-# ==== Autenticazione sicura ====
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
+# ==== Autenticazione & Sicurezza ====
+python-jose[cryptography]>=3.3.0  # JWT tokens e crittografia
+passlib[bcrypt]>=1.7.4      # Hash password sicuri
+cryptography>=41.0.0,<42.0  # Crittografia avanzata
 
-# ==== Modelli dati & validazione ====
-pydantic>=2.0.0,<3.0
-pydantic[email]>=2.0.0,<3.0  # EmailStr support
+# ==== Validazione Dati ====
+pydantic>=2.0.0,<3.0        # Validazione modelli dati
+pydantic[email]>=2.0.0,<3.0 # Supporto EmailStr
 
-# ==== Exports & File Processing ====
-reportlab>=4.0.0,<5.0       # PDF export
-ezdxf>=1.1.4,<2.0           # DXF export
-dxfgrabber>=1.0.6,<2.0      # DWG parser avanzato (opzionale)
+# ==== Export & File Processing ====
+reportlab>=4.0.0,<5.0       # Generazione PDF professionali
+ezdxf>=1.1.4,<2.0           # Export/import file DXF/DWG
+dxfgrabber>=1.0.6,<2.0      # Parser DWG avanzato e robusto
 
-# ==== HTTP Client (per test) ====
-requests>=2.31.0,<3.0       # Test e comunicazione HTTP
+# ==== HTTP & Networking ====
+requests>=2.31.0,<3.0       # Client HTTP per API esterne
+httpx>=0.24.0,<1.0          # Client HTTP async (per test)
 
-# ==== Utility & Performance ====
-orjson>=3.9.10,<4.0         # JSON veloce (FastAPI userà se presente)
-Pillow>=10.0.0,<11.0        # Elaborazione immagini
-pathlib2>=2.3.7;python_version<"3.4"  # Backport pathlib per Python < 3.4
+# ==== Logging & Monitoring ====
+structlog>=23.1.0,<24.0     # Logging strutturato e professionale
 
-# ==== Development & Testing (opzionali) ====
-pytest>=7.4.0,<8.0
-pytest-asyncio>=0.21.0,<1.0
-httpx>=0.24.0,<1.0          # Test client async per FastAPI
+# ==== Performance & Optimization ====
+orjson>=3.9.10,<4.0         # JSON serialization veloce (opzionale)
 
-# ==== Linux compatibility & Security ====
-cryptography>=41.0.0,<42.0  # Crittografia sicura cross-platform
-keyring>=24.0.0,<25.0       # Gestione credenziali sicura (opzionale)
+# ==== Development & Testing ====
+pytest>=7.4.0,<8.0          # Framework testing
+pytest-asyncio>=0.21.0,<1.0 # Support async testing
 
-# ==== Production deployment (opzionali) ====
-gunicorn>=21.2.0,<22.0      # WSGI server per produzione Linux
-supervisor>=4.2.5,<5.0      # Process manager (opzionale)
+# ==== Environment & Configuration ====
+python-dotenv>=1.0.0,<2.0   # Gestione file .env
 
-# ==== Monitoring & Logging (opzionali) ====
-python-multipart>=0.0.6     # Form data handling
-python-dotenv>=1.0.0,<2.0   # .env file support
-structlog>=23.1.0,<24.0     # Structured logging for better debugging
+# ==== Production Ready (opzionali) ====
+gunicorn>=21.2.0,<22.0      # WSGI server per produzione
