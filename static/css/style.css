@@ -1523,6 +1523,18 @@ body {
     margin-bottom: var(--spacing-10);
 }
 
+/* Step 4 specific layout */
+.config-grid.step4-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: var(--spacing-8);
+}
+
+.config-card.config-card-full {
+    grid-column: 1 / -1; /* Spans all columns */
+}
+
 .config-card {
     padding: var(--spacing-8);
     background: linear-gradient(135deg, white 0%, var(--gray-50) 100%);
@@ -1578,53 +1590,6 @@ body {
     color: var(--gray-500);
     font-size: var(--font-size-sm);
     line-height: 1.4;
-}
-
-/* ===== Advanced Settings in Config Cards ===== */
-.advanced-settings {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-4);
-    margin-bottom: var(--spacing-3);
-}
-
-.setting-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-}
-
-.setting-item label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-    font-weight: 500;
-    color: var(--gray-700);
-    font-size: var(--font-size-sm);
-    text-transform: none;
-    margin-bottom: 0;
-}
-
-.advanced-select {
-    width: 100%;
-    padding: var(--spacing-3);
-    border: 2px solid var(--gray-200);
-    border-radius: var(--border-radius-lg);
-    background: white;
-    font-size: var(--font-size-sm);
-    color: var(--gray-900);
-    transition: var(--transition-fast);
-    cursor: pointer;
-}
-
-.advanced-select:focus {
-    outline: none;
-    border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px var(--brand-primary-light);
-}
-
-.advanced-select:hover {
-    border-color: var(--gray-300);
 }
 
 /* ===== Enhanced Slider ===== */
@@ -2467,6 +2432,16 @@ table tbody tr:hover {
     
     .config-grid {
         grid-template-columns: 1fr;
+    }
+    
+    /* Step 4 layout on mobile */
+    .config-grid.step4-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .config-card.config-card-full {
+        grid-column: 1 / -1;
     }
     
     .action-buttons {

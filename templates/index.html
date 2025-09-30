@@ -507,9 +507,9 @@
                             </div>
                         </div>
                         
-                        <div class="config-grid">
-                            <!-- Active Block Configuration Display -->
-                            <div class="config-card active-blocks-card">
+                        <div class="config-grid step4-layout">
+                            <!-- Active Block Configuration Display (spans full width) -->
+                            <div class="config-card active-blocks-card config-card-full">
                                 <label>
                                     <i class="fas fa-cubes"></i>
                                     Blocchi Configurati
@@ -546,6 +546,7 @@
                                 </div>
                             </div>
                             
+                            <!-- Two smaller cards side by side below -->
                             <div class="config-card">
                                 <label for="projectName">
                                     <i class="fas fa-project-diagram"></i>
@@ -561,39 +562,6 @@
                                 </label>
                                 <input type="text" id="blockWidths" value="" placeholder="es: 1239,826,413">
                                 <small>Larghezze blocchi standard separate da virgola</small>
-                            </div>
-                            
-                            <!-- Impostazioni Avanzate -->
-                            <div class="config-card">
-                                <label>
-                                    <i class="fas fa-cogs"></i>
-                                    Impostazioni Avanzate
-                                </label>
-                                <div class="advanced-settings">
-                                    <div class="setting-item">
-                                        <label for="optimizationMode">
-                                            <i class="fas fa-chart-line"></i>
-                                            Modalità Ottimizzazione:
-                                        </label>
-                                        <select id="optimizationMode" class="advanced-select">
-                                            <option value="balanced">Bilanciata (Raccomandato)</option>
-                                            <option value="material">Minimo Scarto Materiale</option>
-                                            <option value="speed">Velocità di Calcolo</option>
-                                        </select>
-                                    </div>
-                                    <div class="setting-item">
-                                        <label for="qualityLevel">
-                                            <i class="fas fa-star"></i>
-                                            Livello Qualità:
-                                        </label>
-                                        <select id="qualityLevel" class="advanced-select">
-                                            <option value="high">Alta (Più Preciso)</option>
-                                            <option value="medium" selected>Media (Raccomandato)</option>
-                                            <option value="low">Bassa (Più Veloce)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <small><i class="fas fa-info-circle"></i> Queste impostazioni influenzano la precisione e velocità del calcolo</small>
                             </div>
                         </div>
                         
