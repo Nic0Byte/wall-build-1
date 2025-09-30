@@ -4270,6 +4270,207 @@ function refreshPastProjects() {
     loadPastProjects();
 }
 
+// Clear All Projects
+async function clearAllProjects() {
+    console.log('🗑️ clearAllProjects chiamata');
+    
+    // Debug: Controlla stato autenticazione
+    const token = localStorage.getItem('access_token');
+    const tokenType = localStorage.getItem('token_type');
+    console.log('🔍 Debug auth state:', {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenType: tokenType,
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
+    });
+    
+    if (!token) {
+        console.error('❌ Nessun token trovato, redirect a login');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Sessione scaduta. Effettua il login.', 'warning');
+        }
+        window.location.href = '/login';
+        return;
+    }
+    
+    // Mostra modal di conferma professionale
+    showDeleteConfirmationModal();
+}
+
+// Modal di conferma professionale
+function showDeleteConfirmationModal() {
+    // Rimuovi modal esistente se presente
+    const existingModal = document.getElementById('deleteConfirmationModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Crea modal HTML
+    const modalHTML = `
+        <div id="deleteConfirmationModal" class="delete-modal-overlay">
+            <div class="delete-modal-card">
+                <div class="delete-modal-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Conferma Eliminazione</h3>
+                </div>
+                <div class="delete-modal-body">
+                    <p><strong>Attenzione!</strong></p>
+                    <p>Stai per eliminare <strong>tutti i progetti salvati</strong> dal tuo archivio.</p>
+                    <p>Questa operazione disattiverà permanentemente tutti i tuoi progetti.</p>
+                    <div class="delete-confirmation-input">
+                        <label for="confirmText">Per confermare, digita: <strong>ELIMINA TUTTO</strong></label>
+                        <input type="text" id="confirmText" placeholder="Scrivi qui..." autocomplete="off">
+                        <div class="input-feedback" id="inputFeedback"></div>
+                    </div>
+                </div>
+                <div class="delete-modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeDeleteModal()">
+                        <i class="fas fa-times"></i> Annulla
+                    </button>
+                    <button type="button" class="btn-confirm" id="confirmDeleteBtn" disabled onclick="executeDeleteAll()">
+                        <i class="fas fa-trash-alt"></i> Elimina Tutto
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Aggiungi modal al DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Setup listeners
+    const confirmInput = document.getElementById('confirmText');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const feedback = document.getElementById('inputFeedback');
+    
+    confirmInput.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (value === 'ELIMINA TUTTO') {
+            confirmBtn.disabled = false;
+            confirmBtn.classList.add('enabled');
+            feedback.textContent = '✓ Confermato';
+            feedback.className = 'input-feedback success';
+        } else if (value.length > 0) {
+            confirmBtn.disabled = true;
+            confirmBtn.classList.remove('enabled');
+            feedback.textContent = '✗ Testo non corretto';
+            feedback.className = 'input-feedback error';
+        } else {
+            confirmBtn.disabled = true;
+            confirmBtn.classList.remove('enabled');
+            feedback.textContent = '';
+            feedback.className = 'input-feedback';
+        }
+    });
+    
+    // Focus sull'input
+    setTimeout(() => confirmInput.focus(), 100);
+    
+    // Chiudi con ESC
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            closeDeleteModal();
+            document.removeEventListener('keydown', escHandler);
+        }
+    });
+}
+
+function closeDeleteModal() {
+    const modal = document.getElementById('deleteConfirmationModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+async function executeDeleteAll() {
+    const modal = document.getElementById('deleteConfirmationModal');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    
+    try {
+        // Disabilita pulsante e mostra loading
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminazione...';
+        
+        // Ottieni token corretto (usa access_token come il resto del sistema)
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+        }
+        
+        console.log('🔑 Invio richiesta eliminazione progetti...');
+        
+        const response = await fetch('/api/v1/saved-projects/all', {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        console.log('📡 Response status:', response.status);
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.warn('❌ Token non valido o scaduto');
+                throw new Error('Sessione scaduta. Effettua nuovamente il login.');
+            }
+            
+            const errorText = await response.text();
+            throw new Error(`Errore server: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        handleDeleteSuccess(result);
+        
+    } catch (error) {
+        console.error('❌ Errore nell\'eliminazione progetti:', error);
+        
+        // Mostra errore nel modal
+        confirmBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Errore';
+        confirmBtn.style.background = '#dc3545';
+        
+        setTimeout(() => {
+            if (error.message.includes('scaduta') || error.message.includes('login')) {
+                closeDeleteModal();
+                // Redirect a login
+                window.location.href = '/login';
+            } else {
+                closeDeleteModal();
+                if (window.wallPackingApp) {
+                    window.wallPackingApp.showToast(`Errore: ${error.message}`, 'error');
+                }
+            }
+        }, 2000);
+    }
+}
+
+function handleDeleteSuccess(result) {
+    console.log('✅ Eliminazione completata:', result);
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.innerHTML = '<i class="fas fa-check"></i> Completato';
+    confirmBtn.style.background = '#28a745';
+    
+    setTimeout(() => {
+        closeDeleteModal();
+        
+        const message = result.deleted_count > 0 
+            ? `Eliminati ${result.deleted_count} progetti dall'archivio`
+            : 'Nessun progetto da eliminare';
+            
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast(message, 'success');
+        }
+        
+        // Ricarica la lista progetti
+        setTimeout(() => {
+            loadPastProjects();
+        }, 500);
+    }, 1500);
+}
+
 // Save Current Project (called when project is completed)
 async function saveCurrentProject(projectData) {
     console.log('💾 saveCurrentProject chiamata con:', projectData);

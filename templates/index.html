@@ -1105,8 +1105,13 @@
                                     
                                     <!-- Action Buttons -->
                                     <div class="past-projects-actions">
-                                        <button class="refresh-btn" onclick="event.stopPropagation(); refreshPastProjects()">
-                                            <i class="fas fa-sync-alt"></i> Aggiorna Lista
+                                        <button class="refresh-btn" onclick="event.stopPropagation(); refreshPastProjects()" title="Ricarica l'elenco dei progetti salvati">
+                                            <i class="fas fa-sync-alt"></i> 
+                                            <span>Aggiorna Lista</span>
+                                        </button>
+                                        <button class="clear-archive-btn" onclick="event.stopPropagation(); clearAllProjects()" title="Elimina tutti i progetti dall'archivio">
+                                            <i class="fas fa-trash-alt"></i> 
+                                            <span>Pulisci Archivio</span>
                                         </button>
                                     </div>
                                 </div>

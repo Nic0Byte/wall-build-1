@@ -498,6 +498,49 @@ async def get_saved_project(
             detail=f"Errore nel recupero progetto: {str(e)}"
         )
 
+@router.delete("/saved-projects/all")
+async def delete_all_saved_projects(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Elimina (disattiva) tutti i progetti salvati dell'utente."""
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        
+        with get_db_session() as db:
+            # Conta quanti progetti verranno eliminati
+            count = db.query(SavedProject)\
+                     .filter(SavedProject.user_id == current_user.id)\
+                     .filter(SavedProject.is_active == True)\
+                     .count()
+            
+            if count == 0:
+                return {
+                    "success": True,
+                    "message": "Nessun progetto da eliminare",
+                    "deleted_count": 0
+                }
+            
+            # Disattiva tutti i progetti dell'utente
+            db.query(SavedProject)\
+              .filter(SavedProject.user_id == current_user.id)\
+              .filter(SavedProject.is_active == True)\
+              .update({"is_active": False})
+            
+            db.commit()
+            
+            return {
+                "success": True,
+                "message": f"Eliminati {count} progetti dall'archivio",
+                "deleted_count": count
+            }
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nell'eliminazione progetti: {str(e)}"
+        )
+
 @router.delete("/saved-projects/{project_id}")
 async def delete_saved_project(
     project_id: int,
