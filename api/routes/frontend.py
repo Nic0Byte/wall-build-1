@@ -3,8 +3,9 @@ Routes Frontend per Wall-Build
 """
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from utils.config import BLOCK_WIDTHS, BLOCK_HEIGHT
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -57,3 +58,12 @@ async def health():
         "auth_system": "active",
         "version": "1.0.0"
     }
+
+@router.get("/api/config/blocks")
+async def get_blocks_config():
+    """Restituisce la configurazione dinamica dei blocchi."""
+    return JSONResponse({
+        "block_widths": BLOCK_WIDTHS,
+        "block_height": BLOCK_HEIGHT,
+        "block_widths_string": ",".join(map(str, BLOCK_WIDTHS))
+    })

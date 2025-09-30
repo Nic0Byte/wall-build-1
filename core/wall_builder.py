@@ -558,12 +558,17 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
                         break
         
         if best_width is not None:
+            # Usa sempre l'altezza standard per il tipo, indipendentemente dall'altezza effettiva
+            # Questo garantisce che blocchi con altezze leggermente diverse vengano riconosciuti
+            from utils.config import BLOCK_HEIGHT
+            standard_height = BLOCK_HEIGHT
+            
             placed.append({
                 "x": snap(x),
                 "y": snap(y),
                 "width": best_width,
-                "height": snap(effective_height),  # Altezza adattiva!
-                "type": f"adaptive_block_{best_width}"
+                "height": snap(effective_height),  # Altezza effettiva per la geometria
+                "type": f"std_{best_width}x{standard_height}"  # Tipo normalizzato
             })
             x += best_width
         else:

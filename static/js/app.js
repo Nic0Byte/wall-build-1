@@ -25,7 +25,7 @@ class WallPackingApp {
         this.init();
     }
     
-    init() {
+    async init() {
         console.log('🚀 Inizializzazione Parete TAKTAK® App');
         this.setupEventListeners();
         this.setupNavigation();
@@ -37,6 +37,9 @@ class WallPackingApp {
         
         // Initialize navigation state (all sections should be accessible at startup)
         this.updateNavigationState();
+        
+        // Carica i valori di configurazione dinamici
+        await this.loadBlockConfigurationIntoUI();
     }
     
     // ===== NAVIGATION SETUP =====
@@ -1438,15 +1441,16 @@ class WallPackingApp {
         return typeMap;
     }
     
-    updateStandardBlocksTitle(blockDimensions) {
+    async updateStandardBlocksTitle(blockDimensions) {
         const titleElement = document.getElementById('standardBlocksTitle');
         const indicatorElement = document.getElementById('customBlocksIndicator');
         
         if (!titleElement || !indicatorElement) return;
         
-        // Controlla se le dimensioni sono personalizzate
-        const defaultWidths = [1239, 826, 413];
-        const defaultHeight = 495;
+        // Carica i valori di default dal sistema
+        const defaultConfig = await this.loadDefaultBlocksConfig();
+        const defaultWidths = defaultConfig.block_widths;
+        const defaultHeight = defaultConfig.block_height;
         
         const currentWidths = blockDimensions.block_widths.sort((a, b) => b - a);
         const currentHeight = blockDimensions.block_height;
@@ -1861,15 +1865,69 @@ class WallPackingApp {
     
     // ===== CONFIGURATION =====
     
-    getConfiguration() {
+    async loadDefaultBlocksConfig() {
+        try {
+            const response = await fetch('/api/config/blocks');
+            if (response.ok) {
+                const config = await response.json();
+                return config;
+            }
+        } catch (error) {
+            console.warn('Errore caricamento configurazione blocchi:', error);
+        }
+        // Fallback ai valori hardcoded se l'API non è disponibile
+        return {
+            block_widths: [1239, 826, 413],
+            block_height: 495,
+            block_widths_string: "1239,826,413"
+        };
+    }
+    
+    async getConfiguration() {
         const projectName = document.getElementById('projectName')?.value || 'Progetto Parete';
         // rowOffset rimosso: ora calcolato automaticamente dall'algoritmo bidirezionale
-        const blockWidths = document.getElementById('blockWidths')?.value || '1239,826,413';
+        
+        // Carica la configurazione di default dai valori reali del sistema
+        const defaultConfig = await this.loadDefaultBlocksConfig();
+        const blockWidths = document.getElementById('blockWidths')?.value || defaultConfig.block_widths_string;
         
         return {
             projectName,
             blockWidths
         };
+    }
+    
+    async loadBlockConfigurationIntoUI() {
+        try {
+            const config = await this.loadDefaultBlocksConfig();
+            
+            // Aggiorna l'input delle dimensioni blocchi
+            const blockWidthsInput = document.getElementById('blockWidths');
+            if (blockWidthsInput && !blockWidthsInput.value) {
+                blockWidthsInput.value = config.block_widths_string;
+            }
+            
+            // Aggiorna anche i valori nell'HTML hardcoded (card attiva)
+            const activeBlock1Dims = document.getElementById('activeBlock1Dims');
+            const activeBlock2Dims = document.getElementById('activeBlock2Dims');
+            const activeBlock3Dims = document.getElementById('activeBlock3Dims');
+            
+            if (config.block_widths && config.block_widths.length >= 3) {
+                if (activeBlock1Dims) {
+                    activeBlock1Dims.textContent = `${config.block_widths[0]}×${config.block_height}×100 mm`;
+                }
+                if (activeBlock2Dims) {
+                    activeBlock2Dims.textContent = `${config.block_widths[1]}×${config.block_height}×100 mm`;
+                }
+                if (activeBlock3Dims) {
+                    activeBlock3Dims.textContent = `${config.block_widths[2]}×${config.block_height}×100 mm`;
+                }
+            }
+            
+            console.log('✅ Configurazione blocchi caricata dinamicamente:', config);
+        } catch (error) {
+            console.warn('⚠️ Errore caricamento configurazione blocchi:', error);
+        }
     }
     
     // ===== MODAL HANDLING =====

@@ -522,21 +522,21 @@
                                         <div class="block-mini-preview block-type1"></div>
                                         <div class="block-details">
                                             <span class="block-name">Tipo 1</span>
-                                            <span class="block-dims" id="activeBlock1Dims">1239×495×100 mm</span>
+                                            <span class="block-dims" id="activeBlock1Dims">Caricamento...</span>
                                         </div>
                                     </div>
                                     <div class="active-block-item">
                                         <div class="block-mini-preview block-type2"></div>
                                         <div class="block-details">
                                             <span class="block-name">Tipo 2</span>
-                                            <span class="block-dims" id="activeBlock2Dims">826×495×100 mm</span>
+                                            <span class="block-dims" id="activeBlock2Dims">Caricamento...</span>
                                         </div>
                                     </div>
                                     <div class="active-block-item">
                                         <div class="block-mini-preview block-type3"></div>
                                         <div class="block-details">
                                             <span class="block-name">Tipo 3</span>
-                                            <span class="block-dims" id="activeBlock3Dims">413×495×100 mm</span>
+                                            <span class="block-dims" id="activeBlock3Dims">Caricamento...</span>
                                         </div>
                                     </div>
                                 </div>
@@ -554,15 +554,46 @@
                                 <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
                             </div>
                             
-                            <!-- Offset rimosso: ora calcolato automaticamente dall'algoritmo bidirezionale -->
-                            
                             <div class="config-card">
                                 <label for="blockWidths">
                                     <i class="fas fa-ruler-horizontal"></i>
                                     Dimensioni Blocchi (mm)
                                 </label>
-                                <input type="text" id="blockWidths" value="1239,826,413" placeholder="es: 1239,826,413">
+                                <input type="text" id="blockWidths" value="" placeholder="es: 1239,826,413">
                                 <small>Larghezze blocchi standard separate da virgola</small>
+                            </div>
+                            
+                            <!-- Impostazioni Avanzate -->
+                            <div class="config-card">
+                                <label>
+                                    <i class="fas fa-cogs"></i>
+                                    Impostazioni Avanzate
+                                </label>
+                                <div class="advanced-settings">
+                                    <div class="setting-item">
+                                        <label for="optimizationMode">
+                                            <i class="fas fa-chart-line"></i>
+                                            Modalità Ottimizzazione:
+                                        </label>
+                                        <select id="optimizationMode" class="advanced-select">
+                                            <option value="balanced">Bilanciata (Raccomandato)</option>
+                                            <option value="material">Minimo Scarto Materiale</option>
+                                            <option value="speed">Velocità di Calcolo</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="qualityLevel">
+                                            <i class="fas fa-star"></i>
+                                            Livello Qualità:
+                                        </label>
+                                        <select id="qualityLevel" class="advanced-select">
+                                            <option value="high">Alta (Più Preciso)</option>
+                                            <option value="medium" selected>Media (Raccomandato)</option>
+                                            <option value="low">Bassa (Più Veloce)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <small><i class="fas fa-info-circle"></i> Queste impostazioni influenzano la precisione e velocità del calcolo</small>
                             </div>
                         </div>
                         

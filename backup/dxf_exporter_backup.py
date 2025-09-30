@@ -1626,7 +1626,7 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
                 "y": snap(y),
                 "width": best_width,
                 "height": snap(effective_height),  # Altezza adattiva!
-                "type": f"adaptive_block_{best_width}"
+                "type": f"std_{best_width}x{int(snap(effective_height))}"
             })
             x += best_width
         else:
