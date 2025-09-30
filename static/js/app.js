@@ -260,25 +260,7 @@ class WallPackingApp {
     }
     
     setupConfigurationListeners() {
-        // Row offset slider
-        const rowOffsetSlider = document.getElementById('rowOffset');
-        const rowOffsetValue = document.getElementById('rowOffsetValue');
-        
-        rowOffsetSlider?.addEventListener('input', (e) => {
-            const value = e.target.value;
-            rowOffsetValue.textContent = `${value} mm`;
-            this.updatePresetButtons(value);
-        });
-        
-        // Preset buttons
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const value = e.target.dataset.value;
-                rowOffsetSlider.value = value;
-                rowOffsetValue.textContent = `${value} mm`;
-                this.updatePresetButtons(value);
-            });
-        });
+        // Offset rimosso: ora gestito automaticamente dall'algoritmo bidirezionale
         
         // NUOVO: Ceiling height automatic calculation listener
         const ceilingHeightInput = document.getElementById('ceilingHeight');
@@ -307,11 +289,7 @@ class WallPackingApp {
         }
     }
     
-    updatePresetButtons(activeValue) {
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.value === activeValue);
-        });
-    }
+    // updatePresetButtons rimossa: non più necessaria senza controlli offset manuali
     
     // ===== FILE HANDLING =====
     
@@ -533,7 +511,7 @@ class WallPackingApp {
             // Prepare form data
             const formData = new FormData();
             formData.append('file', this.currentFile);
-            formData.append('row_offset', config.rowOffset);
+            // row_offset rimosso: ora calcolato automaticamente dall'algoritmo
             formData.append('block_widths', config.blockWidths);
             formData.append('project_name', config.projectName);
             
@@ -630,7 +608,7 @@ class WallPackingApp {
             // Prepare form data per endpoint ottimizzato
             const formData = new FormData();
             formData.append('preview_session_id', this.previewSessionId); // CHIAVE: Riutilizzo dati
-            formData.append('row_offset', config.rowOffset);
+            // row_offset rimosso: ora calcolato automaticamente dall'algoritmo
             formData.append('block_widths', config.blockWidths);
             formData.append('project_name', config.projectName);
             
@@ -1038,7 +1016,7 @@ class WallPackingApp {
         try {
             const formData = new FormData();
             formData.append('session_id', this.currentSessionId);
-            formData.append('row_offset', config.rowOffset);
+            // row_offset rimosso: ora calcolato automaticamente dall'algoritmo
             formData.append('block_widths', config.blockWidths);
             
             // Add block dimensions configuration for recalculation
@@ -1885,12 +1863,11 @@ class WallPackingApp {
     
     getConfiguration() {
         const projectName = document.getElementById('projectName')?.value || 'Progetto Parete';
-        const rowOffset = parseInt(document.getElementById('rowOffset')?.value || '826');
+        // rowOffset rimosso: ora calcolato automaticamente dall'algoritmo bidirezionale
         const blockWidths = document.getElementById('blockWidths')?.value || '1239,826,413';
         
         return {
             projectName,
-            rowOffset,
             blockWidths
         };
     }

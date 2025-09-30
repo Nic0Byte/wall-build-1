@@ -28,7 +28,150 @@ from utils.config import (
 )
 
 
-__all__ = ["pack_wall", "opt_pass"]
+__all__ = ["pack_wall", "opt_pass", "AlgorithmDebugger"]
+
+
+class AlgorithmDebugger:
+    """
+    🔍 SISTEMA DEBUG ALGORITMO
+    Traccia e mostra il ragionamento step-by-step dell'algoritmo di packing
+    """
+    
+    def __init__(self, enable_debug: bool = False):
+        self.enabled = enable_debug
+        self.debug_data = {
+            'algorithm_type': 'bidirectional',
+            'rows_analysis': [],
+            'decisions': [],
+            'optimizations': [],
+            'final_stats': {}
+        }
+    
+    def log_algorithm_start(self, wall_bounds: tuple, block_widths: List[int], apertures_count: int):
+        """Registra inizio algoritmo"""
+        if not self.enabled:
+            return
+            
+        self.debug_data['start_info'] = {
+            'wall_dimensions': f"{wall_bounds[2]-wall_bounds[0]:.0f}×{wall_bounds[3]-wall_bounds[1]:.0f}mm",
+            'wall_area': f"{(wall_bounds[2]-wall_bounds[0]) * (wall_bounds[3]-wall_bounds[1]) / 1000000:.1f}m²",
+            'block_sizes': block_widths,
+            'apertures_count': apertures_count,
+            'algorithm': 'Bidirezionale (sinistra/destra alternato)'
+        }
+        
+        print(f"🔍 DEBUG: Inizio algoritmo bidirezionale")
+        print(f"   📏 Parete: {self.debug_data['start_info']['wall_dimensions']}")
+        print(f"   📊 Area: {self.debug_data['start_info']['wall_area']}")
+        print(f"   🧱 Blocchi: {block_widths}")
+        print(f"   🚪 Aperture: {apertures_count}")
+    
+    def log_row_decision(self, row: int, direction: str, segments_count: int, reasoning: str):
+        """Registra decisione per una riga"""
+        if not self.enabled:
+            return
+            
+        row_data = {
+            'row_number': row,
+            'direction': direction,
+            'segments': segments_count,
+            'reasoning': reasoning,
+            'pattern': '←→' if direction == 'left_to_right' else '→←'
+        }
+        
+        self.debug_data['rows_analysis'].append(row_data)
+        
+        print(f"🔄 RIGA {row}: {row_data['pattern']} direzione {direction}")
+        print(f"   🧩 Segmenti: {segments_count}")
+        print(f"   💭 Logica: {reasoning}")
+    
+    def log_segment_packing(self, row: int, segment_id: int, segment_width: float, 
+                           blocks_placed: List[Dict], custom_pieces: List[Dict]):
+        """Registra risultato packing di un segmento"""
+        if not self.enabled:
+            return
+            
+        placed_summary = []
+        for block in blocks_placed:
+            width = block.get('width', 0)
+            placed_summary.append(f"{width}mm")
+        
+        custom_summary = []
+        for custom in custom_pieces:
+            width = custom.get('width', 0)
+            custom_summary.append(f"{width:.0f}mm(custom)")
+        
+        segment_data = {
+            'row': row,
+            'segment': segment_id,
+            'width': segment_width,
+            'blocks': placed_summary,
+            'customs': custom_summary,
+            'efficiency': len(blocks_placed) / (len(blocks_placed) + len(custom_pieces)) if (blocks_placed or custom_pieces) else 0
+        }
+        
+        if not hasattr(self, 'current_row_segments'):
+            self.current_row_segments = []
+        self.current_row_segments.append(segment_data)
+        
+        pattern_str = " | ".join(placed_summary + custom_summary)
+        print(f"   🔧 Segmento {segment_id} ({segment_width:.0f}mm): [{pattern_str}]")
+        if custom_pieces:
+            print(f"      ✂️ Custom: {len(custom_pieces)} pezzi")
+    
+    def log_row_complete(self, row: int):
+        """Completa analisi di una riga"""
+        if not self.enabled:
+            return
+            
+        if hasattr(self, 'current_row_segments'):
+            # Aggiungi dati riga ai debug_data
+            for row_data in self.debug_data['rows_analysis']:
+                if row_data['row_number'] == row:
+                    row_data['segments_data'] = self.current_row_segments
+                    break
+            
+            # Reset per prossima riga
+            self.current_row_segments = []
+        
+        print(f"✅ RIGA {row} completata")
+    
+    def log_optimization(self, optimization_type: str, description: str, benefit: str):
+        """Registra ottimizzazione applicata"""
+        if not self.enabled:
+            return
+            
+        opt_data = {
+            'type': optimization_type,
+            'description': description,
+            'benefit': benefit
+        }
+        
+        self.debug_data['optimizations'].append(opt_data)
+        print(f"⚡ OTTIMIZZAZIONE {optimization_type}: {description} → {benefit}")
+    
+    def log_final_stats(self, total_blocks: int, total_customs: int, efficiency: float, waste_ratio: float):
+        """Registra statistiche finali"""
+        if not self.enabled:
+            return
+            
+        self.debug_data['final_stats'] = {
+            'total_standard_blocks': total_blocks,
+            'total_custom_pieces': total_customs,
+            'efficiency_percent': efficiency * 100,
+            'waste_ratio_percent': waste_ratio * 100,
+            'standard_vs_custom_ratio': f"{total_blocks}:{total_customs}"
+        }
+        
+        print(f"📊 RISULTATO FINALE:")
+        print(f"   🧱 Blocchi standard: {total_blocks}")
+        print(f"   ✂️ Pezzi custom: {total_customs}")
+        print(f"   📈 Efficienza: {efficiency*100:.1f}%")
+        print(f"   🗑️ Spreco: {waste_ratio*100:.1f}%")
+    
+    def get_debug_report(self) -> Dict:
+        """Restituisce report completo per frontend"""
+        return self.debug_data if self.enabled else {}
 
 
 def _split_component_into_horizontal_segments(component: Polygon, y: float, stripe_top: float) -> List[Polygon]:
@@ -176,6 +319,115 @@ def simulate_future_placement(total_space: float, first_block: int, widths_order
         'blocks_sequence': placed_blocks,
         'final_remainder': remaining
     }
+
+
+def _pack_segment_bidirectional(comp: Polygon, y: float, stripe_top: float, 
+                               widths_order: List[int], direction: str = 'left_to_right',
+                               debugger: Optional[AlgorithmDebugger] = None) -> Tuple[List[Dict], List[Dict]]:
+    """
+    🔄 ALGORITMO BIDIREZIONALE - NUOVO SISTEMA MATTONCINO
+    
+    Supporta due direzioni:
+    - 'left_to_right': Da sinistra a destra (righe pari)
+    - 'right_to_left': Da destra a sinistra (righe dispari)
+    
+    Questo crea un effetto mattoncino naturale senza offset artificiali!
+    """
+    placed: List[Dict] = []
+    custom: List[Dict] = []
+
+    seg_minx, _, seg_maxx, _ = comp.bounds
+    seg_minx = snap(seg_minx)
+    seg_maxx = snap(seg_maxx)
+    y = snap(y)
+    stripe_top = snap(stripe_top)
+
+    if direction == 'left_to_right':
+        # 🧱 DIREZIONE CLASSICA: Sinistra → Destra
+        cursor = seg_minx
+        
+        while cursor < seg_maxx - COORD_EPS:
+            spazio_rimanente = seg_maxx - cursor
+            placed_one = False
+            
+            # Prova blocchi in ordine: più grande → più piccolo
+            for block_width in widths_order:
+                if block_width <= spazio_rimanente + COORD_EPS:
+                    candidate = box(cursor, y, cursor + block_width, stripe_top)
+                    intersec = candidate.intersection(comp)
+                    
+                    if not intersec.is_empty and intersec.area >= AREA_EPS:
+                        if intersec.area / candidate.area >= 0.95:
+                            # Blocco standard perfetto
+                            placed.append(_mk_std(cursor, y, block_width, BLOCK_HEIGHT))
+                            cursor = snap(cursor + block_width)
+                            placed_one = True
+                            break
+                        else:
+                            # Spazio non perfetto - crea pezzo custom
+                            custom.append(_mk_custom(intersec, widths_order))
+                            cursor = snap(cursor + block_width)
+                            placed_one = True
+                            break
+            
+            if not placed_one:
+                # Spazio rimanente troppo piccolo per qualsiasi blocco standard
+                if spazio_rimanente > MICRO_REST_MM:
+                    remaining_box = box(cursor, y, seg_maxx, stripe_top)
+                    remaining_intersec = remaining_box.intersection(comp)
+                    if not remaining_intersec.is_empty and remaining_intersec.area >= AREA_EPS:
+                        custom.append(_mk_custom(remaining_intersec, widths_order))
+                break
+                
+    elif direction == 'right_to_left':
+        # 🧱 DIREZIONE NUOVA: Destra → Sinistra
+        cursor = seg_maxx
+        
+        while cursor > seg_minx + COORD_EPS:
+            spazio_rimanente = cursor - seg_minx
+            placed_one = False
+            
+            # Prova blocchi in ordine: più grande → più piccolo
+            for block_width in widths_order:
+                if block_width <= spazio_rimanente + COORD_EPS:
+                    # Posiziona blocco DA DESTRA
+                    candidate = box(cursor - block_width, y, cursor, stripe_top)
+                    intersec = candidate.intersection(comp)
+                    
+                    if not intersec.is_empty and intersec.area >= AREA_EPS:
+                        if intersec.area / candidate.area >= 0.95:
+                            # Blocco standard perfetto
+                            placed.append(_mk_std(cursor - block_width, y, block_width, BLOCK_HEIGHT))
+                            cursor = snap(cursor - block_width)
+                            placed_one = True
+                            break
+                        else:
+                            # Spazio non perfetto - crea pezzo custom
+                            custom.append(_mk_custom(intersec, widths_order))
+                            cursor = snap(cursor - block_width)
+                            placed_one = True
+                            break
+            
+            if not placed_one:
+                # Spazio rimanente troppo piccolo per qualsiasi blocco standard
+                if spazio_rimanente > MICRO_REST_MM:
+                    remaining_box = box(seg_minx, y, cursor, stripe_top)
+                    remaining_intersec = remaining_box.intersection(comp)
+                    if not remaining_intersec.is_empty and remaining_intersec.area >= AREA_EPS:
+                        custom.append(_mk_custom(remaining_intersec, widths_order))
+                break
+    
+    # Debug logging se disponibile
+    if debugger:
+        debugger.log_segment_packing(
+            row=getattr(debugger, 'current_row', 0),
+            segment_id=getattr(debugger, 'current_segment', 0),
+            segment_width=seg_maxx - seg_minx,
+            blocks_placed=placed,
+            custom_pieces=custom
+        )
+
+    return placed, custom
 
 
 def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_order: List[int], offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
@@ -341,19 +593,38 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
 def pack_wall(polygon: Polygon,
               block_widths: List[int],
               block_height: int,
-              row_offset: Optional[int] = 826,
-              apertures: Optional[List[Polygon]] = None) -> Tuple[List[Dict], List[Dict]]:
+              row_offset: Optional[int] = None,  # Deprecato: mantenuto per compatibilità
+              apertures: Optional[List[Polygon]] = None,
+              enable_debug: bool = False) -> Tuple[List[Dict], List[Dict]]:
     """
-    Packer principale con altezza adattiva per ottimizzare l'uso dello spazio.
+    🔄 PACKER PRINCIPALE CON ALGORITMO BIDIREZIONALE
+    
+    NOVITÀ: 
+    - Algoritmo bidirezionale (sinistra/destra alternato) 
+    - row_offset deprecato (ignorato)
+    - Sistema debug integrato
+    - Effetto mattoncino naturale
     """
-    print(f"🔧 PACK_WALL INPUT DEBUG:")
+    
+    # Inizializza debugger
+    debugger = AlgorithmDebugger(enable_debug)
+    debugger.log_algorithm_start(polygon.bounds, block_widths, len(apertures) if apertures else 0)
+    
+    if row_offset is not None:
+        debugger.log_optimization(
+            "OFFSET_DEPRECATION", 
+            f"row_offset={row_offset} ignorato", 
+            "Algoritmo bidirezionale elimina necessità di offset manuale"
+        )
+    
+    print(f"� NUOVO ALGORITMO BIDIREZIONALE:")
     print(f"   📏 Polygon bounds: {polygon.bounds}")
     print(f"   📐 Polygon area: {polygon.area}")
     print(f"   🔲 Polygon valid: {polygon.is_valid}")
     print(f"   📦 Block widths: {block_widths}")
     print(f"   📏 Block height: {block_height}")
-    print(f"   ↔️ Row offset: {row_offset}")
-    print(f"   🚪 Apertures: {len(apertures) if apertures else 0}")
+    print(f"   🚪 Aperture: {len(apertures) if apertures else 0}")
+    print(f"   � Debug: {'ATTIVO' if enable_debug else 'DISATTIVO'}")
     
     polygon = sanitize_polygon(polygon)
 
@@ -430,24 +701,32 @@ def pack_wall(polygon: Polygon,
                 print(f"   ⚠️ Componente {i} vuota o troppo piccola (area={comp.area:.2f})")
                 continue
             
-            # ===== USA SOLO L'ALGORITMO GREEDY SEMPLICE =====
+            # ===== NUOVO ALGORITMO BIDIREZIONALE =====
             print(f"   🔧 Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
 
-            # Determina offset per pattern mattoncino
+            # Determina direzione per algoritmo bidirezionale
             if row % 2 == 0:
-                # Riga pari: inizia da sinistra (offset=0)
-                offset = 0
-                print(f"   🧱 Riga PARI {row}: inizia da sinistra (offset=0)")
+                # Riga pari: da sinistra a destra
+                direction = 'left_to_right'
+                reasoning = "Riga pari - direzione naturale sinistra→destra"
+                print(f"   🧱 Riga PARI {row}: ←→ sinistra → destra")
             else:
-                # Riga dispari: usa offset per alternare i giunti
-                offset = row_offset if row_offset is not None else min(block_widths)
-                print(f"   🧱 Riga DISPARI {row}: offset mattoncino = {offset}mm")
+                # Riga dispari: da destra a sinistra per effetto mattoncino
+                direction = 'right_to_left'  
+                reasoning = "Riga dispari - inversione per pattern mattoncino naturale"
+                print(f"   🧱 Riga DISPARI {row}: →← destra → sinistra")
 
-            # UNICO ALGORITMO: Greedy semplice con pattern mattoncino
-            placed_row, custom_row = _pack_segment_with_order(
+            # Debug logging
+            debugger.current_row = row
+            debugger.current_segment = i
+            debugger.log_row_decision(row, direction, len(comps), reasoning)
+
+            # NUOVO ALGORITMO: Bidirezionale con debug
+            placed_row, custom_row = _pack_segment_bidirectional(
                 comp, y, stripe_top, 
                 sorted(block_widths, reverse=True),  # GREEDY: grande → piccolo
-                offset=offset
+                direction=direction,
+                debugger=debugger
             )
             
             print(f"   ✅ Risultato: {len(placed_row)} placed, {len(custom_row)} custom")
@@ -500,7 +779,25 @@ def pack_wall(polygon: Polygon,
 
     custom_all = merge_customs_row_aware(custom_all, tol=SCARTO_CUSTOM_MM, row_height=BLOCK_HEIGHT)
     custom_all = split_out_of_spec(custom_all, max_w=SPLIT_MAX_WIDTH_MM)
-    return placed_all, validate_and_tag_customs(custom_all)
+    validated_customs = validate_and_tag_customs(custom_all)
+    
+    # Log statistiche finali per il debug
+    total_wall_area = polygon.area
+    total_blocks_area = sum(block.get('width', 0) * block.get('height', 0) for block in placed_all)
+    total_custom_area = sum(custom.get('width', 0) * custom.get('height', 0) for custom in validated_customs)
+    
+    efficiency = total_blocks_area / (total_blocks_area + total_custom_area) if (total_blocks_area + total_custom_area) > 0 else 0
+    waste_ratio = 1 - ((total_blocks_area + total_custom_area) / total_wall_area) if total_wall_area > 0 else 0
+    
+    debugger.log_final_stats(len(placed_all), len(validated_customs), efficiency, waste_ratio)
+    
+    print(f"📊 ALGORITMO BIDIREZIONALE COMPLETATO:")
+    print(f"   🧱 Blocchi standard: {len(placed_all)}")
+    print(f"   ✂️ Pezzi custom: {len(validated_customs)}")
+    print(f"   📈 Efficienza: {efficiency*100:.1f}%")
+    print(f"   🗑️ Spreco: {waste_ratio*100:.1f}%")
+    
+    return placed_all, validated_customs
 
 
 def merge_customs_row_aware(customs: List[Dict], tol: float = 5, row_height: int = 495) -> List[Dict]:
