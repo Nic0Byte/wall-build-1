@@ -49,6 +49,13 @@
     --error-50: #fef2f2;
     --error-100: #fee2e2;
     --error-500: #ef4444;
+    
+    /* Smart Loading System Colors */
+    --brick-primary: #8B4513;
+    --brick-secondary: #A0522D;
+    --brick-highlight: #CD853F;
+    --loading-overlay: rgba(0, 0, 0, 0.85);
+    --loading-glass: rgba(255, 255, 255, 0.1);
     --error-600: #dc2626;
     
     /* Enhanced Typography */
@@ -3739,4 +3746,407 @@ table tbody tr:hover {
 .user-modified {
     background: linear-gradient(45deg, #3b82f6, #2563eb);
     color: white;
+}
+
+/* ===== SMART LOADING SYSTEM 3D ===== */
+/* Sistema Loading Universale con Animazione 3D Mattoncini */
+
+.smart-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--loading-overlay);
+    backdrop-filter: blur(8px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smart-loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-container-3d {
+    background: var(--loading-glass);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 48px 40px;
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(16px);
+    position: relative;
+    overflow: hidden;
+}
+
+.loading-container-3d::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* ===== ANIMAZIONE 3D MATTONCINI ===== */
+.wall-animation-3d {
+    perspective: 1200px;
+    height: 160px;
+    margin-bottom: 32px;
+    position: relative;
+}
+
+.brick-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 40px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.brick-row.offset {
+    transform: translateX(-30px);
+}
+
+.brick {
+    width: 60px;
+    height: 32px;
+    margin: 0 2px;
+    background: linear-gradient(135deg, var(--brick-primary) 0%, var(--brick-secondary) 50%, var(--brick-highlight) 100%);
+    border-radius: 4px;
+    position: relative;
+    transform-style: preserve-3d;
+    animation: buildBrick 2.5s infinite ease-in-out;
+    box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.2),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.brick::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 4px;
+    right: 4px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brick-highlight), var(--brick-primary));
+    border-radius: 2px 2px 0 0;
+    transform: rotateX(90deg);
+    transform-origin: bottom;
+}
+
+.brick::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: -4px;
+    width: 4px;
+    bottom: 4px;
+    background: linear-gradient(180deg, var(--brick-secondary), #654321);
+    transform: rotateY(90deg);
+    transform-origin: left;
+}
+
+/* Animazioni specifiche per ogni mattoncino */
+.brick:nth-child(1) { animation-delay: 0s; }
+.brick:nth-child(2) { animation-delay: 0.3s; }
+.brick:nth-child(3) { animation-delay: 0.6s; }
+
+.brick-row:nth-child(2) .brick:nth-child(1) { animation-delay: 0.9s; }
+.brick-row:nth-child(2) .brick:nth-child(2) { animation-delay: 1.2s; }
+.brick-row:nth-child(2) .brick:nth-child(3) { animation-delay: 1.5s; }
+
+@keyframes buildBrick {
+    0% {
+        transform: translateY(200px) rotateX(-90deg) rotateZ(45deg);
+        opacity: 0;
+        scale: 0.5;
+    }
+    20% {
+        transform: translateY(100px) rotateX(-45deg) rotateZ(22deg);
+        opacity: 0.5;
+        scale: 0.7;
+    }
+    50% {
+        transform: translateY(0) rotateX(0deg) rotateZ(0deg);
+        opacity: 1;
+        scale: 1;
+    }
+    70% {
+        transform: translateY(-8px) rotateX(5deg);
+        opacity: 1;
+        scale: 1.05;
+    }
+    100% {
+        transform: translateY(0) rotateX(0deg) rotateZ(0deg);
+        opacity: 0.9;
+        scale: 1;
+    }
+}
+
+/* ===== PROGRESS BAR REALISTICA ===== */
+.progress-container-3d {
+    margin: 32px 0;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #f9fafb;
+}
+
+.current-step {
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.progress-percent {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--brand-accent);
+}
+
+.progress-bar-3d {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progress-fill-3d {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-accent), #34d399);
+    border-radius: 8px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-fill-3d::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.estimated-time {
+    margin-top: 12px;
+    color: #d1d5db;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.time-value {
+    color: var(--brand-accent);
+    font-weight: 600;
+}
+
+/* ===== INFORMAZIONI OPERAZIONE ===== */
+.operation-info-3d {
+    margin: 24px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.file-info, .system-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px 0;
+    color: #e5e7eb;
+    font-size: 14px;
+}
+
+.file-name {
+    color: var(--brand-accent);
+    font-weight: 500;
+}
+
+.file-size {
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+/* ===== PULSANTE CANCELLA ===== */
+.cancel-btn-3d {
+    margin-top: 24px;
+    padding: 12px 24px;
+    background: transparent;
+    border: 2px solid var(--brand-error);
+    color: var(--brand-error);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cancel-btn-3d:hover {
+    background: var(--brand-error);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(239, 68, 68, 0.3);
+}
+
+/* ===== ANIMAZIONI PARTICELLE ===== */
+.particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--brick-highlight);
+    border-radius: 50%;
+    animation: floatParticle 4s infinite ease-in-out;
+    opacity: 0;
+}
+
+.particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+.particle:nth-child(2) { left: 30%; animation-delay: 0.5s; }
+.particle:nth-child(3) { left: 50%; animation-delay: 1s; }
+.particle:nth-child(4) { left: 70%; animation-delay: 1.5s; }
+.particle:nth-child(5) { left: 90%; animation-delay: 2s; }
+
+@keyframes floatParticle {
+    0% {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    80% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+}
+
+/* ===== MESSAGGIO TAKTAK® ===== */
+.taktak-message {
+    margin: 24px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--brand-accent), #34d399);
+    border-radius: 16px;
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+    animation: taktak-pulse 2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.taktak-message::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: taktak-shine 3s infinite;
+}
+
+@keyframes taktak-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 12px 24px rgba(16, 185, 129, 0.4);
+    }
+}
+
+@keyframes taktak-shine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .loading-container-3d {
+        padding: 32px 24px;
+        margin: 20px;
+    }
+    
+    .wall-animation-3d {
+        height: 120px;
+        margin-bottom: 24px;
+    }
+    
+    .brick {
+        width: 48px;
+        height: 28px;
+    }
+    
+    .current-step {
+        font-size: 14px;
+    }
+    
+    .progress-percent {
+        font-size: 16px;
+    }
+    
+    .taktak-message {
+        font-size: 16px;
+        margin: 20px 0;
+        padding: 16px;
+    }
 }

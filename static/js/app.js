@@ -519,6 +519,16 @@ class WallPackingApp {
         // Show loading
         this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico con parametri personalizzati');
         
+        // 🚀 SMART LOADING: Avvia loading per enhanced pack
+        window.smartLoading?.showForOperation('dwgConversion', {
+            fileName: this.currentFile?.name || 'File CAD',
+            fileSize: this.currentFile?.size,
+            onCancel: () => {
+                console.log('❌ Elaborazione annullata dall\'utente');
+                this.hideLoading();
+            }
+        });
+        
         try {
             // Prepare form data
             const formData = new FormData();
@@ -569,6 +579,9 @@ class WallPackingApp {
             this.currentSessionId = result.session_id;
             this.currentData = result;
             
+            // 🚀 SMART LOADING: Operazione completata
+            window.smartLoading?.hide();
+            
             // Update UI
             this.hideLoading();
             this.showResults(result);
@@ -579,6 +592,10 @@ class WallPackingApp {
             
         } catch (error) {
             console.error('Errore processamento:', error);
+            
+            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
+            window.smartLoading?.hide();
+            
             this.hideLoading();
             this.showToast(`Errore: ${error.message}`, 'error');
         }
@@ -598,6 +615,16 @@ class WallPackingApp {
         // Show loading
         this.showLoading('Elaborazione ottimizzata in corso...', 
             'Calcolo packing con dati già convertiti - EVITATA doppia conversione!');
+        
+        // 🚀 SMART LOADING: Avvia loading per packing ottimizzato
+        window.smartLoading?.showForOperation('packing', {
+            fileName: this.currentFile?.name || 'Preview esistente',
+            fileSize: this.currentFile?.size,
+            onCancel: () => {
+                console.log('❌ Packing ottimizzato annullato dall\'utente');
+                this.hideLoading();
+            }
+        });
         
         try {
             // Prepare form data per endpoint ottimizzato
@@ -689,6 +716,9 @@ class WallPackingApp {
             this.currentSessionId = result.session_id;
             this.currentData = result;
             
+            // 🚀 SMART LOADING: Operazione completata
+            window.smartLoading?.hide();
+            
             // Update UI
             this.hideLoading();
             this.showResults(result);
@@ -701,6 +731,10 @@ class WallPackingApp {
             
         } catch (error) {
             console.error('Errore processamento ottimizzato:', error);
+            
+            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
+            window.smartLoading?.hide();
+            
             this.hideLoading();
             this.showToast(`Errore elaborazione: ${error.message}`, 'error');
             
@@ -1036,6 +1070,14 @@ class WallPackingApp {
     }
     
     async loadSessionData(sessionId) {
+        // 🚀 SMART LOADING: Avvia loading per caricamento sessione
+        window.smartLoading?.showForOperation('sessionLoad', {
+            fileName: `Sessione ${sessionId}`,
+            onCancel: () => {
+                console.log('❌ Caricamento sessione annullato dall\'utente');
+            }
+        });
+        
         try {
             const response = await fetch(`/api/session/${sessionId}`);
             if (!response.ok) {
@@ -1056,11 +1098,18 @@ class WallPackingApp {
                 apertures: []        // Not needed for display
             };
             
+            // 🚀 SMART LOADING: Operazione completata
+            window.smartLoading?.hide();
+            
             this.showResults(this.currentData);
             this.loadPreview();
             
         } catch (error) {
             console.error('Errore caricamento sessione:', error);
+            
+            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
+            window.smartLoading?.hide();
+            
             this.showToast(`Errore: ${error.message}`, 'error');
         }
     }
@@ -2643,6 +2692,16 @@ class WallPackingApp {
         // Show loading states
         this.showPreviewLoading(true);
         
+        // 🚀 SMART LOADING: Avvia loading per conversione DWG
+        window.smartLoading?.showForOperation('dwgConversion', {
+            fileName: file.name,
+            fileSize: file.size,
+            onCancel: () => {
+                console.log('❌ Conversione annullata dall\'utente');
+                this.showPreviewLoading(false);
+            }
+        });
+        
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -2667,6 +2726,9 @@ class WallPackingApp {
             const result = await response.json();
             console.log('✅ Preview data received:', result);
             
+            // 🚀 SMART LOADING: Operazione completata
+            window.smartLoading?.hide();
+            
             // Store preview data with session ID for reuse
             this.currentPreviewData = result;
             this.previewSessionId = result.preview_session_id; // NUOVO: Store per riutilizzo
@@ -2680,6 +2742,10 @@ class WallPackingApp {
             
         } catch (error) {
             console.error('❌ Preview generation error:', error);
+            
+            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
+            window.smartLoading?.hide();
+            
             this.showPreviewLoading(false);
             this.showToast(`Errore generazione preview: ${error.message}`, 'error');
             
