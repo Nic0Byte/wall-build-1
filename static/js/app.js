@@ -2792,7 +2792,21 @@ class WallPackingApp {
             
             // NUOVO: 🚀 SMART LOADING rimane attivo durante il caricamento UI dello step 2
             // Attendiamo che tutti gli elementi dell'UI siano completamente caricati
+            console.log('⏳ Iniziando attesa per caricamento completo UI...');
+            
+            // Sistema di backup: garantisce durata minima anche se il controllo UI fallisce
+            const startWaitTime = performance.now();
+            const minimumWaitTime = 3000; // Minimo 3 secondi di attesa
+            
             await this.waitForPreviewUIComplete();
+            
+            const actualWaitTime = performance.now() - startWaitTime;
+            const remainingWaitTime = Math.max(0, minimumWaitTime - actualWaitTime);
+            
+            if (remainingWaitTime > 0) {
+                console.log(`⏱️ Attesa aggiuntiva di ${remainingWaitTime.toFixed(0)}ms per garantire durata minima`);
+                await new Promise(resolve => setTimeout(resolve, remainingWaitTime));
+            }
             
             // 🚀 SMART LOADING: Ora nascondi l'animazione - UI completamente caricata
             window.smartLoading?.hide();
@@ -2804,8 +2818,9 @@ class WallPackingApp {
                 console.log(`📊 Step 4→5 durerà: ${Math.max(0, this.step1to2Duration - 15000).toFixed(0)}ms (${Math.max(0, (this.step1to2Duration - 15000)/1000).toFixed(1)}s)`);
             }
             
-            // NUOVO: Notifica l'utente che la transizione è completa
-            this.showToast('✅ Anteprima caricata completamente!', 'success', 3000);
+            // NUOVO: Notifica l'utente che la transizione è completa con durata
+            const totalDuration = this.step1to2Duration ? (this.step1to2Duration/1000).toFixed(1) : 'N/A';
+            this.showToast(`✅ Anteprima caricata in ${totalDuration}s!`, 'success', 4000);
             
         } catch (error) {
             console.error('❌ Preview generation error:', error);
@@ -2827,7 +2842,7 @@ class WallPackingApp {
             console.log('⏳ Aspettando il caricamento completo dell\'UI dello step 2...');
             
             let checkAttempts = 0;
-            const maxAttempts = 50; // Massimo 5 secondi (50 * 100ms)
+            const maxAttempts = 60; // Aumentato a 6 secondi (60 * 100ms)
             
             const checkUIComplete = () => {
                 checkAttempts++;
@@ -2838,26 +2853,31 @@ class WallPackingApp {
                 const conversionDetails = document.getElementById('conversionDetails');
                 const previewSection = document.getElementById('previewSection');
                 
+                // Debug dettagliato degli elementi
+                console.log(`🔍 [${checkAttempts}/${maxAttempts}] Debug elementi trovati:`, {
+                    previewCanvas: !!previewCanvas,
+                    measurementsData: !!measurementsData,
+                    conversionDetails: !!conversionDetails,
+                    previewSection: !!previewSection
+                });
+                
+                // Controlli più flessibili
                 const isCanvasLoaded = previewCanvas && 
-                    previewCanvas.width > 0 && 
-                    previewCanvas.height > 0 &&
-                    previewCanvas.dataset.imageLoaded === 'true';
+                    (previewCanvas.width > 0 || previewCanvas.dataset.imageLoaded === 'true' || previewCanvas.dataset.imageLoaded === 'error');
                 
-                const isMeasurementsVisible = measurementsData && 
-                    measurementsData.style.display !== 'none' &&
-                    measurementsData.innerHTML.trim() !== '';
+                const isMeasurementsVisible = !measurementsData || 
+                    (measurementsData.style.display !== 'none' && measurementsData.innerHTML.trim() !== '') ||
+                    measurementsData.textContent.length > 0;
                 
-                const isConversionDetailsVisible = conversionDetails && 
-                    conversionDetails.style.display !== 'none';
+                const isConversionDetailsVisible = !conversionDetails || 
+                    conversionDetails.style.display !== 'none' ||
+                    conversionDetails.innerHTML.trim() !== '';
                 
                 const isPreviewSectionVisible = previewSection && 
                     previewSection.style.display === 'block';
                 
-                // Verifica che tutti gli elementi siano pronti
-                const isUIComplete = isCanvasLoaded && 
-                    isMeasurementsVisible && 
-                    isConversionDetailsVisible && 
-                    isPreviewSectionVisible;
+                // Criteri più flessibili - almeno canvas e section devono essere ok
+                const isUIComplete = isCanvasLoaded && isPreviewSectionVisible;
                 
                 console.log(`🔍 Check UI completo (${checkAttempts}/${maxAttempts}):`, {
                     canvas: isCanvasLoaded,
@@ -2871,10 +2891,10 @@ class WallPackingApp {
                 
                 if (isUIComplete) {
                     console.log('✅ UI dello step 2 completamente caricata!');
-                    // Aggiungi un piccolo delay finale per permettere eventuali animazioni CSS
-                    setTimeout(() => resolve(), 150);
+                    // Aggiungi un delay più lungo per essere sicuri
+                    setTimeout(() => resolve(), 300);
                 } else if (checkAttempts >= maxAttempts) {
-                    console.log('⚠️ Timeout raggiunto - procediamo comunque');
+                    console.log('⚠️ Timeout raggiunto - procediamo comunque per evitare hang');
                     resolve();
                 } else {
                     // Riprova tra 100ms
@@ -2882,8 +2902,8 @@ class WallPackingApp {
                 }
             };
             
-            // Inizia il controllo dopo un breve delay per permettere al DOM di aggiornarsi
-            setTimeout(checkUIComplete, 200);
+            // Inizia il controllo dopo un delay più lungo per permettere al DOM di aggiornarsi
+            setTimeout(checkUIComplete, 500);
         });
     }
     
@@ -2949,7 +2969,12 @@ class WallPackingApp {
         const canvas = document.getElementById('previewCanvas');
         const ctx = canvas.getContext('2d');
         
-        if (!canvas || !imageBase64) return;
+        if (!canvas || !imageBase64) {
+            console.warn('❌ Canvas o immagine mancanti per renderPreviewImage');
+            return;
+        }
+        
+        console.log('🖼️ Iniziando rendering immagine preview...');
         
         const img = new Image();
         img.onload = () => {
@@ -2978,7 +3003,11 @@ class WallPackingApp {
             // NUOVO: Marca l'immagine come caricata per il controllo UI completo
             canvas.dataset.imageLoaded = 'true';
             
-            console.log('✅ Preview image rendered');
+            console.log('✅ Preview image rendered successfully', {
+                originalSize: `${img.width}x${img.height}`,
+                canvasSize: `${canvas.width}x${canvas.height}`,
+                scale: scale.toFixed(2)
+            });
         };
         
         img.onerror = () => {
@@ -2992,6 +3021,8 @@ class WallPackingApp {
         // Set image source (remove data:image prefix if present)
         const imageData = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
         img.src = imageData;
+        
+        console.log('🔄 Image source set, waiting for load...');
     }
     
     updateMeasurementsPanel(measurements) {
