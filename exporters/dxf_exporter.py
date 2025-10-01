@@ -811,25 +811,18 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
                                x, y, width, height, enhanced_info, color_theme, block_config):
     """Disegna sezione preview con ricostruzione vettoriale identica all'interfaccia."""
     
-    # Header con titolo
-    header_text = "🔄 Preview Parete"
+    # Header con titolo IDENTICO all'interfaccia web
+    header_text = "Enhanced Preview - Spessore: 93mm - Start: left"
+    if enhanced_info and enhanced_info.get("automatic_measurements"):
+        # Estrai info reale dalla sessione IDENTICO all'interfaccia
+        thickness = enhanced_info.get('thickness', '93')
+        header_text = f"Enhanced Preview - Spessore: {thickness}mm - Start: left"
+    
     msp.add_text(
         header_text,
         height=12,
-        dxfattribs={"layer": "STEP5_HEADER"}
+        dxfattribs={"layer": "STEP5_HEADER", "color": 3}  # Verde come interfaccia
     ).set_placement((x, y + height + 20), align=TextEntityAlignment.BOTTOM_LEFT)
-    
-    # Subtitle con info sessione
-    session_info = "Enhanced Preview - Sessione: 93cm - Start: left"
-    if enhanced_info and enhanced_info.get("automatic_measurements"):
-        # Estrai info reale dalla sessione 
-        session_info = f"Enhanced Preview - Sessione: {enhanced_info.get('session_width', '93')}cm - Start: left"
-    
-    msp.add_text(
-        session_info,
-        height=8,
-        dxfattribs={"layer": "STEP5_HEADER"}
-    ).set_placement((x, y + height + 5), align=TextEntityAlignment.BOTTOM_LEFT)
     
     # Bordo area preview
     msp.add_lwpolyline(
@@ -856,61 +849,112 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
     offset_x = center_x - (wall_bounds[0] + wall_w / 2) * scale
     offset_y = center_y - (wall_bounds[1] + wall_h / 2) * scale
     
-    # 1. Disegna contorno parete (blu)
+    # 1. Disegna contorno parete (blu) IDENTICO all'interfaccia web
     wall_coords = [(px * scale + offset_x, py * scale + offset_y) 
                    for px, py in wall_polygon.exterior.coords]
     msp.add_lwpolyline(
         wall_coords,
         close=True,
-        dxfattribs={"layer": "STEP5_PREVIEW_WALL", "lineweight": 50}
+        dxfattribs={"layer": "STEP5_PREVIEW_WALL", "lineweight": 60, "color": 5}  # Blu spesso come interfaccia
     )
     
-    # 2. Disegna blocchi standard (grigi)
+    # 2. Disegna blocchi standard (grigi) con etichette CORRETTE: lettera + numero in alto a destra
+    # Contatori per ogni categoria
+    category_counters = {'A': 1, 'B': 1, 'C': 1}
+    
     for i, block in enumerate(placed):
         bx = block['x'] * scale + offset_x
         by = block['y'] * scale + offset_y
         bw = block['width'] * scale
         bh = block['height'] * scale
         
-        # Rectangle grigio
+        # Rectangle grigio IDENTICO all'interfaccia web
         msp.add_lwpolyline(
             [(bx, by), (bx + bw, by), (bx + bw, by + bh), (bx, by + bh), (bx, by)],
             close=True,
-            dxfattribs={"layer": "STEP5_PREVIEW_BLOCKS"}
+            dxfattribs={"layer": "STEP5_PREVIEW_BLOCKS", "lineweight": 25}
         )
         
-        # Label categoria (A, B, C)
-        if block_config and block_config.get('size_to_letter'):
-            size_key = f"{block['width']}x{block['height']}"
-            label = block_config['size_to_letter'].get(size_key, f"STD{i+1}")
+        # SISTEMA LABELING CORRETTO: usa le dimensioni per determinare categoria
+        width_mm = int(block['width'])
+        
+        # Mapping IDENTICO all'interfaccia web
+        if width_mm >= 1200:  # Blocchi grandi
+            category = "A"
+        elif width_mm >= 800:  # Blocchi medi
+            category = "B"  
+        elif width_mm >= 400:  # Blocchi piccoli
+            category = "C"
         else:
-            # Default labeling
-            label = f"STD{i+1}"
+            category = "S"  # Fallback
+        
+        # ETICHETTA in alto a destra: categoria + numero progressivo
+        if category in category_counters:
+            label = f"{category}{category_counters[category]}"
+            category_counters[category] += 1
+        else:
+            label = f"{category}{i+1}"
+        
+        # Posizione alto-destra del blocco
+        label_x = bx + bw - 3  # Leggermente dentro dal bordo destro
+        label_y = by + bh - 3  # Leggermente dentro dal bordo alto
             
+        # ETICHETTA GRANDE E VISIBILE come nell'interfaccia
         msp.add_text(
             label,
-            height=6,
-            dxfattribs={"layer": "STEP5_PREVIEW_LABELS"}
-        ).set_placement((bx + bw/2, by + bh/2), align=TextEntityAlignment.MIDDLE_CENTER)
+            height=max(8, min(bw/8, bh/8)),  # Proporzionale al blocco ma ben visibile
+            dxfattribs={"layer": "STEP5_PREVIEW_LABELS", "color": 1}  # ROSSO come interfaccia
+        ).set_placement((label_x, label_y), align=TextEntityAlignment.TOP_RIGHT)
     
-    # 3. Disegna pezzi custom (viola tratteggiato)
+    # 3. Disegna pezzi custom (viola tratteggiato) IDENTICI all'interfaccia web CON ETICHETTE
+    custom_category = 'D'  # Inizia da D per i custom
+    custom_counter = 1
+    
     for i, custom in enumerate(customs):
         try:
             geom = shape(custom['geometry'])
             custom_coords = [(px * scale + offset_x, py * scale + offset_y) 
                            for px, py in geom.exterior.coords]
             
-            # Polyline viola tratteggiata
+            # Polyline viola con spessore IDENTICO all'interfaccia
             msp.add_lwpolyline(
                 custom_coords,
                 close=True,
-                dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"}
+                dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM", "lineweight": 30, "color": 6}
             )
             
-            # Hatch pattern per area viola
-            hatch = msp.add_hatch(color=6, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})
-            hatch.paths.add_polyline_path(custom_coords, is_closed=True)
-            hatch.set_pattern_fill("ANSI31", scale=2.0)
+            # Hatch pattern viola tratteggiato IDENTICO all'interfaccia web
+            try:
+                hatch = msp.add_hatch(color=6, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})
+                hatch.paths.add_polyline_path(custom_coords, is_closed=True)
+                hatch.set_pattern_fill("ANSI31", scale=1.5, angle=45)  # Pattern diagonale come interfaccia
+            except:
+                # Fallback: riempimento solido viola chiaro
+                solid_hatch = msp.add_hatch(color=126, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})  # Viola chiaro
+                solid_hatch.paths.add_polyline_path(custom_coords, is_closed=True)
+                solid_hatch.set_solid_fill()
+            
+            # AGGIUNGI ETICHETTE CUSTOM: lettera + numero in alto a destra
+            custom_x = custom['x'] * scale + offset_x
+            custom_y = custom['y'] * scale + offset_y
+            custom_w = custom['width'] * scale
+            custom_h = custom['height'] * scale
+            
+            # Posizione alto-destra del blocco custom
+            label_x = custom_x + custom_w - 3  # Leggermente dentro dal bordo destro
+            label_y = custom_y + custom_h - 3  # Leggermente dentro dal bordo alto
+            
+            # Etichetta: lettera + numero (es: D1, D2, E1, E2...)
+            custom_label = f"{custom_category}{custom_counter}"
+            
+            msp.add_text(
+                custom_label,
+                height=max(6, min(custom_w/10, custom_h/10)),  # Proporzionale ma visibile
+                dxfattribs={"layer": "STEP5_PREVIEW_LABELS", "color": 1}  # ROSSO come i standard
+            ).set_placement((label_x, label_y), align=TextEntityAlignment.TOP_RIGHT)
+            
+            # Incrementa contatore
+            custom_counter += 1
             
         except Exception as e:
             print(f"Errore drawing custom {i}: {e}")
