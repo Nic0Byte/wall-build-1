@@ -110,18 +110,76 @@ SESSIONS: Dict[str, Dict] = {}
 # Server & Database Configuration (with environment support)
 # ────────────────────────────────────────────────────────────────────────────────
 
-# Server settings
+# Server settings - SICUREZZA PRODUZIONE
 SERVER_HOST = os.getenv('HOST', '0.0.0.0')
 SERVER_PORT = get_env_int('PORT', 8000)
-DEBUG = get_env_bool('DEBUG', False)
-RELOAD = get_env_bool('RELOAD', False)
+DEBUG = get_env_bool('DEBUG', False)  # Default FALSE per sicurezza
+RELOAD = get_env_bool('RELOAD', False)  # Default FALSE per produzione
 
-# CORS settings
-CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',') if os.getenv('CORS_ORIGINS', '*') != '*' else ['*']
+# Validazione sicurezza produzione
+if not DEBUG:
+    print("🔒 MODALITÀ PRODUZIONE ATTIVA - Controlli sicurezza abilitati")
+    # In produzione, forza configurazioni sicure
+    if SERVER_HOST == '0.0.0.0':
+        print("⚠️  Server in ascolto su tutte le interfacce (0.0.0.0)")
+    if RELOAD:
+        print("⚠️  Auto-reload disabilitato in produzione")
+        RELOAD = False
 
-# Security
-SECRET_KEY = os.getenv('SECRET_KEY', 'wallbuild_secure_secret_key_2024_change_in_production')
-JWT_EXPIRE_MINUTES = get_env_int('JWT_EXPIRE_MINUTES', 30)
+# CORS settings - SICUREZZA PRODUZIONE
+def get_secure_cors_origins():
+    """Configura CORS in modo sicuro - NON permette wildcard (*) in produzione."""
+    cors_env = os.getenv('CORS_ORIGINS', '')
+    
+    # Se non configurato, usa localhost per sviluppo locale
+    if not cors_env:
+        if get_env_bool('DEBUG', False):
+            # Solo in modalità debug, permetti localhost
+            return ['http://localhost:8000', 'http://127.0.0.1:8000']
+        else:
+            # In produzione, DEVE essere configurato esplicitamente
+            raise ValueError(
+                "❌ ERRORE SICUREZZA: CORS_ORIGINS non configurato per produzione!\n"
+                "Devi specificare i domini autorizzati:\n"
+                "Esempio: export CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com\n"
+                "O nel file .env: CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com"
+            )
+    
+    # Parsing sicuro delle origini
+    if cors_env == '*':
+        if not get_env_bool('DEBUG', False):
+            raise ValueError("❌ CORS wildcard (*) NON permesso in produzione per sicurezza!")
+        return ['*']  # Solo per debug locale
+    
+    origins = [origin.strip() for origin in cors_env.split(',') if origin.strip()]
+    
+    # Validazione domini
+    for origin in origins:
+        if not (origin.startswith('http://') or origin.startswith('https://')):
+            raise ValueError(f"❌ CORS origin non valida: {origin}. Deve iniziare con http:// o https://")
+    
+    return origins
+
+CORS_ORIGINS = get_secure_cors_origins()
+
+# Security - PRODUZIONE SICURA
+def get_secure_secret_key():
+    """Ottiene la SECRET_KEY dall'ambiente o genera un errore se non configurata."""
+    secret_key = os.getenv('SECRET_KEY')
+    if not secret_key:
+        raise ValueError(
+            "❌ ERRORE SICUREZZA: SECRET_KEY non configurata!\n"
+            "Per sicurezza, devi impostare una SECRET_KEY nell'ambiente.\n"
+            "Genera una chiave sicura con: python -c \"import secrets; print(secrets.token_urlsafe(32))\"\n"
+            "Poi imposta: export SECRET_KEY=la_tua_chiave_generata\n"
+            "O crea un file .env con: SECRET_KEY=la_tua_chiave_generata"
+        )
+    if len(secret_key) < 16:
+        raise ValueError("❌ SECRET_KEY troppo corta! Deve essere almeno 16 caratteri")
+    return secret_key
+
+SECRET_KEY = get_secure_secret_key()
+JWT_EXPIRE_MINUTES = get_env_int('JWT_EXPIRE_MINUTES', 15)  # Ridotto da 30 a 15 min per sicurezza
 
 # Database
 DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///data/wallbuild.db')
