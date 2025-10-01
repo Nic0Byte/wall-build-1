@@ -49,6 +49,7 @@ from utils.config import (
     SCARTO_CUSTOM_MM, AREA_EPS, COORD_EPS, DISPLAY_MM_PER_M,
     MICRO_REST_MM, KEEP_OUT_MM, SPLIT_MAX_WIDTH_MM,
     BLOCK_HEIGHT, BLOCK_WIDTHS, SIZE_TO_LETTER, BLOCK_ORDERS, SESSIONS,
+    CORS_ORIGINS,  # NEW: CORS configuration from environment
     get_block_schema_from_frontend, get_default_block_schema  # NEW: Block customization functions
 )
 from utils.preview_generator import generate_preview_image
@@ -211,10 +212,12 @@ if FastAPI:
     # Setup templates
     templates = Jinja2Templates(directory="templates")
     
-    # CORS middleware per consentire richieste dal frontend
+    # CORS middleware - configurato tramite variabile d'ambiente CORS_ORIGINS
+    # Sviluppo: CORS_ORIGINS=* (permette tutto)
+    # Produzione: CORS_ORIGINS=https://zenet.whisprr.it,http://localhost:8000
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In produzione specificare domini
+        allow_origins=CORS_ORIGINS,  # Legge da .env file
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
