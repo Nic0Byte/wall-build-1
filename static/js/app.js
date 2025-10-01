@@ -2700,6 +2700,7 @@ class WallPackingApp {
         
         // NUOVO: Inizia misurazione durata Step 1→2
         this.step1to2StartTime = performance.now();
+        this.processingStartTime = Date.now(); // NUOVO: Timestamp per controlli background
         console.log('⏱️ Iniziata misurazione durata Step 1→2');
         
         // Show loading states
@@ -2867,10 +2868,13 @@ class WallPackingApp {
             console.log('⏳ Aspettando completamento totale del processing...');
             
             let checkAttempts = 0;
-            const maxAttempts = 200; // Massimo 20 secondi (200 * 100ms)
+            const maxAttempts = 300; // Massimo 30 secondi (300 * 100ms) - Aumentato per essere più sicuri
+            const minWaitTime = 3000; // NUOVO: Tempo minimo di attesa (3 secondi)
+            const startTime = Date.now();
             
             const checkProcessingComplete = () => {
                 checkAttempts++;
+                const elapsedTime = Date.now() - startTime;
                 
                 // 1. Controlla che l'UI sia caricata
                 const isUIReady = this.checkUIReady();
@@ -2881,14 +2885,18 @@ class WallPackingApp {
                 // 3. Controlla che non ci siano operazioni in background
                 const areBackgroundOpsComplete = this.checkBackgroundOperations();
                 
-                const isCompletelyDone = isUIReady && isDataProcessed && areBackgroundOpsComplete;
+                // 4. NUOVO: Assicurati che sia passato il tempo minimo
+                const isMinTimeElapsed = elapsedTime >= minWaitTime;
+                
+                const isCompletelyDone = isUIReady && isDataProcessed && areBackgroundOpsComplete && isMinTimeElapsed;
                 
                 console.log(`🔍 Check processing completo (${checkAttempts}/${maxAttempts}):`, {
                     ui: isUIReady,
                     data: isDataProcessed,
                     background: areBackgroundOpsComplete,
-                    complete: isCompletelyDone,
-                    timeElapsed: `${(checkAttempts * 100 / 1000).toFixed(1)}s`
+                    minTime: isMinTimeElapsed,
+                    elapsed: `${(elapsedTime / 1000).toFixed(1)}s`,
+                    complete: isCompletelyDone
                 });
                 
                 if (isCompletelyDone) {
@@ -2908,35 +2916,155 @@ class WallPackingApp {
         });
     }
     
-    // Helper: Controlla che l'UI sia pronta
+    // Helper: Controlla che l'UI sia pronta - CONTROLLI MOLTO RIGOROSI per Step 2
     checkUIReady() {
+        // 1. Elementi principali dello Step 2
         const previewSection = document.getElementById('previewSection');
         const previewCanvas = document.getElementById('previewCanvas');
+        const measurementsData = document.getElementById('measurementsData');
+        const conversionDetails = document.getElementById('conversionDetails');
         
-        return previewSection && 
-               previewSection.style.display === 'block' &&
-               previewCanvas && 
-               (previewCanvas.width > 0 || previewCanvas.dataset.imageLoaded === 'true');
+        // 2. Elementi di controllo e navigazione
+        const previewActions = document.querySelector('.preview-actions');
+        const navigationButtons = document.getElementById('acceptPreview');
+        const previewLoadingMain = document.getElementById('previewLoadingMain');
+        
+        // 3. Controlli rigorosi STEP BY STEP
+        const isSectionVisible = previewSection && 
+            previewSection.style.display === 'block' && 
+            !previewSection.hidden;
+            
+        const isCanvasReady = previewCanvas && 
+            previewCanvas.style.display !== 'none' &&
+            (previewCanvas.width > 0 || previewCanvas.dataset.imageLoaded === 'true') &&
+            previewCanvas.offsetWidth > 0 && previewCanvas.offsetHeight > 0;
+            
+        const areMeasurementsVisible = measurementsData && 
+            measurementsData.style.display !== 'none' && 
+            measurementsData.innerHTML.trim() !== '' &&
+            measurementsData.offsetHeight > 0;
+            
+        const areDetailsVisible = conversionDetails && 
+            conversionDetails.style.display !== 'none' && 
+            conversionDetails.innerHTML.trim() !== '' &&
+            conversionDetails.offsetHeight > 0;
+            
+        const areActionsVisible = previewActions && 
+            previewActions.offsetHeight > 0 && 
+            !previewActions.hidden;
+            
+        const areNavigationReady = navigationButtons && 
+            navigationButtons.offsetHeight > 0 && 
+            !navigationButtons.disabled;
+            
+        const isLoadingHidden = !previewLoadingMain || 
+            previewLoadingMain.style.display === 'none' || 
+            previewLoadingMain.hidden;
+        
+        // 4. NUOVO: Verifica che il DOM sia stabile (no resize/reflow in corso)
+        const isStable = document.readyState === 'complete' && 
+            !document.hidden &&
+            previewSection.getBoundingClientRect().height > 0;
+        
+        const isUIReady = isSectionVisible && isCanvasReady && areMeasurementsVisible && 
+                         areDetailsVisible && areActionsVisible && areNavigationReady && 
+                         isLoadingHidden && isStable;
+        
+        console.log(`🔍 checkUIReady() - CONTROLLI RIGOROSI:`, {
+            section: isSectionVisible,
+            canvas: isCanvasReady,
+            canvasSize: previewCanvas ? `${previewCanvas.offsetWidth}x${previewCanvas.offsetHeight}` : 'N/A',
+            measurements: areMeasurementsVisible,
+            details: areDetailsVisible,
+            actions: areActionsVisible,
+            navigation: areNavigationReady,
+            loadingHidden: isLoadingHidden,
+            domStable: isStable,
+            overall: isUIReady
+        });
+        
+        return isUIReady;
     }
     
     // Helper: Controlla che tutti i dati siano stati processati
     checkDataProcessed(previewData) {
-        if (!previewData) return false;
+        if (!previewData) {
+            console.log(`❌ checkDataProcessed: No preview data`);
+            return false;
+        }
         
-        // Controlla che tutti i componenti dei dati siano presenti
+        // Controlla che tutti i componenti dei dati siano presenti E che l'UI li mostri
         const hasPreviewImage = !!previewData.preview_image;
         const hasMeasurements = !!previewData.measurements;
         const hasConversionDetails = !!previewData.conversion_details;
         const hasSessionId = !!previewData.preview_session_id;
         
-        return hasPreviewImage && hasMeasurements && hasConversionDetails && hasSessionId;
+        // NUOVO: Controlla anche che i dati siano stati renderizzati nella UI
+        const previewCanvas = document.getElementById('previewCanvas');
+        const measurementsData = document.getElementById('measurementsData');
+        const conversionDetails = document.getElementById('conversionDetails');
+        
+        const isImageRendered = previewCanvas && 
+            (previewCanvas.dataset.imageLoaded === 'true' || previewCanvas.width > 0);
+        const areMeasurementsRendered = measurementsData && 
+            measurementsData.innerHTML.includes(previewData.measurements?.area_total || '');
+        const areDetailsRendered = conversionDetails && 
+            conversionDetails.innerHTML.includes('Conversione completata');
+        
+        const isDataProcessed = hasPreviewImage && hasMeasurements && hasConversionDetails && 
+                               hasSessionId && isImageRendered && areMeasurementsRendered && areDetailsRendered;
+        
+        console.log(`🔍 checkDataProcessed():`, {
+            hasImage: hasPreviewImage,
+            hasMeasurements: hasMeasurements,
+            hasDetails: hasConversionDetails,
+            hasSession: hasSessionId,
+            imageRendered: isImageRendered,
+            measurementsRendered: areMeasurementsRendered,
+            detailsRendered: areDetailsRendered,
+            overall: isDataProcessed
+        });
+        
+        return isDataProcessed;
     }
     
     // Helper: Controlla che non ci siano operazioni in background
     checkBackgroundOperations() {
-        // Simula controllo operazioni in background
-        // In futuro potremmo controllare fetch attive, timer, ecc.
-        return true; // Per ora assume sempre che sia ok
+        // NUOVO: Controlli più rigorosi per operazioni in background
+        
+        // 1. Controlla se ci sono fetch attive
+        const hasPendingFetches = window.fetch && window.fetch.pending > 0;
+        
+        // 2. Controlla se ci sono timer/interval attivi (esclusi quelli del sistema)
+        const hasActiveTimers = false; // Per ora disabilitato per evitare conflitti
+        
+        // 3. Controlla se l'immagine del canvas sta ancora caricando
+        const previewCanvas = document.getElementById('previewCanvas');
+        const isImageStillLoading = previewCanvas && 
+            previewCanvas.dataset.imageLoaded !== 'true' && 
+            previewCanvas.dataset.imageLoaded !== 'error';
+        
+        // 4. Controlla se ci sono elementi con loading spinner visibili
+        const loadingElements = document.querySelectorAll('.spinner, .loading, [style*="loading"]');
+        const hasVisibleLoadings = Array.from(loadingElements).some(el => 
+            el.style.display !== 'none' && !el.hidden);
+        
+        // 5. Aggiungi un delay minimo per dare tempo al rendering
+        const minTimeElapsed = Date.now() - (this.processingStartTime || 0) > 2000; // 2 secondi minimo
+        
+        const areBackgroundOpsComplete = !hasPendingFetches && !hasActiveTimers && 
+                                       !isImageStillLoading && !hasVisibleLoadings && minTimeElapsed;
+        
+        console.log(`🔍 checkBackgroundOperations():`, {
+            pendingFetches: hasPendingFetches,
+            activeTimers: hasActiveTimers,
+            imageLoading: isImageStillLoading,
+            visibleLoadings: hasVisibleLoadings,
+            minTimeElapsed: minTimeElapsed,
+            overall: areBackgroundOpsComplete
+        });
+        
+        return areBackgroundOpsComplete;
     }
     
     // NUOVO: Stima il tempo di processing basato su file e operazione
