@@ -11,6 +11,7 @@ class SmartLoadingSystem {
         this.startTime = null;
         this.progressInterval = null;
         this.cancelCallback = null;
+        this.isFinishing = false; // NUOVO: Previene chiamate multiple di finish()
         
         // Soglie di attivazione per tipo operazione (ms)
         this.loadingThresholds = {
@@ -340,7 +341,20 @@ class SmartLoadingSystem {
     }
     
     finish() {
-        if (!this.isActive) return;
+        if (!this.isActive) {
+            console.log('⚠️ finish() chiamato ma loading non attivo, ignorando');
+            return;
+        }
+        
+        if (this.isFinishing) {
+            console.log('⚠️ finish() già in corso, ignorando chiamata multipla');
+            return;
+        }
+        
+        // NUOVO: Marca che stiamo finendo per evitare chiamate multiple
+        this.isFinishing = true;
+        
+        console.log(`🏁 Iniziando finish() per operazione: ${this.currentOperation}`);
         
         // NUOVO: Gestione durata minima forzata
         if (this.forcedDuration) {
@@ -348,7 +362,7 @@ class SmartLoadingSystem {
             const remainingTime = Math.max(0, this.forcedDuration - elapsedTime);
             
             if (remainingTime > 0) {
-                console.log(`⏱️ Durata forzata: aspetto ancora ${remainingTime}ms prima di terminare`);
+                console.log(`⏱️ Durata forzata: aspetto ${remainingTime}ms prima di terminare`);
                 
                 // Aspetta il tempo rimanente prima di terminare
                 setTimeout(() => {
@@ -410,6 +424,7 @@ class SmartLoadingSystem {
         this.startTime = null;
         this.cancelCallback = null;
         this.forcedDuration = null; // NUOVO: Reset durata forzata
+        this.isFinishing = false; // NUOVO: Reset flag finishing
         
         // Reset UI
         this.stepText.textContent = '🔄 Caricamento...';
@@ -424,6 +439,12 @@ class SmartLoadingSystem {
     }
     
     hide() {
+        const caller = new Error().stack.split('\n')[2]?.trim() || 'unknown';
+        console.log(`🔍 hide() chiamato da: ${caller}`, {
+            isActive: this.isActive,
+            isFinishing: this.isFinishing,
+            operation: this.currentOperation
+        });
         this.finish();
     }
 }

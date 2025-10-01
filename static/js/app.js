@@ -495,29 +495,14 @@ class WallPackingApp {
         
         console.log('⚠️ Usando elaborazione TRADIZIONALE (doppia conversione)');
         
-        // NUOVO: Calcola durata per Step 4→5 basata su Step 1→2
-        const step4to5Duration = this.calculateStep4to5Duration();
-        console.log(`⏱️ Step 4→5 durerà: ${step4to5Duration}ms (${(step4to5Duration/1000).toFixed(1)}s)`);
-        
         // Get configuration
         const config = this.getConfiguration();
         
         // Get project parameters (NEW)
         const projectParams = this.projectParameters || this.collectProjectParameters();
         
-        // Show loading
+        // Show loading (solo loading normale, no smart-loading)
         this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico con parametri personalizzati');
-        
-        // 🚀 SMART LOADING: Avvia loading per enhanced pack con durata calcolata
-        window.smartLoading?.showForOperation('dwgConversion', {
-            fileName: this.currentFile?.name || 'File CAD',
-            fileSize: this.currentFile?.size,
-            forceDuration: step4to5Duration, // NUOVO: Forza durata specifica
-            onCancel: () => {
-                console.log('❌ Elaborazione annullata dall\'utente');
-                this.hideLoading();
-            }
-        });
         
         try {
             // Prepare form data
@@ -569,10 +554,7 @@ class WallPackingApp {
             this.currentSessionId = result.session_id;
             this.currentData = result;
             
-            // 🚀 SMART LOADING: Operazione completata
-            window.smartLoading?.hide();
-            
-            // Update UI
+            // Update UI (no smart-loading hide needed)
             this.hideLoading();
             this.showResults(result);
             this.loadPreview();
@@ -583,9 +565,7 @@ class WallPackingApp {
         } catch (error) {
             console.error('Errore processamento:', error);
             
-            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
-            window.smartLoading?.hide();
-            
+            // Hide loading on error (no smart-loading hide needed)
             this.hideLoading();
             this.showToast(`Errore: ${error.message}`, 'error');
         }
@@ -596,10 +576,6 @@ class WallPackingApp {
         console.log('⚡ Elaborazione OTTIMIZZATA - Riutilizzo conversione esistente');
         console.log('🆔 Preview Session ID:', this.previewSessionId);
         
-        // NUOVO: Calcola durata per Step 4→5 basata su Step 1→2
-        const step4to5Duration = this.calculateStep4to5Duration();
-        console.log(`⏱️ Step 4→5 durerà: ${step4to5Duration}ms (${(step4to5Duration/1000).toFixed(1)}s)`);
-        
         // Get configuration
         const config = this.getConfiguration();
         
@@ -609,17 +585,6 @@ class WallPackingApp {
         // Show loading
         this.showLoading('Elaborazione ottimizzata in corso...', 
             'Calcolo packing con dati già convertiti - EVITATA doppia conversione!');
-        
-        // 🚀 SMART LOADING: Avvia loading per packing ottimizzato con durata calcolata
-        window.smartLoading?.showForOperation('packing', {
-            fileName: this.currentFile?.name || 'Preview esistente',
-            fileSize: this.currentFile?.size,
-            forceDuration: step4to5Duration, // NUOVO: Forza durata specifica
-            onCancel: () => {
-                console.log('❌ Packing ottimizzato annullato dall\'utente');
-                this.hideLoading();
-            }
-        });
         
         try {
             // Prepare form data per endpoint ottimizzato
@@ -711,10 +676,7 @@ class WallPackingApp {
             this.currentSessionId = result.session_id;
             this.currentData = result;
             
-            // 🚀 SMART LOADING: Operazione completata
-            window.smartLoading?.hide();
-            
-            // Update UI
+            // Update UI (no smart-loading hide needed)
             this.hideLoading();
             this.showResults(result);
             this.loadPreview();
@@ -727,9 +689,7 @@ class WallPackingApp {
         } catch (error) {
             console.error('Errore processamento ottimizzato:', error);
             
-            // 🚀 SMART LOADING: Nascondi loading anche in caso di errore
-            window.smartLoading?.hide();
-            
+            // Hide loading on error (no smart-loading hide needed)
             this.hideLoading();
             this.showToast(`Errore elaborazione: ${error.message}`, 'error');
             
@@ -2790,32 +2750,26 @@ class WallPackingApp {
             this.showPreviewLoading(false);
             this.showSection('preview');
             
-            // NUOVO: 🚀 SMART LOADING rimane attivo durante il caricamento UI dello step 2
-            // Attendiamo che tutti gli elementi dell'UI siano completamente caricati
-            console.log('⏳ Iniziando attesa per caricamento completo UI...');
+            // NUOVO: 🚀 SMART LOADING rimane attivo fino al completamento totale
+            console.log('⏳ L\'animazione continuerà fino al caricamento completo della pagina Step 2...');
             
-            // Sistema di backup: garantisce durata minima anche se il controllo UI fallisce
+            // NUOVO: 🚀 Invece di aspettare solo UI + tempo minimo, aspettiamo che tutto sia COMPLETAMENTE pronto
+            console.log('⏳ Aspettando completamento totale del processing...');
+            
+            // Usa waitForCompleteProcessing che aspetta che tutto sia realmente finito
             const startWaitTime = performance.now();
-            const minimumWaitTime = 3000; // Minimo 3 secondi di attesa
-            
-            await this.waitForPreviewUIComplete();
+            await this.waitForCompleteProcessing(result);
             
             const actualWaitTime = performance.now() - startWaitTime;
-            const remainingWaitTime = Math.max(0, minimumWaitTime - actualWaitTime);
+            console.log(`⏱️ Processing completato in ${actualWaitTime.toFixed(0)}ms (${(actualWaitTime/1000).toFixed(1)}s)`);
             
-            if (remainingWaitTime > 0) {
-                console.log(`⏱️ Attesa aggiuntiva di ${remainingWaitTime.toFixed(0)}ms per garantire durata minima`);
-                await new Promise(resolve => setTimeout(resolve, remainingWaitTime));
-            }
-            
-            // 🚀 SMART LOADING: Ora nascondi l'animazione - UI completamente caricata
+            // 🚀 SMART LOADING: Solo ora nascondi l'animazione (quando tutto è realmente pronto)
             window.smartLoading?.hide();
             
             // NUOVO: Termina misurazione durata Step 1→2
             if (this.step1to2StartTime) {
                 this.step1to2Duration = performance.now() - this.step1to2StartTime;
                 console.log(`⏱️ Durata Step 1→2 misurata: ${this.step1to2Duration.toFixed(0)}ms (${(this.step1to2Duration/1000).toFixed(1)}s)`);
-                console.log(`📊 Step 4→5 durerà: ${Math.max(0, this.step1to2Duration - 15000).toFixed(0)}ms (${Math.max(0, (this.step1to2Duration - 15000)/1000).toFixed(1)}s)`);
             }
             
             // NUOVO: Notifica l'utente che la transizione è completa con durata
@@ -2907,29 +2861,122 @@ class WallPackingApp {
         });
     }
     
-    // NUOVO: Calcola la durata per Step 4→5 basata su Step 1→2 meno 15 secondi
-    calculateStep4to5Duration() {
-        if (!this.step1to2Duration) {
-            console.log('⚠️ Durata Step 1→2 non disponibile, usando durata di default (5 secondi)');
-            console.log('💡 Suggerimento: Prova prima Step 1→2 per avere una durata personalizzata');
-            return 5000; // Default 5 secondi se non abbiamo misurazioni
+    // NUOVO: Aspetta che tutto il processing sia completamente terminato (non solo l'UI)
+    async waitForCompleteProcessing(previewData) {
+        return new Promise((resolve) => {
+            console.log('⏳ Aspettando completamento totale del processing...');
+            
+            let checkAttempts = 0;
+            const maxAttempts = 200; // Massimo 20 secondi (200 * 100ms)
+            
+            const checkProcessingComplete = () => {
+                checkAttempts++;
+                
+                // 1. Controlla che l'UI sia caricata
+                const isUIReady = this.checkUIReady();
+                
+                // 2. Controlla che tutti i dati siano processati
+                const isDataProcessed = this.checkDataProcessed(previewData);
+                
+                // 3. Controlla che non ci siano operazioni in background
+                const areBackgroundOpsComplete = this.checkBackgroundOperations();
+                
+                const isCompletelyDone = isUIReady && isDataProcessed && areBackgroundOpsComplete;
+                
+                console.log(`🔍 Check processing completo (${checkAttempts}/${maxAttempts}):`, {
+                    ui: isUIReady,
+                    data: isDataProcessed,
+                    background: areBackgroundOpsComplete,
+                    complete: isCompletelyDone,
+                    timeElapsed: `${(checkAttempts * 100 / 1000).toFixed(1)}s`
+                });
+                
+                if (isCompletelyDone) {
+                    console.log('✅ Processing completamente terminato!');
+                    resolve();
+                } else if (checkAttempts >= maxAttempts) {
+                    console.log('⚠️ Timeout processing raggiunto - procediamo comunque');
+                    resolve();
+                } else {
+                    // Riprova tra 100ms
+                    setTimeout(checkProcessingComplete, 100);
+                }
+            };
+            
+            // Inizia il controllo dopo un delay per permettere all'elaborazione di stabilizzarsi
+            setTimeout(checkProcessingComplete, 500);
+        });
+    }
+    
+    // Helper: Controlla che l'UI sia pronta
+    checkUIReady() {
+        const previewSection = document.getElementById('previewSection');
+        const previewCanvas = document.getElementById('previewCanvas');
+        
+        return previewSection && 
+               previewSection.style.display === 'block' &&
+               previewCanvas && 
+               (previewCanvas.width > 0 || previewCanvas.dataset.imageLoaded === 'true');
+    }
+    
+    // Helper: Controlla che tutti i dati siano stati processati
+    checkDataProcessed(previewData) {
+        if (!previewData) return false;
+        
+        // Controlla che tutti i componenti dei dati siano presenti
+        const hasPreviewImage = !!previewData.preview_image;
+        const hasMeasurements = !!previewData.measurements;
+        const hasConversionDetails = !!previewData.conversion_details;
+        const hasSessionId = !!previewData.preview_session_id;
+        
+        return hasPreviewImage && hasMeasurements && hasConversionDetails && hasSessionId;
+    }
+    
+    // Helper: Controlla che non ci siano operazioni in background
+    checkBackgroundOperations() {
+        // Simula controllo operazioni in background
+        // In futuro potremmo controllare fetch attive, timer, ecc.
+        return true; // Per ora assume sempre che sia ok
+    }
+    
+    // NUOVO: Stima il tempo di processing basato su file e operazione
+    estimateProcessingTime(file) {
+        if (!file) return 5000; // Default 5 secondi
+        
+        const fileSize = file.size;
+        const fileName = file.name.toLowerCase();
+        
+        // Stima basata su dimensione file
+        let baseTime = 3000; // Base 3 secondi
+        
+        if (fileSize > 5 * 1024 * 1024) { // > 5MB
+            baseTime = 15000; // 15 secondi
+        } else if (fileSize > 1 * 1024 * 1024) { // > 1MB
+            baseTime = 8000; // 8 secondi
+        } else if (fileSize > 500 * 1024) { // > 500KB
+            baseTime = 5000; // 5 secondi
         }
         
-        const calculatedDuration = Math.max(1000, this.step1to2Duration - 15000); // Minimo 1 secondo
+        // Aggiustamento per tipo file
+        if (fileName.endsWith('.dwg')) {
+            baseTime *= 2; // DWG più lento
+        } else if (fileName.endsWith('.dxf')) {
+            baseTime *= 1.5; // DXF medio
+        }
+        // SVG già veloce, nessun moltiplicatore
         
-        console.log(`📊 Calcolo durata Step 4→5:`);
-        console.log(`   Step 1→2: ${this.step1to2Duration.toFixed(0)}ms (${(this.step1to2Duration/1000).toFixed(1)}s)`);
-        console.log(`   Step 4→5: ${calculatedDuration.toFixed(0)}ms (${(calculatedDuration/1000).toFixed(1)}s)`);
-        console.log(`   Differenza: -15.0s`);
-        
-        // NUOVO: Toast informativo per l'utente
-        if (this.step1to2Duration > 15000) {
-            this.showToast(`⏱️ Step 4→5 durerà ${(calculatedDuration/1000).toFixed(1)}s (Step 1→2 meno 15s)`, 'info', 3000);
-        } else {
-            this.showToast(`⏱️ Step 4→5 durerà ${(calculatedDuration/1000).toFixed(1)}s (durata minima)`, 'info', 3000);
+        // Aggiustamento per platform (se disponibile)
+        if (navigator.platform.includes('Linux')) {
+            baseTime *= 3; // Linux più lento
         }
         
-        return calculatedDuration;
+        console.log(`📊 Stima processing per ${file.name}:`, {
+            fileSize: `${(fileSize/1024).toFixed(0)}KB`,
+            fileType: fileName.split('.').pop(),
+            estimatedTime: `${baseTime}ms (${(baseTime/1000).toFixed(1)}s)`
+        });
+        
+        return baseTime;
     }
     
     showPreviewLoading(show) {
