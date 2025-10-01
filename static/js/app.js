@@ -16,6 +16,10 @@ class WallPackingApp {
         this.calculatedDimensions = null;
         this.cachedWallDimensions = null;
         
+        // NUOVO: Sistema di misurazione durata transizioni
+        this.step1to2Duration = null; // Durata misurata Step 1→2 in millisecondi
+        this.step1to2StartTime = null; // Timestamp inizio Step 1→2
+        
         // Bind methods
         this.handleFileSelect = this.handleFileSelect.bind(this);
         this.handleDragOver = this.handleDragOver.bind(this);
@@ -491,6 +495,10 @@ class WallPackingApp {
         
         console.log('⚠️ Usando elaborazione TRADIZIONALE (doppia conversione)');
         
+        // NUOVO: Calcola durata per Step 4→5 basata su Step 1→2
+        const step4to5Duration = this.calculateStep4to5Duration();
+        console.log(`⏱️ Step 4→5 durerà: ${step4to5Duration}ms (${(step4to5Duration/1000).toFixed(1)}s)`);
+        
         // Get configuration
         const config = this.getConfiguration();
         
@@ -500,10 +508,11 @@ class WallPackingApp {
         // Show loading
         this.showLoading('Elaborazione in corso...', 'Analisi file CAD e calcolo packing automatico con parametri personalizzati');
         
-        // 🚀 SMART LOADING: Avvia loading per enhanced pack
+        // 🚀 SMART LOADING: Avvia loading per enhanced pack con durata calcolata
         window.smartLoading?.showForOperation('dwgConversion', {
             fileName: this.currentFile?.name || 'File CAD',
             fileSize: this.currentFile?.size,
+            forceDuration: step4to5Duration, // NUOVO: Forza durata specifica
             onCancel: () => {
                 console.log('❌ Elaborazione annullata dall\'utente');
                 this.hideLoading();
@@ -587,6 +596,10 @@ class WallPackingApp {
         console.log('⚡ Elaborazione OTTIMIZZATA - Riutilizzo conversione esistente');
         console.log('🆔 Preview Session ID:', this.previewSessionId);
         
+        // NUOVO: Calcola durata per Step 4→5 basata su Step 1→2
+        const step4to5Duration = this.calculateStep4to5Duration();
+        console.log(`⏱️ Step 4→5 durerà: ${step4to5Duration}ms (${(step4to5Duration/1000).toFixed(1)}s)`);
+        
         // Get configuration
         const config = this.getConfiguration();
         
@@ -597,10 +610,11 @@ class WallPackingApp {
         this.showLoading('Elaborazione ottimizzata in corso...', 
             'Calcolo packing con dati già convertiti - EVITATA doppia conversione!');
         
-        // 🚀 SMART LOADING: Avvia loading per packing ottimizzato
+        // 🚀 SMART LOADING: Avvia loading per packing ottimizzato con durata calcolata
         window.smartLoading?.showForOperation('packing', {
             fileName: this.currentFile?.name || 'Preview esistente',
             fileSize: this.currentFile?.size,
+            forceDuration: step4to5Duration, // NUOVO: Forza durata specifica
             onCancel: () => {
                 console.log('❌ Packing ottimizzato annullato dall\'utente');
                 this.hideLoading();
@@ -2724,6 +2738,10 @@ class WallPackingApp {
         console.log('🔍 File size:', file.size, 'bytes');
         console.log('🔍 File type:', file.type);
         
+        // NUOVO: Inizia misurazione durata Step 1→2
+        this.step1to2StartTime = performance.now();
+        console.log('⏱️ Iniziata misurazione durata Step 1→2');
+        
         // Show loading states
         this.showPreviewLoading(true);
         
@@ -2778,6 +2796,13 @@ class WallPackingApp {
             
             // 🚀 SMART LOADING: Ora nascondi l'animazione - UI completamente caricata
             window.smartLoading?.hide();
+            
+            // NUOVO: Termina misurazione durata Step 1→2
+            if (this.step1to2StartTime) {
+                this.step1to2Duration = performance.now() - this.step1to2StartTime;
+                console.log(`⏱️ Durata Step 1→2 misurata: ${this.step1to2Duration.toFixed(0)}ms (${(this.step1to2Duration/1000).toFixed(1)}s)`);
+                console.log(`📊 Step 4→5 durerà: ${Math.max(0, this.step1to2Duration - 15000).toFixed(0)}ms (${Math.max(0, (this.step1to2Duration - 15000)/1000).toFixed(1)}s)`);
+            }
             
             // NUOVO: Notifica l'utente che la transizione è completa
             this.showToast('✅ Anteprima caricata completamente!', 'success', 3000);
@@ -2860,6 +2885,31 @@ class WallPackingApp {
             // Inizia il controllo dopo un breve delay per permettere al DOM di aggiornarsi
             setTimeout(checkUIComplete, 200);
         });
+    }
+    
+    // NUOVO: Calcola la durata per Step 4→5 basata su Step 1→2 meno 15 secondi
+    calculateStep4to5Duration() {
+        if (!this.step1to2Duration) {
+            console.log('⚠️ Durata Step 1→2 non disponibile, usando durata di default (5 secondi)');
+            console.log('💡 Suggerimento: Prova prima Step 1→2 per avere una durata personalizzata');
+            return 5000; // Default 5 secondi se non abbiamo misurazioni
+        }
+        
+        const calculatedDuration = Math.max(1000, this.step1to2Duration - 15000); // Minimo 1 secondo
+        
+        console.log(`📊 Calcolo durata Step 4→5:`);
+        console.log(`   Step 1→2: ${this.step1to2Duration.toFixed(0)}ms (${(this.step1to2Duration/1000).toFixed(1)}s)`);
+        console.log(`   Step 4→5: ${calculatedDuration.toFixed(0)}ms (${(calculatedDuration/1000).toFixed(1)}s)`);
+        console.log(`   Differenza: -15.0s`);
+        
+        // NUOVO: Toast informativo per l'utente
+        if (this.step1to2Duration > 15000) {
+            this.showToast(`⏱️ Step 4→5 durerà ${(calculatedDuration/1000).toFixed(1)}s (Step 1→2 meno 15s)`, 'info', 3000);
+        } else {
+            this.showToast(`⏱️ Step 4→5 durerà ${(calculatedDuration/1000).toFixed(1)}s (durata minima)`, 'info', 3000);
+        }
+        
+        return calculatedDuration;
     }
     
     showPreviewLoading(show) {

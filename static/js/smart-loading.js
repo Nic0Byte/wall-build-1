@@ -239,6 +239,9 @@ class SmartLoadingSystem {
         this.currentOperation = operationType;
         this.startTime = Date.now();
         
+        // NUOVO: Supporto per durata forzata
+        this.forcedDuration = options.forceDuration || null;
+        
         // Mostra overlay
         this.overlay.classList.add('active');
         
@@ -248,7 +251,7 @@ class SmartLoadingSystem {
         // Setup cancel callback
         this.cancelCallback = options.onCancel;
         
-        console.log(`🔄 Smart Loading attivato: ${operationType}`);
+        console.log(`🔄 Smart Loading attivato: ${operationType}${this.forcedDuration ? ` (durata forzata: ${this.forcedDuration}ms)` : ''}`);
     }
     
     startProgressAnimation(operationType) {
@@ -257,9 +260,18 @@ class SmartLoadingSystem {
         let currentProgress = 0;
         
         // Calcola durata totale stimata
-        const baseTime = profile.reduce((sum, step) => sum + step.duration, 0) * 100; // ms base
-        const platformMultiplier = this.isLinux ? 5.0 : (this.isWindows ? 1.0 : 1.2); // 🚀 OTTIMIZZATO: Linux molto più lento (30s+)
-        const totalEstimatedTime = Math.round(baseTime * platformMultiplier);
+        let totalEstimatedTime;
+        
+        if (this.forcedDuration) {
+            // NUOVO: Usa durata forzata se specificata
+            totalEstimatedTime = this.forcedDuration;
+            console.log(`⏱️ Usando durata forzata: ${totalEstimatedTime}ms (${(totalEstimatedTime/1000).toFixed(1)}s)`);
+        } else {
+            // Calcolo normale basato su profilo
+            const baseTime = profile.reduce((sum, step) => sum + step.duration, 0) * 100; // ms base
+            const platformMultiplier = this.isLinux ? 5.0 : (this.isWindows ? 1.0 : 1.2); // 🚀 OTTIMIZZATO: Linux molto più lento (30s+)
+            totalEstimatedTime = Math.round(baseTime * platformMultiplier);
+        }
         
         this.updateEstimatedTime(totalEstimatedTime);
         
@@ -330,6 +342,29 @@ class SmartLoadingSystem {
     finish() {
         if (!this.isActive) return;
         
+        // NUOVO: Gestione durata minima forzata
+        if (this.forcedDuration) {
+            const elapsedTime = Date.now() - this.startTime;
+            const remainingTime = Math.max(0, this.forcedDuration - elapsedTime);
+            
+            if (remainingTime > 0) {
+                console.log(`⏱️ Durata forzata: aspetto ancora ${remainingTime}ms prima di terminare`);
+                
+                // Aspetta il tempo rimanente prima di terminare
+                setTimeout(() => {
+                    this.finishInternal();
+                }, remainingTime);
+                return;
+            }
+        }
+        
+        // Termina immediatamente se non c'è durata forzata o è già scaduta
+        this.finishInternal();
+    }
+    
+    finishInternal() {
+        if (!this.isActive) return;
+        
         this.isActive = false;
         
         // Animazione completamento
@@ -374,6 +409,7 @@ class SmartLoadingSystem {
         this.currentOperation = null;
         this.startTime = null;
         this.cancelCallback = null;
+        this.forcedDuration = null; // NUOVO: Reset durata forzata
         
         // Reset UI
         this.stepText.textContent = '🔄 Caricamento...';
