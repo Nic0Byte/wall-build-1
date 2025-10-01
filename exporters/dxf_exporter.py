@@ -858,10 +858,13 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
         dxfattribs={"layer": "STEP5_PREVIEW_WALL", "lineweight": 60, "color": 5}  # Blu spesso come interfaccia
     )
     
-    # 2. Disegna blocchi standard (grigi) con etichette CORRETTE: lettera + numero in alto a destra
-    # Contatori per ogni categoria
-    category_counters = {'A': 1, 'B': 1, 'C': 1}
+    # OTTIENI ETICHETTE CORRETTE usando il sistema esistente (IDENTICO alla preview web)
+    if block_config and block_config.get('size_to_letter'):
+        std_detailed_labels, custom_detailed_labels = create_detailed_block_labels(placed, customs, block_config.get('size_to_letter'))
+    else:
+        std_detailed_labels, custom_detailed_labels = create_detailed_block_labels(placed, customs)
     
+    # 2. Disegna blocchi standard (grigi) con etichette IDENTICHE alla preview web
     for i, block in enumerate(placed):
         bx = block['x'] * scale + offset_x
         by = block['y'] * scale + offset_y
@@ -875,41 +878,29 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
             dxfattribs={"layer": "STEP5_PREVIEW_BLOCKS", "lineweight": 25}
         )
         
-        # SISTEMA LABELING CORRETTO: usa le dimensioni per determinare categoria
-        width_mm = int(block['width'])
-        
-        # Mapping IDENTICO all'interfaccia web
-        if width_mm >= 1200:  # Blocchi grandi
-            category = "A"
-        elif width_mm >= 800:  # Blocchi medi
-            category = "B"  
-        elif width_mm >= 400:  # Blocchi piccoli
-            category = "C"
+        # USA ETICHETTE DAL SISTEMA ESISTENTE (identiche alla preview web)
+        if i in std_detailed_labels:
+            label_info = std_detailed_labels[i]
+            # Usa ENTRAMBE: lettera categoria (bottom_left) + numero (top_right)
+            category = label_info['display']['bottom_left']  # Lettera: A, B, C
+            number = label_info['display']['top_right']      # Numero: 1, 2, 3...
+            label = f"{category}{number}"  # Combina: A1, A2, B1, B2...
         else:
-            category = "S"  # Fallback
-        
-        # ETICHETTA in alto a destra: categoria + numero progressivo
-        if category in category_counters:
-            label = f"{category}{category_counters[category]}"
-            category_counters[category] += 1
-        else:
-            label = f"{category}{i+1}"
+            # Fallback se etichetta non trovata
+            label = f"S{i+1}"
         
         # Posizione alto-destra del blocco
         label_x = bx + bw - 3  # Leggermente dentro dal bordo destro
         label_y = by + bh - 3  # Leggermente dentro dal bordo alto
             
-        # ETICHETTA GRANDE E VISIBILE come nell'interfaccia
+        # ETICHETTA IDENTICA alla preview web
         msp.add_text(
             label,
             height=max(8, min(bw/8, bh/8)),  # Proporzionale al blocco ma ben visibile
             dxfattribs={"layer": "STEP5_PREVIEW_LABELS", "color": 1}  # ROSSO come interfaccia
         ).set_placement((label_x, label_y), align=TextEntityAlignment.TOP_RIGHT)
     
-    # 3. Disegna pezzi custom (viola tratteggiato) IDENTICI all'interfaccia web CON ETICHETTE
-    custom_category = 'D'  # Inizia da D per i custom
-    custom_counter = 1
-    
+    # 3. Disegna pezzi custom (viola tratteggiato) con etichette IDENTICHE alla preview web
     for i, custom in enumerate(customs):
         try:
             geom = shape(custom['geometry'])
@@ -923,18 +914,36 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
                 dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM", "lineweight": 30, "color": 6}
             )
             
-            # Hatch pattern viola tratteggiato IDENTICO all'interfaccia web
+            # Hatch pattern viola con LINEE OBLIQUE RADE
             try:
                 hatch = msp.add_hatch(color=6, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})
                 hatch.paths.add_polyline_path(custom_coords, is_closed=True)
-                hatch.set_pattern_fill("ANSI31", scale=1.5, angle=45)  # Pattern diagonale come interfaccia
+                # Pattern LINE con angolo obliquo e scala grande per linee rade
+                hatch.set_pattern_fill("LINE", scale=5.0, angle=45)  # Linee oblique rade
             except:
-                # Fallback: riempimento solido viola chiaro
-                solid_hatch = msp.add_hatch(color=126, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})  # Viola chiaro
-                solid_hatch.paths.add_polyline_path(custom_coords, is_closed=True)
-                solid_hatch.set_solid_fill()
+                try:
+                    # Fallback: prova ANSI31 con scala molto grande per linee rade
+                    hatch = msp.add_hatch(color=6, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})
+                    hatch.paths.add_polyline_path(custom_coords, is_closed=True)
+                    hatch.set_pattern_fill("ANSI31", scale=3.0, angle=45)  # Linee oblique più rade
+                except:
+                    # Ultimo fallback: riempimento solido viola chiaro
+                    solid_hatch = msp.add_hatch(color=126, dxfattribs={"layer": "STEP5_PREVIEW_CUSTOM"})  # Viola chiaro
+                    solid_hatch.paths.add_polyline_path(custom_coords, is_closed=True)
+                    solid_hatch.set_solid_fill()
             
-            # AGGIUNGI ETICHETTE CUSTOM: lettera + numero in alto a destra
+            # USA ETICHETTE DAL SISTEMA ESISTENTE (identiche alla preview web)
+            if i in custom_detailed_labels:
+                label_info = custom_detailed_labels[i]
+                # Usa ENTRAMBE: lettera categoria (bottom_left) + numero (top_right)
+                category = label_info['display']['bottom_left']  # Lettera: D, E, F
+                number = label_info['display']['top_right']      # Numero: 1, 2, 3...
+                label = f"{category}{number}"  # Combina: D1, D2, E1, E2...
+            else:
+                # Fallback se etichetta non trovata
+                label = f"D{i+1}"
+            
+            # Posizioni per etichetta custom
             custom_x = custom['x'] * scale + offset_x
             custom_y = custom['y'] * scale + offset_y
             custom_w = custom['width'] * scale
@@ -944,17 +953,12 @@ def _draw_step5_preview_section(msp, wall_polygon, placed, customs, apertures,
             label_x = custom_x + custom_w - 3  # Leggermente dentro dal bordo destro
             label_y = custom_y + custom_h - 3  # Leggermente dentro dal bordo alto
             
-            # Etichetta: lettera + numero (es: D1, D2, E1, E2...)
-            custom_label = f"{custom_category}{custom_counter}"
-            
+            # ETICHETTA IDENTICA alla preview web
             msp.add_text(
-                custom_label,
+                label,
                 height=max(6, min(custom_w/10, custom_h/10)),  # Proporzionale ma visibile
                 dxfattribs={"layer": "STEP5_PREVIEW_LABELS", "color": 1}  # ROSSO come i standard
             ).set_placement((label_x, label_y), align=TextEntityAlignment.TOP_RIGHT)
-            
-            # Incrementa contatore
-            custom_counter += 1
             
         except Exception as e:
             print(f"Errore drawing custom {i}: {e}")
