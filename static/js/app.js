@@ -2761,19 +2761,26 @@ class WallPackingApp {
             const result = await response.json();
             console.log('✅ Preview data received:', result);
             
-            // 🚀 SMART LOADING: Operazione completata
-            window.smartLoading?.hide();
-            
             // Store preview data with session ID for reuse
             this.currentPreviewData = result;
             this.previewSessionId = result.preview_session_id; // NUOVO: Store per riutilizzo
             
-            // Update UI with preview data
+            // Update UI with preview data PRIMA di mostrare la sezione
             this.updatePreviewUI(result);
             
             // Hide loading and show preview section
             this.showPreviewLoading(false);
             this.showSection('preview');
+            
+            // NUOVO: 🚀 SMART LOADING rimane attivo durante il caricamento UI dello step 2
+            // Attendiamo che tutti gli elementi dell'UI siano completamente caricati
+            await this.waitForPreviewUIComplete();
+            
+            // 🚀 SMART LOADING: Ora nascondi l'animazione - UI completamente caricata
+            window.smartLoading?.hide();
+            
+            // NUOVO: Notifica l'utente che la transizione è completa
+            this.showToast('✅ Anteprima caricata completamente!', 'success', 3000);
             
         } catch (error) {
             console.error('❌ Preview generation error:', error);
@@ -2787,6 +2794,72 @@ class WallPackingApp {
             // Return to upload section on error
             this.showSection('upload');
         }
+    }
+    
+    // NUOVO: Attende che tutti gli elementi dell'UI dello step 2 siano completamente caricati
+    async waitForPreviewUIComplete() {
+        return new Promise((resolve) => {
+            console.log('⏳ Aspettando il caricamento completo dell\'UI dello step 2...');
+            
+            let checkAttempts = 0;
+            const maxAttempts = 50; // Massimo 5 secondi (50 * 100ms)
+            
+            const checkUIComplete = () => {
+                checkAttempts++;
+                
+                // Controlla che tutti gli elementi critici siano visibili e caricati
+                const previewCanvas = document.getElementById('previewCanvas');
+                const measurementsData = document.getElementById('measurementsData');
+                const conversionDetails = document.getElementById('conversionDetails');
+                const previewSection = document.getElementById('previewSection');
+                
+                const isCanvasLoaded = previewCanvas && 
+                    previewCanvas.width > 0 && 
+                    previewCanvas.height > 0 &&
+                    previewCanvas.dataset.imageLoaded === 'true';
+                
+                const isMeasurementsVisible = measurementsData && 
+                    measurementsData.style.display !== 'none' &&
+                    measurementsData.innerHTML.trim() !== '';
+                
+                const isConversionDetailsVisible = conversionDetails && 
+                    conversionDetails.style.display !== 'none';
+                
+                const isPreviewSectionVisible = previewSection && 
+                    previewSection.style.display === 'block';
+                
+                // Verifica che tutti gli elementi siano pronti
+                const isUIComplete = isCanvasLoaded && 
+                    isMeasurementsVisible && 
+                    isConversionDetailsVisible && 
+                    isPreviewSectionVisible;
+                
+                console.log(`🔍 Check UI completo (${checkAttempts}/${maxAttempts}):`, {
+                    canvas: isCanvasLoaded,
+                    canvasSize: previewCanvas ? `${previewCanvas.width}x${previewCanvas.height}` : 'N/A',
+                    imageLoaded: previewCanvas?.dataset.imageLoaded || 'N/A',
+                    measurements: isMeasurementsVisible,
+                    conversionDetails: isConversionDetailsVisible,
+                    previewSection: isPreviewSectionVisible,
+                    complete: isUIComplete
+                });
+                
+                if (isUIComplete) {
+                    console.log('✅ UI dello step 2 completamente caricata!');
+                    // Aggiungi un piccolo delay finale per permettere eventuali animazioni CSS
+                    setTimeout(() => resolve(), 150);
+                } else if (checkAttempts >= maxAttempts) {
+                    console.log('⚠️ Timeout raggiunto - procediamo comunque');
+                    resolve();
+                } else {
+                    // Riprova tra 100ms
+                    setTimeout(checkUIComplete, 100);
+                }
+            };
+            
+            // Inizia il controllo dopo un breve delay per permettere al DOM di aggiornarsi
+            setTimeout(checkUIComplete, 200);
+        });
     }
     
     showPreviewLoading(show) {
@@ -2852,12 +2925,18 @@ class WallPackingApp {
             canvas.dataset.originalHeight = img.height;
             canvas.dataset.currentScale = scale;
             
+            // NUOVO: Marca l'immagine come caricata per il controllo UI completo
+            canvas.dataset.imageLoaded = 'true';
+            
             console.log('✅ Preview image rendered');
         };
         
         img.onerror = () => {
             console.error('❌ Failed to load preview image');
             this.showToast('Errore caricamento anteprima immagine', 'error');
+            
+            // NUOVO: Marca comunque come "caricata" per evitare hang
+            canvas.dataset.imageLoaded = 'error';
         };
         
         // Set image source (remove data:image prefix if present)
