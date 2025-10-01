@@ -285,6 +285,32 @@ def _geometries_to_polygon(
         except Exception as exc:
             print(f" Geometria scartata: {exc}")
 
+    # NUOVO: Se non ci sono poligoni validi, prova a connettere segmenti multipli
+    if not valid_polygons and len(geometries) > 1:
+        print(f"🔗 Nessun poligono valido trovato, tento connessione di {len(geometries)} segmenti...")
+        try:
+            from utils.geometry_parser import connect_path_segments
+            
+            connected = connect_path_segments(geometries)
+            if len(connected) >= 3:
+                # Assicura che il poligono sia chiuso
+                if connected[0] != connected[-1]:
+                    connected.append(connected[0])
+                
+                poly = Polygon(connected)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+                
+                if poly.is_valid and poly.area > AREA_EPS:
+                    print(f"✅ Segmenti connessi con successo! Area: {poly.area:.2f}")
+                    valid_polygons.append(poly)
+                else:
+                    print(f"⚠️ Poligono connesso non valido")
+            else:
+                print(f"⚠️ Connessione ha prodotto solo {len(connected)} punti")
+        except Exception as e:
+            print(f"⚠️ Errore nella connessione segmenti: {e}")
+
     if not valid_polygons:
         raise ValueError("Nessuna geometria valida trovata")
 

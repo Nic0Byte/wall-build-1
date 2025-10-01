@@ -143,6 +143,9 @@ def _parse_dwg_with_dxfgrabber(
         wall_geometries = _extract_dxfgrabber_geometries_by_layer(dwg, layer_wall)
         hole_geometries = _extract_dxfgrabber_geometries_by_layer(dwg, layer_holes)
 
+        if not wall_geometries:
+            raise ValueError(f"Nessuna geometria valida trovata per layer '{layer_wall}'")
+
         wall_polygon = _dwg_geometries_to_polygon(wall_geometries, is_wall=True)
         aperture_polygons = _dwg_geometries_to_apertures(hole_geometries)
 
@@ -261,6 +264,9 @@ def _parse_dwg_with_ezdxf(
         wall_geometries = _extract_dwg_geometries_by_layer(msp, layer_wall)
         hole_geometries = _extract_dwg_geometries_by_layer(msp, layer_holes)
 
+        if not wall_geometries:
+            raise ValueError(f"Nessuna geometria valida trovata per layer '{layer_wall}'")
+
         wall_polygon = _dwg_geometries_to_polygon(wall_geometries, is_wall=True)
         aperture_polygons = _dwg_geometries_to_apertures(hole_geometries)
 
@@ -375,22 +381,44 @@ def _dwg_geometries_to_polygon(
 
     valid_polygons: List[Polygon] = []
 
-    for coords in geometries:
+    for idx, coords in enumerate(geometries):
+        print(f"   🔍 Geometria {idx+1}: {len(coords)} coordinate")
+        
         if len(coords) < 3:
+            print(f"   ❌ Troppo poche coordinate ({len(coords)} < 3)")
             continue
 
         try:
+            # Chiudi il poligono se necessario
             if coords[0] != coords[-1]:
                 coords.append(coords[0])
 
             polygon = Polygon(coords)
+            print(f"   📐 Poligono creato: area={polygon.area:.2f}, valid={polygon.is_valid}")
+            
+            # Se il poligono non è valido, prova a ripararlo con buffer(0)
+            if not polygon.is_valid:
+                print(f"   🔧 Riparazione poligono con buffer(0)...")
+                try:
+                    polygon = polygon.buffer(0)
+                    print(f"   ✅ Poligono riparato: area={polygon.area:.2f}, valid={polygon.is_valid}")
+                except Exception as repair_exc:
+                    print(f"   ❌ Riparazione fallita: {repair_exc}")
+            
             if polygon.is_valid and polygon.area > AREA_EPS:
                 valid_polygons.append(polygon)
+                print(f"   ✅ Poligono valido aggiunto! Area finale: {polygon.area:.2f} mm²")
+            else:
+                print(f"   ⚠️ Poligono scartato: area={polygon.area:.2f} (min={AREA_EPS}), valid={polygon.is_valid}")
+                
         except Exception as exc:  # pragma: no cover
-            print(f" Geometria DWG invalida: {exc}")
+            print(f"   ❌ Errore creazione poligono: {exc}")
+            import traceback
+            print(f"   Traceback: {traceback.format_exc()}")
             continue
 
     if not valid_polygons:
+        print(f" ❌ NESSUN POLIGONO VALIDO trovato su {len(geometries)} geometrie!")
         raise ValueError("Nessuna geometria valida trovata")
 
     if is_wall:
@@ -446,13 +474,27 @@ def _fallback_parse_dwg(dwg_bytes: bytes) -> ParseResult:
             msp = doc.modelspace()
 
             all_geometries: List[List[Tuple[float, float]]] = []
+            entity_count = 0
             for entity in msp:
+                entity_count += 1
+                entity_type = entity.dxftype() if hasattr(entity, 'dxftype') else 'unknown'
                 coords = _extract_coords_from_dwg_entity(entity)
-                if coords and len(coords) >= 3:
-                    all_geometries.append(coords)
+                if coords:
+                    print(f"   Entità {entity_type}: {len(coords)} coordinate")
+                    if len(coords) >= 3:
+                        all_geometries.append(coords)
+                    else:
+                        print(f"   ⚠️ Troppo poche coordinate: {coords}")
+
+            print(f" Fallback: trovate {entity_count} entità, {len(all_geometries)} geometrie valide")
 
             if not all_geometries:
-                raise ValueError("Nessuna geometria trovata nel file DWG")
+                raise ValueError(f"Nessuna geometria trovata nel file DWG ({entity_count} entità totali)")
+
+            # DEBUG: Stampa le coordinate della prima geometria
+            first_geom = all_geometries[0]
+            print(f" DEBUG: Prima geometria ha {len(first_geom)} punti")
+            print(f" DEBUG: Primi 5 punti: {first_geom[:5]}")
 
             wall_polygon = _dwg_geometries_to_polygon([all_geometries[0]], is_wall=True)
             apertures = (
@@ -474,7 +516,11 @@ def _fallback_parse_dwg(dwg_bytes: bytes) -> ParseResult:
                 pass
 
     except Exception as exc:
+        import traceback
         print(f" Errore fallback DWG: {exc}")
+        print(f" Traceback: {traceback.format_exc()}")
+        # ❌ FALLBACK HARDCODED - RIMUOVERE IN PRODUZIONE
+        print(f"⚠️ ATTENZIONE: Usando box rettangolare hardcoded 5000x2500 - NON ACCURATO!")
         example_wall = box(0, 0, 5000, 2500)
         return example_wall, []
 

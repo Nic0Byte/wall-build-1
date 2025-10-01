@@ -879,7 +879,16 @@ class WallPackingApp {
             dimensions.max_width = width;
             dimensions.max_height = height;
             dimensions.apertures_count = projectData.apertures_count || 0;
-            dimensions.perimeter = 2 * (width + height); // Calcolo perimetro rettangolare
+            
+            // 🎯 CORREZIONE CRITICA: Usa il perimetro reale se disponibile, non quello calcolato!
+            if (projectData.wall_perimeter && projectData.wall_perimeter > 0) {
+                dimensions.perimeter = Math.round(projectData.wall_perimeter);
+                console.log(`✅ Usando PERIMETRO REALE: ${dimensions.perimeter}mm`);
+            } else {
+                dimensions.perimeter = 2 * (width + height); // Fallback solo se non disponibile
+                console.log(`⚠️ Usando perimetro calcolato (rettangolare): ${dimensions.perimeter}mm`);
+            }
+            
             dimensions.geometry_type = 'rettangolare';
             
             // Mappa anche nei campi standard
@@ -913,7 +922,16 @@ class WallPackingApp {
                 dimensions.max_width = width;
                 dimensions.max_height = height;
                 dimensions.apertures_count = result.apertures_count || 0;
-                dimensions.perimeter = 2 * (width + height);
+                
+                // 🎯 CORREZIONE CRITICA: Usa il perimetro reale se disponibile!
+                if (result.wall_perimeter && result.wall_perimeter > 0) {
+                    dimensions.perimeter = Math.round(result.wall_perimeter);
+                    console.log(`✅ Usando PERIMETRO REALE da result: ${dimensions.perimeter}mm`);
+                } else {
+                    dimensions.perimeter = 2 * (width + height);
+                    console.log(`⚠️ Usando perimetro calcolato da result: ${dimensions.perimeter}mm`);
+                }
+                
                 dimensions.geometry_type = 'rettangolare';
                 
                 // Mappa nei campi standard

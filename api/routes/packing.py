@@ -72,16 +72,21 @@ async def preview_file_conversion(
         area = wall_exterior.area
         perimeter = wall_exterior.length
         
-        # Calcola tipo di geometria
-        coords = list(wall_exterior.exterior.coords)
-        is_rectangle = len(coords) == 5 and coords[0] == coords[-1]  # Prima e ultima coordinate uguali
-        is_complex = len(apertures) > 0 or not is_rectangle
+        # NUOVO: Classificazione geometrica avanzata
+        try:
+            from utils.geometry_parser import classify_polygon_geometry, format_geometry_label
+            geometry_type_code = classify_polygon_geometry(wall_exterior)
+            geometry_type = format_geometry_label(geometry_type_code)
+            print(f"🔍 Geometria classificata: {geometry_type_code} → {geometry_type}")
+        except Exception as e:
+            print(f"⚠️ Errore classificazione geometria: {e}")
+            # Fallback alla logica vecchia
+            geometry_type = "Rettangolare"
         
-        geometry_type = "Rettangolare"
-        if is_complex and apertures:
-            geometry_type = f"Complessa con {len(apertures)} aperture"
-        elif is_complex:
-            geometry_type = "Forma personalizzata"
+        # Determina caratteristiche geometriche per validazioni successive
+        coords = list(wall_exterior.exterior.coords)
+        is_rectangle = len(coords) == 5 and coords[0] == coords[-1]
+        is_complex = len(apertures) > 0 or not is_rectangle
         
         # ===== PREVIEW INIZIALE - SOLO CONTORNO PARETE =====
         print(f"🏗️ GENERANDO PREVIEW INIZIALE (solo contorno):")
@@ -347,6 +352,8 @@ async def enhanced_pack_from_preview(
                 "session_id": final_session_id,
                 "status": "success",
                 "wall_bounds": list(wall_exterior.bounds),
+                "wall_area": wall_exterior.area,  # 🎯 AREA REALE - non da bounds!
+                "wall_perimeter": wall_exterior.length,  # 🎯 PERIMETRO REALE - non calcolato!
                 "blocks_standard": placed,
                 "blocks_custom": custom,
                 "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
@@ -374,15 +381,17 @@ async def enhanced_pack_from_preview(
             result["enhanced"] = True
         else:
             # Fallback to standard result
-            result = PackingResult(
-                session_id=final_session_id,
-                status="success", 
-                wall_bounds=list(wall_exterior.bounds),
-                blocks_standard=placed,
-                blocks_custom=custom,
-                apertures=[{"bounds": list(ap.bounds)} for ap in apertures],
-                summary=summary,
-                config={
+            result = {
+                "session_id": final_session_id,
+                "status": "success", 
+                "wall_bounds": list(wall_exterior.bounds),
+                "wall_area": wall_exterior.area,  # 🎯 AREA REALE - fallback
+                "wall_perimeter": wall_exterior.length,  # 🎯 PERIMETRO REALE - fallback  
+                "blocks_standard": placed,
+                "blocks_custom": custom,
+                "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
+                "summary": summary,
+                "config": {
                     "block_widths": widths_list,
                     "block_height": block_schema["block_height"], 
                     "row_offset": row_offset,
@@ -390,8 +399,8 @@ async def enhanced_pack_from_preview(
                     "block_schema": block_schema["schema_type"],
                     "color_theme": theme
                 },
-                metrics=metrics
-            ).dict()
+                "metrics": metrics
+            }
             result["enhanced"] = False
         
         # Apply optimization if available
@@ -906,6 +915,8 @@ async def enhanced_upload_and_process(
                 "session_id": session_id,
                 "status": "success",
                 "wall_bounds": list(wall_exterior.bounds),
+                "wall_area": wall_exterior.area,  # 🎯 AREA REALE - enhanced-pack
+                "wall_perimeter": wall_exterior.length,  # 🎯 PERIMETRO REALE - enhanced-pack
                 "blocks_standard": placed,
                 "blocks_custom": custom,
                 "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
@@ -933,15 +944,17 @@ async def enhanced_upload_and_process(
             result["enhanced"] = True
         else:
             # Fallback to standard result
-            result = PackingResult(
-                session_id=session_id,
-                status="success", 
-                wall_bounds=list(wall_exterior.bounds),
-                blocks_standard=placed,
-                blocks_custom=custom,
-                apertures=[{"bounds": list(ap.bounds)} for ap in apertures],
-                summary=summary,
-                config={
+            result = {
+                "session_id": session_id,
+                "status": "success", 
+                "wall_bounds": list(wall_exterior.bounds),
+                "wall_area": wall_exterior.area,  # 🎯 AREA REALE - fallback enhanced-pack
+                "wall_perimeter": wall_exterior.length,  # 🎯 PERIMETRO REALE - fallback enhanced-pack
+                "blocks_standard": placed,
+                "blocks_custom": custom,
+                "apertures": [{"bounds": list(ap.bounds)} for ap in apertures],
+                "summary": summary,
+                "config": {
                     "block_widths": widths_list,
                     "block_height": block_schema["block_height"], 
                     "row_offset": row_offset,
@@ -949,8 +962,8 @@ async def enhanced_upload_and_process(
                     "block_schema": block_schema["schema_type"],
                     "color_theme": theme
                 },
-                metrics=metrics
-            ).dict()
+                "metrics": metrics
+            }
             result["enhanced"] = False
         
         # Apply optimization if available
