@@ -3804,13 +3804,17 @@ function updateBlockPreviews() {
         const previewElement = document.getElementById('preview' + blockType.charAt(0).toUpperCase() + blockType.slice(1));
         if (previewElement) {
             const maxDim = Math.max(width, height, depth);
-            const scale = Math.min(80, maxDim / 3); // Scale to fit in 80px max
             
-            const displayWidth = (width / maxDim) * scale;
-            const displayHeight = (height / maxDim) * scale;
-            
-            previewElement.style.width = displayWidth + 'px';
-            previewElement.style.height = displayHeight + 'px';
+            // Prevent division by zero
+            if (maxDim > 0) {
+                const scale = Math.min(80, maxDim / 3); // Scale to fit in 80px max
+                
+                const displayWidth = (width / maxDim) * scale;
+                const displayHeight = (height / maxDim) * scale;
+                
+                previewElement.style.width = displayWidth + 'px';
+                previewElement.style.height = displayHeight + 'px';
+            }
         }
     });
 }
@@ -3821,6 +3825,11 @@ function updateBlockComparison() {
     const block3Volume = calculateBlockVolume('block3');
     
     const maxVolume = Math.max(block1Volume, block2Volume, block3Volume);
+    
+    // Prevent division by zero
+    if (maxVolume === 0) {
+        return;
+    }
     
     // Update comparison bars
     updateComparisonBar('comparisonBar1', 'comparisonRatio1', block1Volume, maxVolume);
@@ -3840,7 +3849,7 @@ function updateComparisonBar(barId, ratioId, volume, maxVolume) {
     const bar = document.getElementById(barId);
     const ratio = document.getElementById(ratioId);
     
-    if (bar && ratio) {
+    if (bar && ratio && maxVolume > 0) {
         const percentage = (volume / maxVolume) * 100;
         bar.style.width = percentage + '%';
         ratio.textContent = Math.round(percentage) + '%';
@@ -6230,6 +6239,33 @@ function saveBlockDimensionsEnhanced() {
     const width1 = parseFloat(input1?.value) || 0;
     const width2 = parseFloat(input2?.value) || 0;
     const width3 = parseFloat(input3?.value) || 0;
+    
+    // Check: Blocco 1 must be > 0 (not empty or invalid)
+    if (width1 <= 0) {
+        if (input1) input1.classList.add('error');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Il Blocco 1 (Grande) non può essere vuoto o minore/uguale a 0', 'error', 5000);
+        }
+        return;
+    }
+    
+    // Check: Blocco 2 must be > 0
+    if (width2 <= 0) {
+        if (input2) input2.classList.add('error');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Il Blocco 2 (Medio) non può essere vuoto o minore/uguale a 0', 'error', 5000);
+        }
+        return;
+    }
+    
+    // Check: Blocco 3 must be > 0
+    if (width3 <= 0) {
+        if (input3) input3.classList.add('error');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Il Blocco 3 (Piccolo) non può essere vuoto o minore/uguale a 0', 'error', 5000);
+        }
+        return;
+    }
     
     // Check: Blocco 1 > Blocco 2 > Blocco 3 (all different)
     if (width1 <= width2) {
