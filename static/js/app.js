@@ -1304,24 +1304,27 @@ class WallPackingApp {
     }
     
     updateHeaderStats(data) {
-        const headerStats = document.getElementById('headerStats');
-        const statStandard = document.getElementById('statStandard');
-        const statCustom = document.getElementById('statCustom');
-        const statEfficiency = document.getElementById('statEfficiency');
+        // Update results page stats cards (primary location in Step 5)
+        const statStandardResults = document.getElementById('statStandardResults');
+        const statCustomResults = document.getElementById('statCustomResults');
+        const statEfficiencyResults = document.getElementById('statEfficiencyResults');
         
-        if (headerStats && statStandard && statCustom && statEfficiency) {
-            const totalStandard = Object.values(data.summary || {}).reduce((a, b) => a + b, 0);
-            const totalCustom = (data.blocks_custom || []).length;
-            const efficiency = data.metrics?.efficiency || 0;
-            
-            statStandard.textContent = totalStandard;
-            statCustom.textContent = totalCustom;
-            statEfficiency.textContent = `${Math.round(efficiency * 100)}%`;
-            
-            // Show stats only if we're in app section
-            if (this.currentSection === 'app') {
-                headerStats.style.display = 'flex';
-            }
+        const totalStandard = Object.values(data.summary || {}).reduce((a, b) => a + b, 0);
+        const totalCustom = (data.blocks_custom || []).length;
+        const totalBlocks = totalStandard + totalCustom;
+        const efficiency = data.metrics?.efficiency || 0;
+        
+        // Update results page stats cards (shown in Step 5)
+        if (statStandardResults && statCustomResults && statEfficiencyResults) {
+            statStandardResults.textContent = totalStandard;
+            statCustomResults.textContent = totalCustom;
+            statEfficiencyResults.textContent = totalBlocks;
+        }
+        
+        // Hide header stats (no longer used)
+        const headerStats = document.getElementById('headerStats');
+        if (headerStats) {
+            headerStats.style.display = 'none';
         }
     }
     
