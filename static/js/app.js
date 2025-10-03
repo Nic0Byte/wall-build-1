@@ -196,8 +196,16 @@ class WallPackingApp {
         });
         
         // Navigation buttons
-        document.getElementById('backToUpload')?.addEventListener('click', () => {
-            this.showSection('upload');
+        const backToUploadBtn = document.getElementById('backToUpload');
+        console.log('🔍 backToUpload button found:', !!backToUploadBtn);
+        backToUploadBtn?.addEventListener('click', () => {
+            console.log('🔙 backToUpload clicked!');
+            this.resetToUpload();
+        });
+        
+        document.getElementById('backToPreviousStep')?.addEventListener('click', () => {
+            console.log('🔙 backToPreviousStep clicked!');
+            this.showSection('projectParams');
         });
         
         document.getElementById('reconfigureBtn')?.addEventListener('click', () => {
@@ -2057,6 +2065,37 @@ class WallPackingApp {
         this.showToast('Applicazione ripristinata', 'info');
     }
     
+    resetToUpload() {
+        console.log('🔄 Resetting to upload section...');
+        
+        // Clear current file but keep configurations
+        this.currentFile = null;
+        this.currentSessionId = null;
+        this.currentData = null;
+        
+        // Reset file input
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) fileInput.value = '';
+        
+        // Hide file info
+        const fileInfo = document.getElementById('fileInfo');
+        if (fileInfo) fileInfo.style.display = 'none';
+        
+        const headerStats = document.getElementById('headerStats');
+        if (headerStats) headerStats.style.display = 'none';
+        
+        // Unlock block dimensions editing
+        this.unlockBlockDimensionsEditing();
+        
+        // Update navigation state
+        this.updateNavigationState();
+        
+        // Show upload section
+        this.showSection('upload');
+        
+        this.showToast('Torna all\'upload - configurazioni mantenute', 'info');
+    }
+    
     // Auto-save project when processing is complete
     autoSaveProject(data) {
         if (!this.currentFile || !data) {
@@ -2189,10 +2228,7 @@ class WallPackingApp {
     setupProjectParametersListeners() {
         console.log('🔧 Setup Project Parameters Listeners');
         
-        // Navigation buttons for project parameters section
-        document.getElementById('backToUpload')?.addEventListener('click', () => {
-            this.showSection('upload');
-        });
+        // Navigation buttons for project parameters section are now handled in main setupEventListeners
         
         document.getElementById('proceedToConfig')?.addEventListener('click', () => {
             // Validate and collect parameters before proceeding

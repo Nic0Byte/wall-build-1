@@ -1698,7 +1698,7 @@ body {
     gap: var(--spacing-4);
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     margin-top: var(--spacing-8);
 }
 
@@ -4485,6 +4485,8 @@ table tbody tr:hover {
         margin: 20px 0;
         padding: 16px;
     }
-} 
-  
+}
+ 
+ 
+ 
  
