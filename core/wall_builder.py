@@ -322,7 +322,8 @@ def simulate_future_placement(total_space: float, first_block: int, widths_order
 
 
 def _pack_segment_bidirectional(comp: Polygon, y: float, stripe_top: float, 
-                               widths_order: List[int], direction: str = 'left_to_right',
+                               widths_order: List[int], block_height: int, 
+                               direction: str = 'left_to_right',
                                debugger: Optional[AlgorithmDebugger] = None) -> Tuple[List[Dict], List[Dict]]:
     """
     🔄 ALGORITMO BIDIREZIONALE - NUOVO SISTEMA MATTONCINO
@@ -359,7 +360,7 @@ def _pack_segment_bidirectional(comp: Polygon, y: float, stripe_top: float,
                     if not intersec.is_empty and intersec.area >= AREA_EPS:
                         if intersec.area / candidate.area >= 0.95:
                             # Blocco standard perfetto
-                            placed.append(_mk_std(cursor, y, block_width, BLOCK_HEIGHT))
+                            placed.append(_mk_std(cursor, y, block_width, block_height))
                             cursor = snap(cursor + block_width)
                             placed_one = True
                             break
@@ -397,7 +398,7 @@ def _pack_segment_bidirectional(comp: Polygon, y: float, stripe_top: float,
                     if not intersec.is_empty and intersec.area >= AREA_EPS:
                         if intersec.area / candidate.area >= 0.95:
                             # Blocco standard perfetto
-                            placed.append(_mk_std(cursor - block_width, y, block_width, BLOCK_HEIGHT))
+                            placed.append(_mk_std(cursor - block_width, y, block_width, block_height))
                             cursor = snap(cursor - block_width)
                             placed_one = True
                             break
@@ -430,7 +431,7 @@ def _pack_segment_bidirectional(comp: Polygon, y: float, stripe_top: float,
     return placed, custom
 
 
-def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_order: List[int], offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
+def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_order: List[int], block_height: int, offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
     """
     ALGORITMO GREEDY SEMPLICE - UNICO METODO DI POSIZIONAMENTO
     
@@ -456,7 +457,7 @@ def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_
         intersec = candidate.intersection(comp)
         if not intersec.is_empty and intersec.area >= AREA_EPS:
             if intersec.area / candidate.area >= 0.95:
-                placed.append(_mk_std(cursor, y, offset, BLOCK_HEIGHT))
+                placed.append(_mk_std(cursor, y, offset, block_height))
             else:
                 custom.append(_mk_custom(intersec, widths_order))
             cursor = snap(cursor + offset)
@@ -475,7 +476,7 @@ def _pack_segment_with_order(comp: Polygon, y: float, stripe_top: float, widths_
                 if not intersec.is_empty and intersec.area >= AREA_EPS:
                     if intersec.area / candidate.area >= 0.95:
                         # Blocco standard perfetto
-                        placed.append(_mk_std(cursor, y, block_width, BLOCK_HEIGHT))
+                        placed.append(_mk_std(cursor, y, block_width, block_height))
                         cursor = snap(cursor + block_width)
                         placed_one = True
                         break
@@ -509,7 +510,7 @@ def _pack_segment(comp: Polygon, y: float, stripe_top: float, widths: List[int],
 
 
 def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float, 
-                                     widths_order: List[int], adaptive_height: float, 
+                                     widths_order: List[int], block_height: int, adaptive_height: float, 
                                      offset: int = 0) -> Tuple[List[Dict], List[Dict]]:
     """
     Pack segment con ordine specifico e altezza adattiva.
@@ -558,17 +559,15 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
                         break
         
         if best_width is not None:
-            # Usa sempre l'altezza standard per il tipo, indipendentemente dall'altezza effettiva
-            # Questo garantisce che blocchi con altezze leggermente diverse vengano riconosciuti
-            from utils.config import BLOCK_HEIGHT
-            standard_height = BLOCK_HEIGHT
+            # Usa l'altezza dinamica per il tipo invece dell'hardcoded BLOCK_HEIGHT
+            # Questo garantisce che blocchi con altezze personalizzate vengano riconosciuti correttamente
             
             placed.append({
                 "x": snap(x),
                 "y": snap(y),
                 "width": best_width,
                 "height": snap(effective_height),  # Altezza effettiva per la geometria
-                "type": f"std_{best_width}x{standard_height}"  # Tipo normalizzato
+                "type": f"std_{best_width}x{block_height}"  # Tipo con altezza dinamica
             })
             x += best_width
         else:
@@ -730,6 +729,7 @@ def pack_wall(polygon: Polygon,
             placed_row, custom_row = _pack_segment_bidirectional(
                 comp, y, stripe_top, 
                 sorted(block_widths, reverse=True),  # GREEDY: grande → piccolo
+                block_height,  # Pass dynamic block height
                 direction=direction,
                 debugger=debugger
             )
@@ -773,6 +773,7 @@ def pack_wall(polygon: Polygon,
             placed_row, custom_row = _pack_segment_with_order_adaptive(
                 comp, y, stripe_top, 
                 sorted(block_widths, reverse=True),  # GREEDY: grande → piccolo
+                block_height,  # Pass dynamic block height
                 adaptive_height, 
                 offset=offset
             )
@@ -782,7 +783,7 @@ def pack_wall(polygon: Polygon,
     else:
         print(f"⚠️ Spazio rimanente {remaining_space:.0f}mm insufficiente per riga adattiva")
 
-    custom_all = merge_customs_row_aware(custom_all, tol=SCARTO_CUSTOM_MM, row_height=BLOCK_HEIGHT)
+    custom_all = merge_customs_row_aware(custom_all, tol=SCARTO_CUSTOM_MM, row_height=block_height)
     custom_all = split_out_of_spec(custom_all, max_w=SPLIT_MAX_WIDTH_MM)
     validated_customs = validate_and_tag_customs(custom_all)
     

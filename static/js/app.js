@@ -5073,9 +5073,12 @@ function getDefaultMoralettiConfig() {
         blockDimensions.block3.width
     );
     
+    // Use block height from block1 (which controls all heights via synchronization)
+    const blockHeight = blockDimensions.block1.height;
+    
     return {
         thickness: 58,
-        height: 495,
+        height: blockHeight,  // Moraletti height matches block height
         heightFromGround: 0,
         spacing: Math.floor(largestBlock / 3)  // Preset intelligente
     };
@@ -5717,7 +5720,48 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         updateSpacingSuggestion();
     }, 500);
+    
+    // Setup height synchronization
+    setupHeightSynchronization();
 });
+
+// ==== HEIGHT SYNCHRONIZATION ====
+function setupHeightSynchronization() {
+    const block1Height = document.getElementById('block1Height');
+    const block2Height = document.getElementById('block2Height');
+    const block3Height = document.getElementById('block3Height');
+    const moralettiHeight = document.getElementById('moralettiHeight');
+    
+    if (block1Height && block2Height && block3Height) {
+        block1Height.addEventListener('input', function() {
+            const heightValue = this.value;
+            
+            // Synchronize all block heights
+            block2Height.value = heightValue;
+            block3Height.value = heightValue;
+            
+            // Also synchronize moraletti height (moraletti should match block height)
+            if (moralettiHeight) {
+                moralettiHeight.value = heightValue;
+                
+                // Update moraletti summary with new height
+                const thickness = parseInt(document.getElementById('moralettiThickness')?.value) || 58;
+                const spacing = parseInt(document.getElementById('moralettiSpacing')?.value) || 413;
+                updateMoralettiSummary(thickness, parseInt(heightValue), spacing);
+                
+                // Update moraletti preview if function exists
+                if (typeof generateMoralettiPreview === 'function') {
+                    generateMoralettiPreview();
+                }
+            }
+            
+            // Update block calculations if the function exists
+            if (typeof updateBlockCalculations === 'function') {
+                updateBlockCalculations();
+            }
+        });
+    }
+}
 
 // ==== NEW AUTO-SUGGESTION FUNCTIONS ====
 
@@ -5823,9 +5867,17 @@ function saveBlockDimensionsEnhanced() {
         spacingInput.value = suggestedSpacing;
     }
     
+    // Get the current block height from block1Height (which controls all heights)
+    const height = parseFloat(document.getElementById('block1Height')?.value) || 495;
+    
+    // Update moraletti height to match block height
+    const moralettiHeightInput = document.getElementById('moralettiHeight');
+    if (moralettiHeightInput) {
+        moralettiHeightInput.value = height;
+    }
+    
     // Update the active summary with suggested values
     const thickness = parseFloat(document.getElementById('moralettiThickness')?.value) || 58;
-    const height = parseFloat(document.getElementById('moralettiHeight')?.value) || 495;
     const summaryElement = document.getElementById('moralettiActiveSummary');
     if (summaryElement && suggestedSpacing) {
         summaryElement.textContent = `${thickness}mm × ${height}mm, spaziatura ${suggestedSpacing}mm`;
