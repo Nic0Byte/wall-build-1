@@ -2711,9 +2711,8 @@ class WallPackingApp {
         
         // Navigation buttons
         document.getElementById('backToUploadFromPreview')?.addEventListener('click', () => {
-            this.showSection('upload');
-            // Clear current preview data but keep file
-            this.currentPreviewData = null;
+            console.log('🔙 backToUploadFromPreview clicked!');
+            this.resetToUpload();
         });
         
         document.getElementById('acceptPreview')?.addEventListener('click', () => {
