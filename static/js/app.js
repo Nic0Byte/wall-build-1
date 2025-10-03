@@ -3566,11 +3566,6 @@ function openBlockLibrary() {
 // Listen for block dimension changes to update active display
 function onBlockDimensionsChanged() {
     updateActiveBlocksDisplay();
-    
-    // Show feedback that changes are reflected
-    if (window.wallPackingApp) {
-        window.wallPackingApp.showToast('Blocchi aggiornati nell\'applicazione', 'success');
-    }
 }
 
 // ===== BLOCK DIMENSIONS SYSTEM =====
@@ -3594,6 +3589,48 @@ const blockPresets = {
     }
 };
 
+// Close all settings panels
+function closeAllSettingsPanels() {
+    // Close Block Dimensions panel
+    const blockPanel = document.getElementById('blockDimensionsPanel');
+    const blockIcon = document.getElementById('blockDimensionsExpandIcon');
+    if (blockPanel && blockPanel.style.display !== 'none') {
+        restoreSavedDimensions(); // Restore saved values when closing
+        blockPanel.style.display = 'none';
+        if (blockIcon) blockIcon.classList.remove('expanded');
+    }
+    
+    // Close Color Theme panel
+    const colorPanel = document.getElementById('colorSettingsPanel');
+    const colorIcon = document.getElementById('colorThemeExpandIcon');
+    if (colorPanel && colorPanel.style.display !== 'none') {
+        colorPanel.style.display = 'none';
+        if (colorIcon) colorIcon.classList.remove('expanded');
+    }
+    
+    // Close Custom Materials panel
+    const materialsPanel = document.getElementById('customMaterialsPanel');
+    const materialsIcon = document.getElementById('customMaterialsExpandIcon');
+    if (materialsPanel && materialsPanel.style.display !== 'none') {
+        materialsPanel.style.display = 'none';
+        if (materialsIcon) materialsIcon.classList.remove('expanded');
+    }
+    
+    // Close Moraletti panel
+    const moralettiPanel = document.getElementById('moralettiPanel');
+    const moralettiIcon = document.getElementById('moralettiExpandIcon');
+    if (moralettiPanel && moralettiPanel.style.display !== 'none') {
+        moralettiPanel.style.display = 'none';
+        if (moralettiIcon) moralettiIcon.classList.remove('expanded');
+        
+        // Also close moraletti visual section
+        const visualSection = document.getElementById('moralettiVisualSection');
+        if (visualSection) {
+            visualSection.style.display = 'none';
+        }
+    }
+}
+
 // Toggle block dimensions panel
 function toggleBlockDimensionsPanel() {
     const panel = document.getElementById('blockDimensionsPanel');
@@ -3604,11 +3641,15 @@ function toggleBlockDimensionsPanel() {
     const isVisible = panel.style.display !== 'none';
     
     if (isVisible) {
-        // Close panel
+        // Close panel - restore saved values
+        restoreSavedDimensions();
         panel.style.display = 'none';
         icon.classList.remove('expanded');
-        console.log('📏 Block dimensions panel closed');
+        console.log('📏 Block dimensions panel closed - restored saved values');
     } else {
+        // Close all other panels first
+        closeAllSettingsPanels();
+        
         // Open panel
         panel.style.display = 'block';
         icon.classList.add('expanded');
@@ -3619,10 +3660,50 @@ function toggleBlockDimensionsPanel() {
                 initializeBlockDimensions();
                 window.blockDimensionsInitialized = true;
             }, 100);
+        } else {
+            // Reload saved values when reopening
+            restoreSavedDimensions();
         }
         
         console.log('📏 Block dimensions panel opened');
     }
+}
+
+// Restore saved dimensions to input fields
+function restoreSavedDimensions() {
+    const savedDimensions = localStorage.getItem('blockDimensions');
+    let dimensions;
+    
+    if (savedDimensions) {
+        try {
+            dimensions = JSON.parse(savedDimensions);
+        } catch (e) {
+            dimensions = blockPresets.standard;
+        }
+    } else {
+        dimensions = blockPresets.standard;
+    }
+    
+    // Update input fields with saved values
+    const blockTypes = ['block1', 'block2', 'block3'];
+    const dimensionTypes = ['Width', 'Height', 'Depth'];
+    
+    blockTypes.forEach(blockType => {
+        dimensionTypes.forEach(dimType => {
+            const inputId = blockType + dimType;
+            const input = document.getElementById(inputId);
+            
+            if (input) {
+                const value = dimensions[blockType][dimType.toLowerCase()] || 100;
+                input.value = value;
+            }
+        });
+    });
+    
+    // Update previews and comparison with saved values
+    updateBlockPreviews();
+    updateBlockComparison();
+    onBlockDimensionsChanged();
 }
 
 function initializeBlockDimensions() {
@@ -3894,6 +3975,9 @@ function toggleColorThemePanel() {
         icon.classList.remove('expanded');
         console.log('🎨 Color theme panel closed');
     } else {
+        // Close all other panels first
+        closeAllSettingsPanels();
+        
         // Open panel
         panel.style.display = 'block';
         icon.classList.add('expanded');
@@ -4180,6 +4264,9 @@ function toggleCustomMaterialsPanel() {
         icon.classList.remove('expanded');
         console.log('📦 Custom materials panel closed');
     } else {
+        // Close all other panels first
+        closeAllSettingsPanels();
+        
         // Open panel
         panel.style.display = 'block';
         icon.classList.add('expanded');
@@ -4461,16 +4548,10 @@ function getBlockDimensionsForBackend() {
 function resetToSystemDefaults() {
     console.log('🔄 Resetting to system defaults');
     
-    // Clear localStorage
-    localStorage.removeItem('blockDimensions');
-    
-    // Apply system defaults
+    // Apply system defaults (only updates the input fields, does not save)
     applyBlockPreset('standard');
     
-    // Show confirmation
-    if (window.wallPackingApp) {
-        window.wallPackingApp.showToast('Ripristinate dimensioni sistema (A: 1239×495, B: 826×495, C: 413×495)', 'info');
-    }
+    // User must click "Salva Configurazione" to confirm the changes
 }
 
 // ===== PAST PROJECTS MANAGEMENT =====
@@ -5333,6 +5414,9 @@ function toggleMoralettiPanel() {
         
         console.log('🔧 Moraletti panel closed');
     } else {
+        // Close all other panels first
+        closeAllSettingsPanels();
+        
         // Open panel
         panel.style.display = 'block';
         icon.classList.add('expanded');
