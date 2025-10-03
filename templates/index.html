@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parete TAKTAK® - Sistema Professionale</title>
     <link rel="stylesheet" href="/static/css/style.css?v=3.0">
+    <link rel="stylesheet" href="/static/css/moraletti-styles.css?v=3.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -738,6 +739,22 @@
                                 <h3>Dimensioni Blocchi Standard <i class="fas fa-chevron-down expand-icon" id="blockDimensionsExpandIcon"></i></h3>
                                 <p>Configura le misure dei 3 tipi di blocchi standard</p>
                                 
+                                <!-- How it works explanation for Block Configuration -->
+                                <div class="system-explanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona il sistema:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Modifica dimensioni:</strong> Inserisci le dimensioni dei blocchi secondo le tue esigenze</li>
+                                        <li><strong>Salva configurazione:</strong> Clicca "Salva Configurazione" per abilitare la configurazione moraletti</li>
+                                    </ol>
+                                    <div class="explanation-note">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <em><strong>Importante:</strong> Le larghezze devono rispettare l'ordine: Blocco 1 (Grande) > Blocco 2 (Medio) > Blocco 3 (Piccolo)</em>
+                                    </div>
+                                </div>
+                                
                                 <!-- Block Dimensions Panel (Initially Hidden) -->
                                 <div class="block-dimensions-panel" id="blockDimensionsPanel" style="display: none;">
                                     
@@ -882,21 +899,146 @@
                                     
                                     <!-- Action Buttons -->
                                     <div class="block-actions">
-                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('standard')">
-                                            <i class="fas fa-undo"></i> Standard
-                                        </button>
-                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('metric')">
-                                            <i class="fas fa-ruler"></i> Metriche
-                                        </button>
-                                        <button class="preset-btn" onclick="event.stopPropagation(); applyBlockPreset('compact')">
-                                            <i class="fas fa-compress"></i> Compatti
-                                        </button>
-                                        <button class="preset-btn reset-btn" onclick="event.stopPropagation(); resetToSystemDefaults()">
-                                            <i class="fas fa-cogs"></i> Reset Sistema
-                                        </button>
-                                        <button class="save-btn primary-btn" onclick="event.stopPropagation(); saveBlockDimensions()">
-                                            <i class="fas fa-save"></i> Salva Dimensioni
-                                        </button>
+                                        <div class="block-actions-row">
+                                            <button class="preset-btn-small reset-btn" onclick="event.stopPropagation(); resetToSystemDefaults()">
+                                                ↺ Reset Standard
+                                            </button>
+                                            <button class="save-block-dimensions-btn" onclick="event.stopPropagation(); saveBlockDimensionsEnhanced()">
+                                                ✓ Salva Configurazione
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Moraletti Configuration Card -->
+                        <div class="feature-card moraletti-card" onclick="toggleMoralettiPanel()" id="moralettiCardContainer">
+                            <div class="feature-icon">
+                                <i class="fas fa-columns"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Configurazione Moraletti <i class="fas fa-chevron-down expand-icon" id="moralettiExpandIcon"></i></h3>
+                                <p>Sistema di incastro verticale con pilastri in acciaio</p>
+                                
+                                <!-- How it works explanation -->
+                                <div class="system-explanation" id="moralettiExplanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona il sistema:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Configura i blocchi:</strong> Prima devi salvare le dimensioni dei 3 blocchi standard</li>
+                                        <li><strong>Calcolo automatico:</strong> Il sistema propone automaticamente la spaziatura ottimale (Blocco grande/3)</li>
+                                        <li><strong>Personalizza:</strong> Puoi modificare tutti i parametri secondo le tue esigenze</li>
+                                        <li><strong>Visualizza:</strong> Genera l'anteprima per vedere il posizionamento dei moraletti</li>
+                                        <li><strong>Salva:</strong> Conferma la configurazione per bloccarla in sicurezza</li>
+                                    </ol>
+                                    <div class="explanation-note">
+                                        <i class="fas fa-shield-alt"></i>
+                                        <em>Una volta salvati i moraletti, per modificarli devi riconfermare prima i blocchi</em>
+                                    </div>
+                                </div>
+                                
+                                <!-- Prerequisites Warning -->
+                                <div class="prerequisite-warning" id="moralettiPrerequisiteWarning" style="display: block;">
+                                    <div class="warning-content">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span>Prima configura e conferma le dimensioni dei blocchi</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Moraletti Configuration Panel (Initially Hidden) -->
+                                <div class="moraletti-panel" id="moralettiPanel" style="display: none;">
+                                    
+                                    <!-- Configuration Controls Section BEFORE Preview -->
+                                    <div class="moraletti-controls-section">
+                                        <h4><i class="fas fa-sliders-h"></i> Parametri Moraletti</h4>
+                                        
+                                        <div class="controls-grid">
+                                            <div class="control-group">
+                                                <label for="moralettiThickness">Larghezza (mm)</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiThickness" value="58" min="30" max="100" class="control-input">
+                                                    <span class="input-unit">mm</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiHeight">Altezza (mm)</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiHeight" value="495" min="200" max="800" class="control-input">
+                                                    <span class="input-unit">mm</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiHeightFromGround">Altezza da Terra (mm)</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiHeightFromGround" value="0" min="0" max="200" class="control-input">
+                                                    <span class="input-unit">mm</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiSpacing">Spaziatura Base (mm)</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiSpacing" value="413" min="200" max="800" class="control-input">
+                                                    <span class="input-unit">mm</span>
+                                                </div>
+                                                <div class="auto-suggestion" id="spacingSuggestion">
+                                                    <span>💡 Spaziatura Calcolata Automaticamente: <strong id="suggestedSpacing">-</strong></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Current Configuration Summary -->
+                                    <div class="moraletti-summary">
+                                        <div class="summary-row">
+                                            <span class="summary-label">Configurazione Attiva:</span>
+                                            <span class="summary-value" id="moralettiActiveSummary">58mm × 495mm, spaziatura 413mm</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Visual Preview Section AFTER Input -->
+                                    <div class="moraletti-visual-section" id="moralettiVisualSection" style="display: none;">
+                                        <h4><i class="fas fa-eye"></i> Anteprima Configurazioni</h4>
+                                        
+                                        <!-- Dynamic preview will be inserted here by JavaScript -->
+                                        <div id="moralettiPreviewContainer">
+                                            <!-- Previews generated dynamically -->
+                                        </div>
+                                        
+                                        <!-- Alignment Status -->
+                                        <div class="alignment-status-enhanced">
+                                            <div class="status-indicator">
+                                                <i class="fas fa-check-circle status-icon" id="enhancedAlignmentIcon"></i>
+                                                <span class="status-text" id="enhancedAlignmentStatus">Allineamento verticale garantito</span>
+                                            </div>
+                                            <div class="alignment-details">
+                                                <small>I moraletti si allineano perfettamente secondo l'immagine tecnica</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Actions -->
+                                    <div class="moraletti-actions-section">
+                                        <div class="main-actions">
+                                            <button class="action-btn secondary-btn" id="resetMoralettiBtn" onclick="event.stopPropagation(); resetMoralettiDefaults()" disabled>
+                                                <i class="fas fa-undo"></i> Reset
+                                            </button>
+                                            <button class="action-btn secondary-btn" onclick="event.stopPropagation(); generateMoralettiPreview()">
+                                                <i class="fas fa-eye"></i> Genera Preview
+                                            </button>
+                                            <button class="action-btn primary-btn" id="saveMoralettiBtn" onclick="event.stopPropagation(); saveMoralettiConfiguration()" disabled>
+                                                <i class="fas fa-save"></i> Salva Configurazione
+                                            </button>
+                                        </div>
+                                        <div class="protection-warning" id="moralettiProtectionWarning">
+                                            <i class="fas fa-lock"></i>
+                                            <span>Prima salva la configurazione dei blocchi per abilitare queste azioni</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -910,6 +1052,23 @@
                             <div class="feature-content">
                                 <h3>Temi Personalizzati <i class="fas fa-chevron-down expand-icon" id="colorThemeExpandIcon"></i></h3>
                                 <p>Personalizza i colori dei blocchi e degli elementi</p>
+                                
+                                <!-- How it works explanation for Color Themes -->
+                                <div class="system-explanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona il sistema:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Seleziona colori:</strong> Scegli i colori per ogni tipo di elemento (blocchi, porte/finestre, contorni)</li>
+                                        <li><strong>Usa preset:</strong> Utilizza le configurazioni rapide (Default, Alto Contrasto, Colorato) per partire</li>
+                                        <li><strong>Anteprima e salva:</strong> Visualizza il risultato in tempo reale e salva il tema personalizzato</li>
+                                    </ol>
+                                    <div class="explanation-note">
+                                        <i class="fas fa-palette"></i>
+                                        <em>I colori si applicano immediatamente all'anteprima per una visualizzazione in tempo reale</em>
+                                    </div>
+                                </div>
                                 
                                 <!-- Color Settings Panel (Initially Hidden) -->
                                 <div class="color-settings-panel" id="colorSettingsPanel" style="display: none;">
@@ -1016,6 +1175,7 @@
                                         </div>
                                     </div>
                                     
+                                    
                                     <!-- Action Buttons -->
                                     <div class="color-actions">
                                         <button class="preset-btn" onclick="event.stopPropagation(); applyPreset('default')">
@@ -1034,6 +1194,7 @@
                                 </div>
                             </div>
                         </div>
+                        
                     </div>
                 </div>
                 

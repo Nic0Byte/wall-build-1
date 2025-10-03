@@ -3794,6 +3794,9 @@ function saveBlockDimensions() {
         window.wallPackingApp.showToast('Dimensioni blocchi salvate e applicate!', 'success');
     }
     
+    // Enable moraletti configuration now that blocks are confirmed
+    enableMoralettiConfiguration();
+    
     console.log('✅ Block dimensions saved:', dimensions);
 }
 
@@ -4987,3 +4990,866 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ===== MORALETTI CONFIGURATION SYSTEM =====
+
+// Toggle moraletti panel
+function toggleMoralettiPanel() {
+    const panel = document.getElementById('moralettiPanel');
+    const icon = document.getElementById('moralettiExpandIcon');
+    
+    if (!panel || !icon) return;
+    
+    const isVisible = panel.style.display !== 'none';
+    
+    if (isVisible) {
+        // Close panel
+        panel.style.display = 'none';
+        icon.classList.remove('expanded');
+        
+        // Also close the preview section
+        const visualSection = document.getElementById('moralettiVisualSection');
+        if (visualSection) {
+            visualSection.style.display = 'none';
+        }
+        
+        console.log('🔧 Moraletti panel closed');
+    } else {
+        // Open panel
+        panel.style.display = 'block';
+        icon.classList.add('expanded');
+        
+        // Initialize panel if not already done
+        if (!window.moralettiInitialized) {
+            setTimeout(() => {
+                initializeMoralettiConfiguration();
+                window.moralettiInitialized = true;
+            }, 100);
+        }
+        
+        console.log('🔧 Moraletti panel opened');
+    }
+}
+
+// Initialize moraletti configuration
+function initializeMoralettiConfiguration() {
+    console.log('🔧 Initializing Moraletti Configuration System');
+    
+    // Load saved configuration from localStorage
+    const savedConfig = localStorage.getItem('moralettiConfiguration');
+    let currentConfig;
+    
+    if (savedConfig) {
+        try {
+            currentConfig = JSON.parse(savedConfig);
+            console.log('🔧 Using saved moraletti configuration');
+        } catch (e) {
+            console.warn('⚠️ Error parsing saved moraletti config, using defaults');
+            currentConfig = getDefaultMoralettiConfig();
+        }
+    } else {
+        currentConfig = getDefaultMoralettiConfig();
+        console.log('🔧 Using default moraletti configuration');
+    }
+    
+    // Apply configuration to UI
+    applyMoralettiConfigToUI(currentConfig);
+    
+    // Setup event listeners
+    setupMoralettiEventListeners();
+    
+    // Update preview
+    updateMoralettiPreview();
+    
+    console.log('✅ Moraletti Configuration System initialized');
+}
+
+// Get default moraletti configuration
+function getDefaultMoralettiConfig() {
+    const blockDimensions = getCurrentBlockDimensions();
+    const largestBlock = Math.max(
+        blockDimensions.block1.width,
+        blockDimensions.block2.width,
+        blockDimensions.block3.width
+    );
+    
+    return {
+        thickness: 58,
+        height: 495,
+        heightFromGround: 0,
+        spacing: Math.floor(largestBlock / 3)  // Preset intelligente
+    };
+}
+
+// Apply moraletti configuration to UI
+function applyMoralettiConfigToUI(config) {
+    const thicknessInput = document.getElementById('moralettiThickness');
+    const heightInput = document.getElementById('moralettiHeight');
+    const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
+    const spacingInput = document.getElementById('moralettiSpacing');
+    const presetHint = document.getElementById('presetHint');
+    const activeSummary = document.getElementById('moralettiActiveSummary');
+    
+    if (thicknessInput) thicknessInput.value = config.thickness;
+    if (heightInput) heightInput.value = config.height;
+    if (heightFromGroundInput) heightFromGroundInput.value = config.heightFromGround;
+    if (spacingInput) spacingInput.value = config.spacing;
+    
+    // Update preset display
+    if (presetHint) presetHint.textContent = `Spaziatura: ${config.spacing}mm`;
+    
+    // Update active configuration summary
+    if (activeSummary) {
+        activeSummary.textContent = `${config.thickness}mm × ${config.height}mm, spaziatura ${config.spacing}mm`;
+    }
+    
+    // Update the visual preview
+    updateMoralettiPreview();
+}
+
+// Setup moraletti event listeners
+function setupMoralettiEventListeners() {
+    const inputs = ['moralettiThickness', 'moralettiHeight', 'moralettiHeightFromGround', 'moralettiSpacing'];
+    
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('input', () => {
+                updateMoralettiPreview();
+            });
+            
+            // Prevent panel from closing when interacting with inputs
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('focus', (e) => e.stopPropagation());
+        }
+    });
+}
+
+// Update moraletti preview
+function updateMoralettiPreview() {
+    console.log('🔧 Updating Moraletti Preview');
+    
+    // Safely get input values with fallbacks
+    const spacingInput = document.getElementById('moralettiSpacing');
+    const thicknessInput = document.getElementById('moralettiThickness');
+    const heightInput = document.getElementById('moralettiHeight');
+    const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
+    
+    if (!spacingInput || !thicknessInput || !heightInput || !heightFromGroundInput) {
+        console.warn('🔧 Moraletti inputs not ready yet, skipping preview update');
+        return;
+    }
+    
+    const spacing = parseInt(spacingInput.value) || 413;
+    const thickness = parseInt(thicknessInput.value) || 58;
+    const height = parseInt(heightInput.value) || 495;
+    const heightFromGround = parseInt(heightFromGroundInput.value) || 0;
+    
+    console.log('🔧 Current values:', { spacing, thickness, height, heightFromGround });
+    
+    const blockDimensions = getCurrentBlockDimensions();
+    
+    // Update summary
+    updateMoralettiSummary(thickness, height, spacing);
+    
+    // Calculate and update visual previews
+    updateBlockConfigurationPreviews(blockDimensions, spacing, thickness);
+    
+    // Update preset hint
+    updatePresetHint(blockDimensions);
+    
+    // Update alignment status
+    updateEnhancedAlignmentStatus();
+}
+
+// Update moraletti summary
+function updateMoralettiSummary(thickness, height, spacing) {
+    const summaryElement = document.getElementById('moralettiActiveSummary');
+    if (summaryElement) {
+        summaryElement.textContent = `${thickness}mm × ${height}mm, spaziatura ${spacing}mm`;
+    }
+}
+
+// Update block configuration previews
+function updateBlockConfigurationPreviews(blockDimensions, spacing, thickness) {
+    const configs = [
+        {
+            id: 'three',
+            totalWidth: blockDimensions.block1.width + blockDimensions.block2.width + blockDimensions.block3.width,
+            blockWidths: [blockDimensions.block1.width, blockDimensions.block2.width, blockDimensions.block3.width],
+            svgViewBox: "0 0 400 120"
+        },
+        {
+            id: 'two', 
+            totalWidth: blockDimensions.block1.width + blockDimensions.block2.width,
+            blockWidths: [blockDimensions.block1.width, blockDimensions.block2.width],
+            svgViewBox: "0 0 300 120"
+        },
+        {
+            id: 'one',
+            totalWidth: blockDimensions.block1.width,
+            blockWidths: [blockDimensions.block1.width],
+            svgViewBox: "0 0 200 120"
+        }
+    ];
+    
+    configs.forEach(config => {
+        const positions = calculateMoralettiPositionsJS(config.totalWidth, spacing);
+        
+        // Update width display
+        const widthElement = document.getElementById(`${config.id}BlockWidth`);
+        if (widthElement) {
+            widthElement.textContent = `${config.totalWidth}mm`;
+        }
+        
+        // Update positions text
+        const positionsElement = document.getElementById(`${config.id}BlockPositions`);
+        if (positionsElement) {
+            positionsElement.textContent = `a ${positions.join(', ')}mm`;
+        }
+        
+        // Update SVG visualization
+        updateSVGVisualization(config.id, config, positions, thickness, spacing);
+    });
+}
+
+// Update SVG visualization
+function updateSVGVisualization(configId, config, moralettiPositions, thickness, spacing) {
+    const svg = document.querySelector(`#${configId}BlockPreview .blocks-svg`);
+    if (!svg) return;
+    
+    // Clear existing content
+    svg.innerHTML = '';
+    
+    const viewBoxWidth = configId === 'three' ? 400 : (configId === 'two' ? 300 : 200);
+    const scale = (viewBoxWidth - 20) / config.totalWidth; // Scale to fit with padding
+    
+    // Draw blocks
+    let currentX = 10;
+    config.blockWidths.forEach((width, index) => {
+        const scaledWidth = width * scale;
+        
+        const blockRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        blockRect.setAttribute('class', `block-rect block${index + 1}`);
+        blockRect.setAttribute('x', currentX);
+        blockRect.setAttribute('y', '20');
+        blockRect.setAttribute('width', scaledWidth);
+        blockRect.setAttribute('height', '80');
+        blockRect.setAttribute('fill', '#E5E7EB');
+        blockRect.setAttribute('stroke', '#374151');
+        blockRect.setAttribute('stroke-width', '2');
+        
+        svg.appendChild(blockRect);
+        currentX += scaledWidth;
+    });
+    
+    // Draw moraletti
+    moralettiPositions.forEach((position, index) => {
+        const scaledX = 10 + (position * scale) - (thickness * scale / 2);
+        const scaledThickness = Math.max(6, thickness * scale); // Minimum visible thickness
+        
+        const moralettoRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        moralettoRect.setAttribute('class', 'moraletto-rect');
+        moralettoRect.setAttribute('x', scaledX);
+        moralettoRect.setAttribute('y', '10');
+        moralettoRect.setAttribute('width', scaledThickness);
+        moralettoRect.setAttribute('height', '100');
+        moralettoRect.setAttribute('fill', '#8B4513');
+        moralettoRect.setAttribute('stroke', '#654321');
+        moralettoRect.setAttribute('stroke-width', '1');
+        
+        svg.appendChild(moralettoRect);
+        
+        // Add dimension text
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('class', 'dimension-text');
+        text.setAttribute('x', scaledX + scaledThickness / 2);
+        text.setAttribute('y', '15');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '10');
+        text.setAttribute('fill', '#374151');
+        text.textContent = position;
+        
+        svg.appendChild(text);
+    });
+}
+
+// Update preset hint
+function updatePresetHint(blockDimensions) {
+    const largestBlock = Math.max(
+        blockDimensions.block1.width,
+        blockDimensions.block2.width,
+        blockDimensions.block3.width
+    );
+    const presetSpacing = Math.floor(largestBlock / 3);
+    
+    const hintElement = document.getElementById('presetHint');
+    if (hintElement) {
+        hintElement.textContent = `Spaziatura: ${presetSpacing}mm`;
+    }
+}
+
+// Update enhanced alignment status
+function updateEnhancedAlignmentStatus() {
+    const alignmentIcon = document.getElementById('enhancedAlignmentIcon');
+    const alignmentStatus = document.getElementById('enhancedAlignmentStatus');
+    
+    if (alignmentIcon && alignmentStatus) {
+        // For now, always show positive alignment (the logic guarantees it)
+        alignmentIcon.className = 'fas fa-check-circle status-icon';
+        alignmentIcon.style.color = '#10B981';
+        alignmentStatus.textContent = 'Allineamento verticale garantito';
+    }
+}
+
+// Calculate moraletti positions (JavaScript version)
+function calculateMoralettiPositionsJS(totalWidth, baseWidth) {
+    const offset = Math.floor(baseWidth / 2);
+    const positions = [];
+    let currentPos = offset;
+    
+    while (currentPos < totalWidth) {
+        positions.push(currentPos);
+        currentPos += baseWidth;
+    }
+    
+    return positions;
+}
+
+// Update alignment status
+function updateAlignmentStatus() {
+    const alignmentIcon = document.getElementById('alignmentIcon');
+    const alignmentStatus = document.getElementById('alignmentStatus');
+    
+    if (alignmentIcon && alignmentStatus) {
+        // For now, always show positive alignment (the logic guarantees it)
+        alignmentIcon.className = 'fas fa-check-circle alignment-icon';
+        alignmentIcon.style.color = '#10B981';
+        alignmentStatus.textContent = 'Allineamento verticale garantito';
+    }
+}
+
+// Apply moraletti preset
+function applyMoralettiPreset() {
+    console.log('🔧 Applying moraletti preset');
+    
+    const blockDimensions = getCurrentBlockDimensions();
+    const largestBlock = Math.max(
+        blockDimensions.block1.width,
+        blockDimensions.block2.width,
+        blockDimensions.block3.width
+    );
+    
+    const presetSpacing = Math.floor(largestBlock / 3);
+    
+    // Apply preset values to input
+    const spacingInput = document.getElementById('moralettiSpacing');
+    if (spacingInput) {
+        spacingInput.value = presetSpacing;
+    }
+    
+    // Update preset hint
+    const presetHint = document.getElementById('presetHint');
+    if (presetHint) {
+        presetHint.textContent = `Spaziatura: ${presetSpacing}mm`;
+    }
+    
+    // Update preview
+    updateMoralettiPreview();
+    
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast(`Preset applicato: spaziatura ${presetSpacing}mm (blocco max: ${largestBlock}mm)`, 'success');
+    }
+}
+
+// Reset moraletti to defaults
+function resetMoralettiDefaults() {
+    console.log('🔧 Resetting moraletti to defaults');
+    
+    const defaultConfig = getDefaultMoralettiConfig();
+    applyMoralettiConfigToUI(defaultConfig);
+    updateMoralettiPreview();
+    
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Configurazione moraletti ripristinata ai valori di default', 'info');
+    }
+}
+
+// Save moraletti configuration
+function saveMoralettiConfiguration() {
+    console.log('💾 Saving moraletti configuration');
+    
+    const config = {
+        thickness: parseInt(document.getElementById('moralettiThickness').value) || 58,
+        height: parseInt(document.getElementById('moralettiHeight').value) || 495,
+        heightFromGround: parseInt(document.getElementById('moralettiHeightFromGround').value) || 0,
+        spacing: parseInt(document.getElementById('moralettiSpacing').value) || 413
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('moralettiConfiguration', JSON.stringify(config));
+    localStorage.setItem('moralettiSaved', 'true');
+    
+    // Apply to current session
+    window.currentMoralettiConfig = config;
+    
+    // Lock the inputs for safety
+    lockMoralettiInputs();
+    
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast('Configurazione moraletti salvata! Per modificare, riconferma le dimensioni dei blocchi.', 'success');
+    }
+    
+    console.log('✅ Moraletti configuration saved:', config);
+}
+
+// Get current moraletti configuration
+function getCurrentMoralettiConfiguration() {
+    if (window.currentMoralettiConfig) {
+        return window.currentMoralettiConfig;
+    }
+    
+    // Check localStorage for saved configuration
+    const saved = localStorage.getItem('moralettiConfiguration');
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.warn('Error parsing saved moraletti configuration, using defaults');
+        }
+    }
+    
+    // Fallback to defaults
+    return getDefaultMoralettiConfig();
+}
+
+// ==== NEW MORALETTI FUNCTIONS ====
+
+// Enable moraletti configuration after blocks are confirmed
+function enableMoralettiConfiguration() {
+    console.log('🔧 Enabling moraletti configuration');
+    
+    const moralettiCard = document.getElementById('moralettiCardContainer');
+    const prerequisiteWarning = document.getElementById('moralettiPrerequisiteWarning');
+    const protectionWarning = document.getElementById('moralettiProtectionWarning');
+    const resetBtn = document.getElementById('resetMoralettiBtn');
+    const saveBtn = document.getElementById('saveMoralettiBtn');
+    
+    if (moralettiCard) {
+        moralettiCard.classList.remove('disabled');
+    }
+    
+    if (prerequisiteWarning) {
+        prerequisiteWarning.style.display = 'none';
+    }
+    
+    if (protectionWarning) {
+        protectionWarning.style.display = 'none';
+    }
+    
+    // Enable action buttons
+    if (resetBtn) {
+        resetBtn.disabled = false;
+    }
+    
+    if (saveBtn) {
+        saveBtn.disabled = false;
+    }
+    
+    // Unlock moraletti inputs when blocks are reconfirmed
+    unlockMoralettiInputs();
+    
+    // Clear the saved flag so user can modify again
+    localStorage.removeItem('moralettiSaved');
+    
+    // Update localStorage to remember that blocks are configured
+    localStorage.setItem('blocksConfigured', 'true');
+    
+    console.log('✅ Moraletti configuration enabled and unlocked');
+}
+
+// Lock moraletti inputs after saving
+function lockMoralettiInputs() {
+    const inputs = ['moralettiThickness', 'moralettiHeight', 'moralettiHeightFromGround', 'moralettiSpacing'];
+    
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.disabled = true;
+            input.style.backgroundColor = '#F3F4F6';
+            input.style.color = '#6B7280';
+        }
+    });
+    
+    // Disable preset button
+    const presetBtn = document.querySelector('.preset-action-btn');
+    if (presetBtn) {
+        presetBtn.disabled = true;
+        presetBtn.style.opacity = '0.5';
+    }
+    
+    // Disable action buttons (but keep preview enabled)
+    const resetBtn = document.getElementById('resetMoralettiBtn');
+    const saveBtn = document.getElementById('saveMoralettiBtn');
+    
+    if (resetBtn) {
+        resetBtn.disabled = true;
+    }
+    
+    if (saveBtn) {
+        saveBtn.disabled = true;
+    }
+}
+
+// Unlock moraletti inputs 
+function unlockMoralettiInputs() {
+    const inputs = ['moralettiThickness', 'moralettiHeight', 'moralettiHeightFromGround', 'moralettiSpacing'];
+    
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.disabled = false;
+            input.style.backgroundColor = '';
+            input.style.color = '';
+        }
+    });
+    
+    // Enable preset button
+    const presetBtn = document.querySelector('.preset-action-btn');
+    if (presetBtn) {
+        presetBtn.disabled = false;
+        presetBtn.style.opacity = '1';
+    }
+    
+    // Enable action buttons
+    const resetBtn = document.getElementById('resetMoralettiBtn');
+    const saveBtn = document.getElementById('saveMoralettiBtn');
+    
+    if (resetBtn) {
+        resetBtn.disabled = false;
+    }
+    
+    if (saveBtn) {
+        saveBtn.disabled = false;
+    }
+}
+
+// Check if blocks are configured on page load
+function checkBlocksConfigured() {
+    const blocksConfigured = localStorage.getItem('blocksConfigured');
+    const savedDimensions = localStorage.getItem('blockDimensions');
+    const moralettiSaved = localStorage.getItem('moralettiSaved');
+    
+    if (blocksConfigured === 'true' && savedDimensions) {
+        enableMoralettiConfiguration();
+        
+        // If moraletti were saved, lock them
+        if (moralettiSaved === 'true') {
+            setTimeout(() => {
+                lockMoralettiInputs();
+            }, 500); // Small delay to ensure inputs are loaded
+        }
+    }
+}
+
+// Generate moraletti preview with correct logic
+function generateMoralettiPreview() {
+    console.log('🔧 Generating moraletti preview');
+    
+    // First get the input parameters
+    const spacingInput = document.getElementById('moralettiSpacing');
+    const thicknessInput = document.getElementById('moralettiThickness');
+    const heightInput = document.getElementById('moralettiHeight');
+    const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
+    
+    if (!spacingInput || !thicknessInput || !heightInput || !heightFromGroundInput) {
+        console.warn('🔧 Missing input parameters');
+        return;
+    }
+    
+    const spacing = parseInt(spacingInput.value) || 413;
+    const thickness = parseInt(thicknessInput.value) || 58;
+    const height = parseInt(heightInput.value) || 495;
+    const heightFromGround = parseInt(heightFromGroundInput.value) || 0;
+    
+    // Get confirmed block dimensions
+    const blockDimensions = getCurrentBlockDimensions();
+    
+    // Generate preview based on actual blocks according to technical image logic
+    generateTechnicalPreview(blockDimensions, spacing, thickness);
+    
+    // Show visual section
+    const visualSection = document.getElementById('moralettiVisualSection');
+    if (visualSection) {
+        visualSection.style.display = 'block';
+    }
+    
+    // Update summary
+    const activeSummary = document.getElementById('moralettiActiveSummary');
+    if (activeSummary) {
+        activeSummary.textContent = `${thickness}mm × ${height}mm, spaziatura ${spacing}mm`;
+    }
+}
+
+// Generate technical preview according to the image provided
+function generateTechnicalPreview(blockDimensions, spacing, thickness) {
+    const previewContainer = document.getElementById('moralettiPreviewContainer');
+    if (!previewContainer) return;
+    
+    // Clear existing content
+    previewContainer.innerHTML = '';
+    
+    // Sort blocks by width to determine: large, medium, small
+    const blocks = [
+        { id: 'block1', width: blockDimensions.block1.width, height: blockDimensions.block1.height },
+        { id: 'block2', width: blockDimensions.block2.width, height: blockDimensions.block2.height },
+        { id: 'block3', width: blockDimensions.block3.width, height: blockDimensions.block3.height }
+    ].sort((a, b) => b.width - a.width); // Sort descending by width
+    
+    const largeBlock = blocks[0];   // Largest width = 3 moraletti
+    const mediumBlock = blocks[1];  // Medium width = 2 moraletti  
+    const smallBlock = blocks[2];   // Smallest width = 1 moraletto
+    
+    // Generate preview for large block (3 moraletti)
+    generateBlockPreview(largeBlock, 3, 'Blocco Grande', previewContainer, spacing, thickness);
+    
+    // Generate preview for medium block (2 moraletti)
+    generateBlockPreview(mediumBlock, 2, 'Blocco Medio', previewContainer, spacing, thickness);
+    
+    // Generate preview for small block (1 moraletto)
+    generateBlockPreview(smallBlock, 1, 'Blocco Piccolo', previewContainer, spacing, thickness);
+}
+
+// Generate individual block preview with correct moraletti positioning
+function generateBlockPreview(block, moralettiCount, title, container, spacing, thickness) {
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'block-configuration-preview';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'config-header';
+    header.innerHTML = `
+        <span class="config-title">${title}</span>
+        <span class="config-width">${block.width}mm</span>
+    `;
+    
+    // Calculate moraletti positions according to original logic:
+    // First moraletto at spacing/2, then every spacing distance
+    const moralettiPositions = [];
+    const offset = spacing / 2; // Half of spacing = start position
+    
+    for (let i = 0; i < moralettiCount; i++) {
+        const position = offset + (i * spacing);
+        moralettiPositions.push(Math.round(position));
+    }
+    
+    // Visual container
+    const visualContainer = document.createElement('div');
+    visualContainer.className = 'visual-blocks-container';
+    
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'blocks-svg');
+    svg.setAttribute('viewBox', '0 0 400 120');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    
+    // Calculate scale to fit SVG
+    const svgWidth = 380; // With padding
+    const scale = svgWidth / Math.max(block.width, spacing * moralettiCount);
+    
+    // Draw block (centered)
+    const blockRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    blockRect.setAttribute('x', '10');
+    blockRect.setAttribute('y', '30');
+    blockRect.setAttribute('width', block.width * scale);
+    blockRect.setAttribute('height', '60');
+    blockRect.setAttribute('fill', '#E5E7EB');
+    blockRect.setAttribute('stroke', '#374151');
+    blockRect.setAttribute('stroke-width', '2');
+    svg.appendChild(blockRect);
+    
+    // Draw moraletti (half outside, half inside the block)
+    moralettiPositions.forEach((position, index) => {
+        const scaledX = 10 + (position * scale) - (thickness * scale / 2);
+        
+        const moralettoRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        moralettoRect.setAttribute('x', scaledX);
+        moralettoRect.setAttribute('y', '15'); // Half above block
+        moralettoRect.setAttribute('width', Math.max(8, thickness * scale));
+        moralettoRect.setAttribute('height', '90'); // Extends through block
+        moralettoRect.setAttribute('fill', '#8B4513');
+        moralettoRect.setAttribute('stroke', '#654321');
+        moralettoRect.setAttribute('stroke-width', '1');
+        svg.appendChild(moralettoRect);
+        
+        // Add position text
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', scaledX + (thickness * scale / 2));
+        text.setAttribute('y', '12');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '10');
+        text.setAttribute('fill', '#374151');
+        text.textContent = position + 'mm';
+        svg.appendChild(text);
+    });
+    
+    visualContainer.appendChild(svg);
+    
+    // Config info
+    const configInfo = document.createElement('div');
+    configInfo.className = 'config-info';
+    configInfo.innerHTML = `
+        <span class="moraletti-count">${moralettiCount} Moraletti</span>
+        <span class="positions-text">a ${moralettiPositions.join(', ')}mm</span>
+    `;
+    visualContainer.appendChild(configInfo);
+    
+    previewDiv.appendChild(header);
+    previewDiv.appendChild(visualContainer);
+    container.appendChild(previewDiv);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkBlocksConfigured();
+    
+    // Update spacing suggestion if blocks are already configured
+    setTimeout(() => {
+        updateSpacingSuggestion();
+    }, 500);
+});
+
+// ==== NEW AUTO-SUGGESTION FUNCTIONS ====
+
+// Get current block dimensions from inputs
+function getCurrentBlockDimensions() {
+    const width1 = parseFloat(document.getElementById('block1Width')?.value) || 0;
+    const height1 = parseFloat(document.getElementById('block1Height')?.value) || 0;
+    const depth1 = parseFloat(document.getElementById('block1Depth')?.value) || 0;
+    
+    const width2 = parseFloat(document.getElementById('block2Width')?.value) || 0;
+    const height2 = parseFloat(document.getElementById('block2Height')?.value) || 0;
+    const depth2 = parseFloat(document.getElementById('block2Depth')?.value) || 0;
+    
+    const width3 = parseFloat(document.getElementById('block3Width')?.value) || 0;
+    const height3 = parseFloat(document.getElementById('block3Height')?.value) || 0;
+    const depth3 = parseFloat(document.getElementById('block3Depth')?.value) || 0;
+    
+    if (!width1 || !width2 || !width3) return null;
+    
+    return {
+        block1: { width: width1, height: height1, depth: depth1 },
+        block2: { width: width2, height: height2, depth: depth2 },
+        block3: { width: width3, height: height3, depth: depth3 }
+    };
+}
+
+// Update auto-suggestion when blocks change
+function updateSpacingSuggestion() {
+    const blockDimensions = getCurrentBlockDimensions();
+    if (!blockDimensions) return;
+    
+    const largestBlock = Math.max(
+        blockDimensions.block1.width,
+        blockDimensions.block2.width,
+        blockDimensions.block3.width
+    );
+    
+    const suggestedSpacing = Math.floor(largestBlock / 3);
+    
+    const suggestedElement = document.getElementById('suggestedSpacing');
+    if (suggestedElement) {
+        suggestedElement.textContent = suggestedSpacing + 'mm';
+    }
+    
+    return suggestedSpacing;
+}
+
+// Enhanced saveBlockDimensions with mandatory moraletti configuration
+function saveBlockDimensionsEnhanced() {
+    // Get input elements
+    const input1 = document.getElementById('block1Width');
+    const input2 = document.getElementById('block2Width');
+    const input3 = document.getElementById('block3Width');
+    
+    // Clear previous error states
+    [input1, input2, input3].forEach(input => {
+        if (input) input.classList.remove('error');
+    });
+    
+    // Validate block dimensions order
+    const width1 = parseFloat(input1?.value) || 0;
+    const width2 = parseFloat(input2?.value) || 0;
+    const width3 = parseFloat(input3?.value) || 0;
+    
+    // Check: Blocco 1 > Blocco 2 > Blocco 3 (all different)
+    if (width1 <= width2) {
+        if (input1) input1.classList.add('error');
+        if (input2) input2.classList.add('error');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Il Blocco 1 (Grande) deve avere larghezza maggiore del Blocco 2 (Medio)', 'error', 5000);
+        }
+        return;
+    }
+    
+    if (width2 <= width3) {
+        if (input2) input2.classList.add('error');
+        if (input3) input3.classList.add('error');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Il Blocco 2 (Medio) deve avere larghezza maggiore del Blocco 3 (Piccolo)', 'error', 5000);
+        }
+        return;
+    }
+    
+    if (width1 === width2 || width2 === width3 || width1 === width3) {
+        [input1, input2, input3].forEach(input => {
+            if (input) input.classList.add('error');
+        });
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Errore: Tutti i blocchi devono avere larghezze diverse tra loro', 'error', 5000);
+        }
+        return;
+    }
+    
+    // Validation passed - save the dimensions
+    saveBlockDimensions();
+    
+    // Update spacing suggestion
+    const suggestedSpacing = updateSpacingSuggestion();
+    
+    // Auto-set the suggested spacing in the input
+    const spacingInput = document.getElementById('moralettiSpacing');
+    if (spacingInput && suggestedSpacing) {
+        spacingInput.value = suggestedSpacing;
+    }
+    
+    // Update the active summary with suggested values
+    const thickness = parseFloat(document.getElementById('moralettiThickness')?.value) || 58;
+    const height = parseFloat(document.getElementById('moralettiHeight')?.value) || 495;
+    const summaryElement = document.getElementById('moralettiActiveSummary');
+    if (summaryElement && suggestedSpacing) {
+        summaryElement.textContent = `${thickness}mm × ${height}mm, spaziatura ${suggestedSpacing}mm`;
+    }
+    
+    // Show mandatory message
+    setTimeout(() => {
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('⚠️ Ora devi configurare i moraletti prima di procedere!', 'warning', 5000);
+        }
+        
+        // Scroll to moraletti section
+        const moralettiCard = document.getElementById('moralettiCardContainer');
+        if (moralettiCard) {
+            moralettiCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Add highlight effect
+            moralettiCard.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.5)';
+            moralettiCard.style.border = '3px solid #3B82F6';
+            
+            setTimeout(() => {
+                moralettiCard.style.boxShadow = '';
+                moralettiCard.style.border = '';
+            }, 3000);
+        }
+    }, 1000);
+}

@@ -88,6 +88,118 @@ SIZE_TO_LETTER = _create_size_to_letter_mapping(BLOCK_WIDTHS)  # mapping dimensi
 
 
 # ────────────────────────────────────────────────────────────────────────────────
+# Moraletti (Steel Connection Posts) Configuration
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Parametri standard moraletti (pilastri in acciaio per incastro verticale)
+MORALETTO_THICKNESS_MM = get_env_int('MORALETTO_THICKNESS_MM', 58)    # spessore standard moraletti
+MORALETTO_HEIGHT_MM = get_env_int('MORALETTO_HEIGHT_MM', 495)         # altezza moraletti (= altezza blocchi)
+MORALETTO_HEIGHT_FROM_GROUND_MM = get_env_int('MORALETTO_HEIGHT_FROM_GROUND_MM', 0)  # altezza da terra
+
+# Logica di posizionamento moraletti
+# I moraletti sono posizionati ogni BLOCK_BASE_WIDTH_MM per garantire allineamento verticale
+def get_moraletto_base_width(block_widths: List[int] = None) -> int:
+    """
+    Determina la larghezza base per il calcolo delle posizioni dei moraletti.
+    Prende il blocco più piccolo come unità base per la griglia.
+    
+    Args:
+        block_widths: Lista larghezze blocchi personalizzate (opzionale)
+        
+    Returns:
+        Larghezza base in mm per calcolo posizioni moraletti
+    """
+    if block_widths is None:
+        block_widths = BLOCK_WIDTHS
+    
+    return min(block_widths)  # Il blocco più piccolo definisce la griglia
+
+def get_moraletto_preset_spacing(block_widths: List[int] = None) -> int:
+    """
+    Calcola la spaziatura preset per i moraletti basata sul blocco più grande.
+    
+    LOGICA PRESET: larghezza = blocco_più_grande / 3
+    
+    Args:
+        block_widths: Lista larghezze blocchi personalizzate (opzionale)
+        
+    Returns:
+        Spaziatura preset in mm
+    """
+    if block_widths is None:
+        block_widths = BLOCK_WIDTHS
+    
+    largest_block = max(block_widths)
+    return largest_block // 3  # Divisione intera per avere valori puliti
+
+MORALETTO_BASE_WIDTH_MM = get_moraletto_base_width()  # Larghezza base per griglia moraletti
+MORALETTO_PRESET_SPACING_MM = get_moraletto_preset_spacing()  # Spaziatura preset
+
+def calculate_moraletto_positions(total_width_mm: int, base_width_mm: int = None, offset_mm: int = None) -> List[int]:
+    """
+    Calcola le posizioni dei moraletti per una data larghezza totale.
+    
+    LOGICA CORRETTA:
+    - Primo moraletto: a metà del primo blocco (base_width_mm / 2)
+    - Moraletti successivi: ogni base_width_mm dalla prima posizione
+    - Questo garantisce l'allineamento verticale tra i livelli
+    
+    Args:
+        total_width_mm: Larghezza totale della configurazione
+        base_width_mm: Larghezza base per il posizionamento (default: blocco più piccolo)
+        offset_mm: Offset iniziale personalizzato (default: base_width_mm / 2)
+        
+    Returns:
+        Lista delle posizioni X dei moraletti in mm
+    """
+    if base_width_mm is None:
+        base_width_mm = MORALETTO_BASE_WIDTH_MM
+    
+    if offset_mm is None:
+        offset_mm = base_width_mm // 2  # Metà del blocco base
+    
+    positions = []
+    current_pos = offset_mm
+    
+    while current_pos < total_width_mm:
+        positions.append(current_pos)
+        current_pos += base_width_mm
+    
+    return positions
+
+def validate_moraletto_alignment(level_configurations: List[Dict]) -> bool:
+    """
+    Valida che i moraletti siano allineati verticalmente tra tutti i livelli.
+    
+    Args:
+        level_configurations: Lista di configurazioni per livello nel formato:
+        [
+            {"total_width": 1239, "blocks": [{"width": 413}, {"width": 413}, {"width": 413}]},
+            {"total_width": 826, "blocks": [{"width": 413}, {"width": 413}]},
+            ...
+        ]
+        
+    Returns:
+        True se tutti i livelli hanno moraletti allineati, False altrimenti
+    """
+    if not level_configurations:
+        return True
+    
+    # Calcola le posizioni per il primo livello come riferimento
+    reference_positions = set(calculate_moraletto_positions(level_configurations[0]["total_width"]))
+    
+    # Verifica che tutti gli altri livelli abbiano moraletti compatibili
+    for level_config in level_configurations[1:]:
+        level_positions = set(calculate_moraletto_positions(level_config["total_width"]))
+        
+        # I moraletti del livello devono essere un sottoinsieme del riferimento
+        if not level_positions.issubset(reference_positions):
+            return False
+    
+    return True
+
+
+# ────────────────────────────────────────────────────────────────────────────────
 # Block Ordering Strategies
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -197,29 +309,42 @@ def get_default_block_schema() -> Dict:
     Restituisce lo schema blocchi di default del sistema.
     
     Returns:
-        Dict con le dimensioni standard dei blocchi
+        Dict con le dimensioni standard dei blocchi e configurazione moraletti
     """
     return {
         "block_height": BLOCK_HEIGHT,
         "block_widths": BLOCK_WIDTHS.copy(),  # [1239, 826, 413]
         "size_to_letter": SIZE_TO_LETTER.copy(),  # {1239: "A", 826: "B", 413: "C"}
+        "moraletto_thickness": MORALETTO_THICKNESS_MM,
+        "moraletto_height": MORALETTO_HEIGHT_MM,
+        "moraletto_height_from_ground": MORALETTO_HEIGHT_FROM_GROUND_MM,
+        "moraletto_base_width": get_moraletto_base_width(BLOCK_WIDTHS),
+        "moraletto_preset_spacing": get_moraletto_preset_spacing(BLOCK_WIDTHS),
         "schema_type": "standard"  # Indica che è lo schema di default
     }
 
 
-def create_custom_block_schema(custom_widths: List[int], custom_height: int = None) -> Dict:
+def create_custom_block_schema(custom_widths: List[int], custom_height: int = None, custom_moraletto_thickness: int = None, custom_moraletto_height_from_ground: int = None) -> Dict:
     """
     Crea un nuovo schema blocchi personalizzato.
     
     Args:
         custom_widths: Lista delle larghezze personalizzate [w1, w2, w3]
         custom_height: Altezza personalizzata (opzionale)
+        custom_moraletto_thickness: Spessore moraletti personalizzato (opzionale)
+        custom_moraletto_height_from_ground: Altezza da terra personalizzata (opzionale)
         
     Returns:
         Dict con lo schema personalizzato
     """
     if custom_height is None:
         custom_height = BLOCK_HEIGHT
+    
+    if custom_moraletto_thickness is None:
+        custom_moraletto_thickness = MORALETTO_THICKNESS_MM
+        
+    if custom_moraletto_height_from_ground is None:
+        custom_moraletto_height_from_ground = MORALETTO_HEIGHT_FROM_GROUND_MM
     
     # Crea mapping personalizzato dimensione -> lettera
     # Ordina per dimensione decrescente e assegna A, B, C...
@@ -234,6 +359,11 @@ def create_custom_block_schema(custom_widths: List[int], custom_height: int = No
         "block_height": custom_height,
         "block_widths": custom_widths,
         "size_to_letter": custom_size_to_letter,
+        "moraletto_thickness": custom_moraletto_thickness,
+        "moraletto_height": custom_height,  # Moraletti hanno stessa altezza dei blocchi
+        "moraletto_height_from_ground": custom_moraletto_height_from_ground,
+        "moraletto_base_width": get_moraletto_base_width(custom_widths),
+        "moraletto_preset_spacing": get_moraletto_preset_spacing(custom_widths),
         "schema_type": "custom"  # Indica che è personalizzato
     }
 
@@ -333,6 +463,12 @@ def get_default_config() -> Dict:
         "block_widths": BLOCK_WIDTHS,
         "size_to_letter": SIZE_TO_LETTER,
         "block_orders": BLOCK_ORDERS,
+        # Moraletti configuration
+        "moraletto_thickness": MORALETTO_THICKNESS_MM,
+        "moraletto_height": MORALETTO_HEIGHT_MM,
+        "moraletto_height_from_ground": MORALETTO_HEIGHT_FROM_GROUND_MM,
+        "moraletto_base_width": MORALETTO_BASE_WIDTH_MM,
+        "moraletto_preset_spacing": MORALETTO_PRESET_SPACING_MM,
         # Server configuration
         "server_host": SERVER_HOST,
         "server_port": SERVER_PORT,
