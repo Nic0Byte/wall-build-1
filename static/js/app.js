@@ -4123,6 +4123,237 @@ function getCurrentColorTheme() {
     };
 }
 
+// ==== CUSTOM MATERIALS CONFIGURATION ====
+
+function toggleCustomMaterialsPanel() {
+    const panel = document.getElementById('customMaterialsPanel');
+    const icon = document.getElementById('customMaterialsExpandIcon');
+    
+    if (!panel || !icon) return;
+    
+    const isVisible = panel.style.display !== 'none';
+    
+    if (isVisible) {
+        // Close panel
+        panel.style.display = 'none';
+        icon.classList.remove('expanded');
+        console.log('📦 Custom materials panel closed');
+    } else {
+        // Open panel
+        panel.style.display = 'block';
+        icon.classList.add('expanded');
+        
+        // Load materials
+        loadCustomMaterials();
+        
+        console.log('📦 Custom materials panel opened');
+    }
+}
+
+function addCustomMaterial() {
+    const nameInput = document.getElementById('newMaterialName');
+    const thicknessInput = document.getElementById('newMaterialThickness');
+    
+    const name = nameInput.value.trim();
+    const thickness = parseFloat(thicknessInput.value);
+    
+    // Validation
+    if (!name) {
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Inserisci il nome del materiale', 'error');
+        }
+        return;
+    }
+    
+    if (!thickness || thickness < 1 || thickness > 100) {
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Inserisci uno spessore valido (1-100mm)', 'error');
+        }
+        return;
+    }
+    
+    // Get existing materials
+    const materials = getCustomMaterials();
+    
+    // Check for duplicate names
+    if (materials.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('❌ Esiste già un materiale con questo nome', 'error');
+        }
+        return;
+    }
+    
+    // Add new material
+    const newMaterial = {
+        id: Date.now().toString(),
+        name: name,
+        thickness: thickness,
+        createdAt: new Date().toISOString()
+    };
+    
+    materials.push(newMaterial);
+    saveCustomMaterials(materials);
+    
+    // Clear inputs
+    nameInput.value = '';
+    thicknessInput.value = '';
+    
+    // Reload list
+    loadCustomMaterials();
+    
+    // Update material selector in Step 3
+    updateMaterialSelector();
+    
+    if (window.wallPackingApp) {
+        window.wallPackingApp.showToast(`✅ Materiale "${name}" aggiunto con successo!`, 'success');
+    }
+    
+    console.log('✅ Custom material added:', newMaterial);
+}
+
+function deleteCustomMaterial(materialId) {
+    if (!confirm('Sei sicuro di voler eliminare questo materiale?')) {
+        return;
+    }
+    
+    let materials = getCustomMaterials();
+    const materialToDelete = materials.find(m => m.id === materialId);
+    
+    materials = materials.filter(m => m.id !== materialId);
+    saveCustomMaterials(materials);
+    
+    // Reload list
+    loadCustomMaterials();
+    
+    // Update material selector
+    updateMaterialSelector();
+    
+    if (window.wallPackingApp && materialToDelete) {
+        window.wallPackingApp.showToast(`🗑️ Materiale "${materialToDelete.name}" eliminato`, 'info');
+    }
+    
+    console.log('🗑️ Custom material deleted:', materialId);
+}
+
+function loadCustomMaterials() {
+    const materials = getCustomMaterials();
+    const grid = document.getElementById('customMaterialsList');
+    const emptyState = document.getElementById('emptyMaterialsState');
+    
+    if (!grid) return;
+    
+    // Clear grid
+    grid.innerHTML = '';
+    
+    if (materials.length === 0) {
+        // Show empty state
+        grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>Nessun materiale personalizzato ancora creato</p>
+                <span>Aggiungi il tuo primo materiale usando il form sopra</span>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create material cards
+    materials.forEach(material => {
+        const card = document.createElement('div');
+        card.className = 'material-card';
+        card.innerHTML = `
+            <div class="material-card-header">
+                <h5 class="material-card-title">${escapeHtml(material.name)}</h5>
+                <div class="material-card-actions">
+                    <button class="material-action-btn delete-btn" onclick="deleteCustomMaterial('${material.id}')" title="Elimina">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="material-card-info">
+                <i class="fas fa-ruler"></i>
+                <span>${material.thickness} mm</span>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function getCustomMaterials() {
+    const saved = localStorage.getItem('customMaterials');
+    if (!saved) return [];
+    
+    try {
+        return JSON.parse(saved);
+    } catch (e) {
+        console.error('Error parsing custom materials:', e);
+        return [];
+    }
+}
+
+function saveCustomMaterials(materials) {
+    localStorage.setItem('customMaterials', JSON.stringify(materials));
+}
+
+function updateMaterialSelector() {
+    const selector = document.getElementById('materialType');
+    if (!selector) return;
+    
+    // Get default materials (first 4 options)
+    const defaultOptions = Array.from(selector.options).slice(0, 4);
+    
+    // Clear selector
+    selector.innerHTML = '';
+    
+    // Re-add default options
+    defaultOptions.forEach(opt => selector.appendChild(opt));
+    
+    // Add custom materials
+    const materials = getCustomMaterials();
+    materials.forEach(material => {
+        const option = document.createElement('option');
+        option.value = `custom_${material.id}`;
+        option.textContent = `${material.name} (${material.thickness}mm)`;
+        option.dataset.thickness = material.thickness;
+        selector.appendChild(option);
+    });
+    
+    console.log('✅ Material selector updated with', materials.length, 'custom materials');
+}
+
+function setupMaterialChangeHandler() {
+    const selector = document.getElementById('materialType');
+    const thicknessInput = document.getElementById('materialThickness');
+    
+    if (!selector || !thicknessInput) return;
+    
+    selector.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        
+        // Default thicknesses for standard materials
+        const defaultThicknesses = {
+            'melamine': 18,
+            'mdf': 19,
+            'chipboard': 18,
+            'plywood': 15
+        };
+        
+        if (this.value.startsWith('custom_')) {
+            // Custom material - get thickness from option
+            thicknessInput.value = selectedOption.dataset.thickness || 18;
+        } else {
+            // Standard material - use default thickness
+            thicknessInput.value = defaultThicknesses[this.value] || 18;
+        }
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Get block dimensions for backend processing
 function getBlockDimensionsForBackend() {
     const dimensions = getCurrentBlockDimensions();
@@ -5723,6 +5954,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup height synchronization
     setupHeightSynchronization();
+    
+    // Initialize materials system
+    updateMaterialSelector();
+    setupMaterialChangeHandler();
 });
 
 // ==== HEIGHT SYNCHRONIZATION ====

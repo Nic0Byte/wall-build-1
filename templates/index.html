@@ -6,6 +6,7 @@
     <title>Parete TAKTAK® - Sistema Professionale</title>
     <link rel="stylesheet" href="/static/css/style.css?v=3.0">
     <link rel="stylesheet" href="/static/css/moraletti-styles.css?v=3.0">
+    <link rel="stylesheet" href="/static/css/materials-config.css?v=3.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -304,17 +305,13 @@
                                         <option value="mdf">MDF</option>
                                         <option value="chipboard">Truciolato</option>
                                         <option value="plywood">Multistrato</option>
-                                        <option value="custom">Personalizzato</option>
+                                        <!-- Custom materials will be added here dynamically -->
                                     </select>
                                 </div>
                                 <div class="param-row">
                                     <label for="materialThickness">Spessore Materiale (mm):</label>
-                                    <input type="number" id="materialThickness" class="param-input" value="18" min="10" max="50" step="1">
-                                    <span class="param-help">*Influenza calcolo spessore chiusure</span>
-                                </div>
-                                <div class="param-row">
-                                    <label for="materialDensity">Densità (kg/m³):</label>
-                                    <input type="number" id="materialDensity" class="param-input" value="650" min="400" max="1000" step="10">
+                                    <input type="number" id="materialThickness" class="param-input" value="18" min="10" max="50" step="1" readonly>
+                                    <span class="param-help">*Basato sul materiale selezionato</span>
                                 </div>
                             </div>
 
@@ -730,6 +727,65 @@
                     </div>
                     
                     <div class="features-grid">
+                        <!-- Custom Materials Configuration Card -->
+                        <div class="feature-card custom-materials-card" onclick="toggleCustomMaterialsPanel()">
+                            <div class="feature-icon">
+                                <i class="fas fa-layer-group"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Configurazione Materiali Personalizzati <i class="fas fa-chevron-down expand-icon" id="customMaterialsExpandIcon"></i></h3>
+                                <p>Crea e gestisci i tuoi materiali personalizzati</p>
+                                
+                                <!-- How it works explanation -->
+                                <div class="system-explanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Aggiungi materiale:</strong> Inserisci nome e spessore del materiale personalizzato</li>
+                                        <li><strong>Salva:</strong> Il materiale verrà salvato e disponibile nello Step 3</li>
+                                        <li><strong>Gestisci:</strong> Modifica o elimina i materiali esistenti quando necessario</li>
+                                    </ol>
+                                </div>
+                                
+                                <!-- Custom Materials Panel (Initially Hidden) -->
+                                <div class="custom-materials-panel" id="customMaterialsPanel" style="display: none;">
+                                    
+                                    <!-- Add New Material Section -->
+                                    <div class="add-material-section">
+                                        <h4><i class="fas fa-plus-circle"></i> Aggiungi Nuovo Materiale</h4>
+                                        <div class="material-form">
+                                            <div class="material-input-group">
+                                                <label for="newMaterialName">Tipologia Materiale:</label>
+                                                <input type="text" id="newMaterialName" placeholder="Es: MDF Premium" class="material-input">
+                                            </div>
+                                            <div class="material-input-group">
+                                                <label for="newMaterialThickness">Spessore (mm):</label>
+                                                <input type="number" id="newMaterialThickness" placeholder="18" min="1" max="100" class="material-input">
+                                            </div>
+                                            <button class="add-material-btn" onclick="event.stopPropagation(); addCustomMaterial()">
+                                                <i class="fas fa-plus"></i> Aggiungi Materiale
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Existing Materials List -->
+                                    <div class="materials-list-section">
+                                        <h4><i class="fas fa-list"></i> Materiali Salvati</h4>
+                                        <div class="materials-grid" id="customMaterialsList">
+                                            <!-- Materials will be dynamically inserted here -->
+                                            <div class="empty-state" id="emptyMaterialsState">
+                                                <i class="fas fa-inbox"></i>
+                                                <p>Nessun materiale personalizzato ancora creato</p>
+                                                <span>Aggiungi il tuo primo materiale usando il form sopra</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Block Dimensions Configuration Card -->
                         <div class="feature-card block-dimensions-card" onclick="toggleBlockDimensionsPanel()">
                             <div class="feature-icon">
