@@ -1917,13 +1917,13 @@ class WallPackingApp {
             
             if (config.block_widths && config.block_widths.length >= 3) {
                 if (activeBlock1Dims) {
-                    activeBlock1Dims.textContent = `${config.block_widths[0]}×${config.block_height}×100 mm`;
+                    activeBlock1Dims.textContent = `${config.block_widths[0]}×${config.block_height} mm`;
                 }
                 if (activeBlock2Dims) {
-                    activeBlock2Dims.textContent = `${config.block_widths[1]}×${config.block_height}×100 mm`;
+                    activeBlock2Dims.textContent = `${config.block_widths[1]}×${config.block_height} mm`;
                 }
                 if (activeBlock3Dims) {
-                    activeBlock3Dims.textContent = `${config.block_widths[2]}×${config.block_height}×100 mm`;
+                    activeBlock3Dims.textContent = `${config.block_widths[2]}×${config.block_height} mm`;
                 }
             }
             
@@ -3508,11 +3508,11 @@ function updateActiveBlocksDisplay() {
     
     // Update dimension displays
     document.getElementById('activeBlock1Dims').textContent = 
-        `${currentDimensions.block1.width}×${currentDimensions.block1.height}×${currentDimensions.block1.depth} mm`;
+        `${currentDimensions.block1.width}×${currentDimensions.block1.height} mm`;
     document.getElementById('activeBlock2Dims').textContent = 
-        `${currentDimensions.block2.width}×${currentDimensions.block2.height}×${currentDimensions.block2.depth} mm`;
+        `${currentDimensions.block2.width}×${currentDimensions.block2.height} mm`;
     document.getElementById('activeBlock3Dims').textContent = 
-        `${currentDimensions.block3.width}×${currentDimensions.block3.height}×${currentDimensions.block3.depth} mm`;
+        `${currentDimensions.block3.width}×${currentDimensions.block3.height} mm`;
     
     // Update mini preview proportions
     updateMiniPreviews(currentDimensions);
