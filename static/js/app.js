@@ -2834,12 +2834,7 @@ class WallPackingApp {
             // NUOVO: Termina misurazione durata Step 1→2
             if (this.step1to2StartTime) {
                 this.step1to2Duration = performance.now() - this.step1to2StartTime;
-                console.log(`⏱️ Durata Step 1→2 misurata: ${this.step1to2Duration.toFixed(0)}ms (${(this.step1to2Duration/1000).toFixed(1)}s)`);
             }
-            
-            // NUOVO: Notifica l'utente che la transizione è completa con durata
-            const totalDuration = this.step1to2Duration ? (this.step1to2Duration/1000).toFixed(1) : 'N/A';
-            this.showToast(`✅ Anteprima caricata in ${totalDuration}s!`, 'success', 4000);
             
         } catch (error) {
             console.error('❌ Preview generation error:', error);
