@@ -4212,27 +4212,73 @@ function addCustomMaterial() {
 }
 
 function deleteCustomMaterial(materialId) {
-    if (!confirm('Sei sicuro di voler eliminare questo materiale?')) {
+    console.log('🗑️ deleteCustomMaterial called with ID:', materialId);
+    
+    const materials = getCustomMaterials();
+    const materialToDelete = materials.find(m => m.id === materialId);
+    
+    if (!materialToDelete) {
+        console.error('❌ Material not found:', materialId);
         return;
     }
     
-    let materials = getCustomMaterials();
-    const materialToDelete = materials.find(m => m.id === materialId);
+    console.log('✅ Material found:', materialToDelete);
     
-    materials = materials.filter(m => m.id !== materialId);
-    saveCustomMaterials(materials);
+    // Show modal with material name
+    const modal = document.getElementById('deleteMaterialModal');
+    const materialNameSpan = document.getElementById('deleteMaterialName');
+    const confirmBtn = document.getElementById('confirmDeleteMaterialBtn');
     
-    // Reload list
-    loadCustomMaterials();
+    console.log('Modal elements:', { modal, materialNameSpan, confirmBtn });
     
-    // Update material selector
-    updateMaterialSelector();
-    
-    if (window.wallPackingApp && materialToDelete) {
-        window.wallPackingApp.showToast(`🗑️ Materiale "${materialToDelete.name}" eliminato`, 'info');
+    if (!modal || !materialNameSpan || !confirmBtn) {
+        console.error('❌ Delete modal elements not found!');
+        return;
     }
     
-    console.log('🗑️ Custom material deleted:', materialId);
+    materialNameSpan.textContent = `${materialToDelete.name} (${materialToDelete.thickness}mm)`;
+    modal.style.display = 'flex';
+    console.log('✅ Modal should be visible now');
+    
+    // Close modal when clicking outside
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeMaterialDeleteModal();
+        }
+    };
+    
+    // Remove any existing event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add new event listener for confirmation
+    document.getElementById('confirmDeleteMaterialBtn').onclick = function() {
+        const updatedMaterials = materials.filter(m => m.id !== materialId);
+        saveCustomMaterials(updatedMaterials);
+        
+        // Close modal
+        closeMaterialDeleteModal();
+        
+        // Reload list
+        loadCustomMaterials();
+        
+        // Update material selector
+        updateMaterialSelector();
+        
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast(`🗑️ Materiale "${materialToDelete.name}" eliminato`, 'info');
+        }
+        
+        console.log('✅ Custom material deleted:', materialId);
+    };
+}
+
+function closeMaterialDeleteModal() {
+    const modal = document.getElementById('deleteMaterialModal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('✅ Modal closed');
+    }
 }
 
 function loadCustomMaterials() {
