@@ -1892,7 +1892,12 @@ class WallPackingApp {
         
         // Carica la configurazione di default dai valori reali del sistema
         const defaultConfig = await this.loadDefaultBlocksConfig();
-        const blockWidths = document.getElementById('blockWidths')?.value || defaultConfig.block_widths_string;
+        
+        // Get block dimensions from saved configuration instead of removed input field
+        const savedBlockDimensions = getCurrentBlockDimensions();
+        const blockWidths = savedBlockDimensions ? 
+            `${savedBlockDimensions.block1.width},${savedBlockDimensions.block2.width},${savedBlockDimensions.block3.width}` :
+            defaultConfig.block_widths_string;
         
         return {
             projectName,
@@ -1903,12 +1908,6 @@ class WallPackingApp {
     async loadBlockConfigurationIntoUI() {
         try {
             const config = await this.loadDefaultBlocksConfig();
-            
-            // Aggiorna l'input delle dimensioni blocchi
-            const blockWidthsInput = document.getElementById('blockWidths');
-            if (blockWidthsInput && !blockWidthsInput.value) {
-                blockWidthsInput.value = config.block_widths_string;
-            }
             
             // Aggiorna anche i valori nell'HTML hardcoded (card attiva)
             const activeBlock1Dims = document.getElementById('activeBlock1Dims');
@@ -2038,8 +2037,7 @@ class WallPackingApp {
             this.updatePresetButtons('826');
         }
         
-        const blockWidths = document.getElementById('blockWidths');
-        if (blockWidths) blockWidths.value = '1239,826,413';
+        // Block widths now managed by global settings, not this field
         
         // Hide sections
         const fileInfo = document.getElementById('fileInfo');
@@ -4868,10 +4866,7 @@ async function restoreProjectConfigurations(project) {
         
         // Block widths
         if (config.block_widths) {
-            const blockWidthsInput = document.getElementById('blockWidths');
-            if (blockWidthsInput) {
-                blockWidthsInput.value = config.block_widths;
-            }
+            // Block widths are now managed globally, not through this removed field
         }
         
         console.log('⚙️ Configurazioni UI ripristinate');
