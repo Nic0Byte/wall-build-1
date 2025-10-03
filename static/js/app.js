@@ -2077,12 +2077,22 @@ class WallPackingApp {
         const fileInput = document.getElementById('fileInput');
         if (fileInput) fileInput.value = '';
         
+        // Clear file name display
+        const fileName = document.getElementById('fileName');
+        if (fileName) fileName.textContent = '';
+        
         // Hide file info
         const fileInfo = document.getElementById('fileInfo');
         if (fileInfo) fileInfo.style.display = 'none';
         
         const headerStats = document.getElementById('headerStats');
         if (headerStats) headerStats.style.display = 'none';
+        
+        // Reset upload area to initial state
+        const uploadArea = document.getElementById('uploadArea');
+        if (uploadArea) {
+            uploadArea.classList.remove('has-file');
+        }
         
         // Unlock block dimensions editing
         this.unlockBlockDimensionsEditing();
@@ -2093,7 +2103,7 @@ class WallPackingApp {
         // Show upload section
         this.showSection('upload');
         
-        this.showToast('Torna all\'upload - configurazioni mantenute', 'info');
+        this.showToast('File rimosso - pronto per nuovo upload', 'info');
     }
     
     // Auto-save project when processing is complete
