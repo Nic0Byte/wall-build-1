@@ -4533,6 +4533,37 @@ table tbody tr:hover {
         padding: 16px;
     }
 }
+
+/* ===== Footer ===== */
+.app-footer {
+    width: 100%;
+    margin-top: var(--spacing-6);
+    padding: var(--spacing-6) 0;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.footer-image {
+    max-width: 600px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+    .app-footer {
+        padding: var(--spacing-4) 0;
+        margin-top: var(--spacing-4);
+    }
+    
+    .footer-image {
+        max-width: 400px;
+    }
+}
  
  
  
