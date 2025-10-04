@@ -4538,30 +4538,46 @@ table tbody tr:hover {
 .app-footer {
     width: 100%;
     margin-top: var(--spacing-6);
-    padding: var(--spacing-6) 0;
-    background: white;
-    border-top: 1px solid var(--gray-200);
+    padding: var(--spacing-4) 0;
+    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--gray-900) 50%, var(--brand-primary) 100%);
+    color: white;
+    box-shadow: var(--shadow-xl);
+    position: relative;
+    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.footer-image {
-    max-width: 600px;
-    width: 100%;
-    height: auto;
-    display: block;
-    margin: 0 auto;
+.app-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(59, 130, 246, 0.1) 0%, transparent 50%, rgba(16, 185, 129, 0.1) 100%);
+    pointer-events: none;
+}
+
+.footer-text {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+    opacity: 0.9;
 }
 
 @media (max-width: 768px) {
     .app-footer {
-        padding: var(--spacing-4) 0;
+        padding: var(--spacing-3) 0;
         margin-top: var(--spacing-4);
     }
     
-    .footer-image {
-        max-width: 400px;
+    .footer-text {
+        font-size: 0.75rem;
     }
 }
  
