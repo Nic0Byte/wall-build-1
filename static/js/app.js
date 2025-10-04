@@ -6344,3 +6344,151 @@ function saveBlockDimensionsEnhanced() {
         }
     }, 1000);
 }
+// ============================================================================
+// MANDATORY CONFIGURATION MODAL SYSTEM
+// ============================================================================
+
+// Listen for configuration-required event from auth.js
+window.addEventListener('configuration-required', (event) => {
+    const { has_configured_blocks, has_configured_moraletti } = event.detail;
+    showMandatoryConfigModal(has_configured_blocks, has_configured_moraletti);
+});
+
+function showMandatoryConfigModal(hasBlocks, hasMoraletti) {
+    console.log(' Mostrando modal configurazione obbligatoria');
+    
+    const modal = document.getElementById('mandatoryConfigModal');
+    const blocksWarning = document.getElementById('configBlocksWarning');
+    const moralettiWarning = document.getElementById('configMoralettiWarning');
+    
+    if (!modal) {
+        console.error('Modal configurazione obbligatoria non trovato');
+        return;
+    }
+    
+    // Show/hide warnings based on what's configured
+    if (blocksWarning) {
+        blocksWarning.style.display = hasBlocks ? 'none' : 'flex';
+        if (hasBlocks) {
+            blocksWarning.querySelector('.fa-times-circle').className = 'fas fa-check-circle';
+            blocksWarning.querySelector('.fa-check-circle').style.color = '#28a745';
+            blocksWarning.style.background = '#d4edda';
+            blocksWarning.style.borderLeft = '5px solid #28a745';
+        }
+    }
+    
+    if (moralettiWarning) {
+        moralettiWarning.style.display = hasMoraletti ? 'none' : 'flex';
+        if (hasMoraletti) {
+            moralettiWarning.querySelector('.fa-times-circle').className = 'fas fa-check-circle';
+            moralettiWarning.querySelector('.fa-check-circle').style.color = '#28a745';
+            moralettiWarning.style.background = '#d4edda';
+            moralettiWarning.style.borderLeft = '5px solid #28a745';
+        }
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    // Block all interactions with the main app
+    document.body.style.overflow = 'hidden';
+    
+    console.log(' Modal configurazione obbligatoria mostrato');
+}
+
+function hideMandatoryConfigModal() {
+    const modal = document.getElementById('mandatoryConfigModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Check configuration status and show modal if needed
+async function checkAndShowMandatoryConfig() {
+    if (!window.authManager || !window.authManager.isAuthenticated()) {
+        return;
+    }
+    
+    const user = window.authManager.getCurrentUser();
+    if (!user || user.is_admin) {
+        return; // Admin users don't need to configure
+    }
+    
+    const needsConfiguration = !user.has_configured_blocks || !user.has_configured_moraletti;
+    
+    if (needsConfiguration) {
+        showMandatoryConfigModal(user.has_configured_blocks, user.has_configured_moraletti);
+    }
+}
+
+// Setup event listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Button to go to global settings
+    const goToSettingsBtn = document.getElementById('goToGlobalSettingsBtn');
+    if (goToSettingsBtn) {
+        goToSettingsBtn.addEventListener('click', () => {
+            // Navigate to library section (global settings)
+            const navItem = document.querySelector('[data-section="library"]');
+            if (navItem) {
+                navItem.click();
+            }
+            
+            // Hide modal temporarily (will show again if not configured)
+            hideMandatoryConfigModal();
+            
+            // Scroll to blocks configuration
+            setTimeout(() => {
+                const blocksCard = document.getElementById('blockConfigCard');
+                if (blocksCard) {
+                    blocksCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Highlight the card
+                    blocksCard.style.boxShadow = '0 0 25px rgba(59, 130, 246, 0.6)';
+                    blocksCard.style.border = '3px solid #3B82F6';
+                    
+                    setTimeout(() => {
+                        blocksCard.style.boxShadow = '';
+                        blocksCard.style.border = '';
+                    }, 3000);
+                }
+            }, 500);
+        });
+    }
+    
+    // Check configuration status after page load
+    setTimeout(() => {
+        checkAndShowMandatoryConfig();
+    }, 1000);
+});
+
+// Update configuration check when user saves configurations
+function onConfigurationSaved() {
+    if (!window.authManager || !window.authManager.isAuthenticated()) {
+        return;
+    }
+    
+    // Refresh user profile to get updated flags
+    window.authManager.fetchUserProfile().then(() => {
+        const user = window.authManager.getCurrentUser();
+        if (user && user.has_configured_blocks && user.has_configured_moraletti) {
+            // All configurations completed
+            hideMandatoryConfigModal();
+            
+            if (window.wallPackingApp) {
+                window.wallPackingApp.showToast(
+                    ' Configurazione completata! Ora puoi utilizzare l\'applicazione.',
+                    'success',
+                    5000
+                );
+            }
+        } else {
+            // Still missing some configurations
+            showMandatoryConfigModal(user.has_configured_blocks, user.has_configured_moraletti);
+        }
+    });
+}
+
+console.log(' Sistema di configurazione obbligatoria inizializzato');
