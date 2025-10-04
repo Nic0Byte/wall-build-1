@@ -102,7 +102,8 @@ class UserSectionSimple {
             // Try to fetch from API
             const response = await fetch('/api/v1/auth/me', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    // CAMBIATO: Usa sessionStorage invece di localStorage
+                    'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`
                 }
             });
             
@@ -133,7 +134,10 @@ class UserSectionSimple {
             if (typeof window.authManager !== 'undefined') {
                 await window.authManager.logout();
             } else {
-                // Fallback logout
+                // Fallback logout - CAMBIATO: Usa sessionStorage
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('user_info');
+                // Pulisci anche localStorage per compatibilità
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('user_info');
                 window.location.href = '/login';

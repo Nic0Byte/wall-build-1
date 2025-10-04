@@ -3,13 +3,26 @@
 
 class AuthManager {
     constructor() {
-        this.token = localStorage.getItem('access_token');
-        this.tokenType = localStorage.getItem('token_type') || 'bearer';
+        // CAMBIATO: Usa sessionStorage invece di localStorage
+        // In questo modo il token viene cancellato alla chiusura del browser
+        this.token = sessionStorage.getItem('access_token');
+        this.tokenType = sessionStorage.getItem('token_type') || 'bearer';
         this.apiBase = window.location.origin;
         this.currentUser = null;
         
+        // Configurazione timeout inattività (30 minuti di default)
+        this.inactivityTimeout = 30 * 60 * 1000; // 30 minuti in millisecondi
+        this.inactivityTimer = null;
+        this.lastActivity = Date.now();
+        
         // Setup interceptor per richieste automatiche
         this.setupRequestInterceptor();
+        
+        // Setup monitoraggio inattività
+        this.setupInactivityMonitor();
+        
+        // Setup listener per chiusura finestra
+        this.setupWindowCloseListener();
         
         // Verifica token all'avvio
         this.verifyToken();
@@ -30,17 +43,33 @@ class AuthManager {
     setToken(token, tokenType = 'bearer') {
         this.token = token;
         this.tokenType = tokenType;
-        localStorage.setItem('access_token', token);
-        localStorage.setItem('token_type', tokenType);
+        // CAMBIATO: Usa sessionStorage invece di localStorage
+        sessionStorage.setItem('access_token', token);
+        sessionStorage.setItem('token_type', tokenType);
+        
+        // Resetta il timer di inattività quando si imposta un nuovo token
+        this.resetInactivityTimer();
     }
 
     clearToken() {
         this.token = null;
         this.tokenType = null;
         this.currentUser = null;
+        // CAMBIATO: Usa sessionStorage invece di localStorage
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('token_type');
+        sessionStorage.removeItem('user_data');
+        
+        // Pulisci anche eventuali dati in localStorage (migrazione da vecchia versione)
         localStorage.removeItem('access_token');
         localStorage.removeItem('token_type');
         localStorage.removeItem('user_data');
+        
+        // Ferma il timer di inattività
+        if (this.inactivityTimer) {
+            clearTimeout(this.inactivityTimer);
+            this.inactivityTimer = null;
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -128,7 +157,8 @@ class AuthManager {
 
             if (response.ok) {
                 this.currentUser = await response.json();
-                localStorage.setItem('user_data', JSON.stringify(this.currentUser));
+                // CAMBIATO: Usa sessionStorage invece di localStorage
+                sessionStorage.setItem('user_data', JSON.stringify(this.currentUser));
                 return true;
             } else {
                 this.clearToken();
@@ -151,7 +181,8 @@ class AuthManager {
 
             if (response.ok) {
                 this.currentUser = await response.json();
-                localStorage.setItem('user_data', JSON.stringify(this.currentUser));
+                // CAMBIATO: Usa sessionStorage invece di localStorage
+                sessionStorage.setItem('user_data', JSON.stringify(this.currentUser));
                 return this.currentUser;
             }
         } catch (error) {
@@ -163,13 +194,14 @@ class AuthManager {
     getCurrentUser() {
         if (this.currentUser) return this.currentUser;
         
-        const userData = localStorage.getItem('user_data');
+        // CAMBIATO: Usa sessionStorage invece di localStorage
+        const userData = sessionStorage.getItem('user_data');
         if (userData) {
             try {
                 this.currentUser = JSON.parse(userData);
                 return this.currentUser;
             } catch {
-                localStorage.removeItem('user_data');
+                sessionStorage.removeItem('user_data');
             }
         }
         return null;
@@ -385,6 +417,108 @@ class AuthManager {
             case 'warning': return 'exclamation-triangle';
             default: return 'info-circle';
         }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Gestione Inattività e Sessione
+    // ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Setup monitoraggio inattività utente
+     * Esegue logout automatico dopo periodo di inattività
+     */
+    setupInactivityMonitor() {
+        // Eventi che indicano attività dell'utente
+        const activityEvents = [
+            'mousedown', 'mousemove', 'keypress', 
+            'scroll', 'touchstart', 'click'
+        ];
+
+        // Handler per registrare attività
+        const handleActivity = () => {
+            this.lastActivity = Date.now();
+            this.resetInactivityTimer();
+        };
+
+        // Registra listener per tutti gli eventi di attività
+        activityEvents.forEach(eventName => {
+            document.addEventListener(eventName, handleActivity, true);
+        });
+
+        // Avvia il timer iniziale
+        this.resetInactivityTimer();
+
+        console.log(`🕐 Monitoraggio inattività attivo (timeout: ${this.inactivityTimeout / 60000} minuti)`);
+    }
+
+    /**
+     * Resetta il timer di inattività
+     */
+    resetInactivityTimer() {
+        // Pulisci il timer esistente
+        if (this.inactivityTimer) {
+            clearTimeout(this.inactivityTimer);
+        }
+
+        // Solo se abbiamo un token attivo
+        if (this.token) {
+            // Imposta nuovo timer
+            this.inactivityTimer = setTimeout(() => {
+                this.handleInactivityTimeout();
+            }, this.inactivityTimeout);
+        }
+    }
+
+    /**
+     * Gestisce il timeout per inattività
+     */
+    handleInactivityTimeout() {
+        console.warn('⚠️ Timeout inattività - Esecuzione logout automatico');
+        
+        // Mostra notifica all'utente
+        this.showToast(
+            'Sessione scaduta per inattività. Verrai reindirizzato al login.',
+            'warning'
+        );
+
+        // Esegui logout dopo 2 secondi per dare tempo di vedere il messaggio
+        setTimeout(() => {
+            this.logout();
+        }, 2000);
+    }
+
+    /**
+     * Configura listener per chiusura finestra/tab
+     * Questo garantisce che i dati vengano puliti alla chiusura
+     */
+    setupWindowCloseListener() {
+        window.addEventListener('beforeunload', () => {
+            // sessionStorage si pulisce automaticamente, 
+            // ma possiamo fare cleanup aggiuntivo se necessario
+            console.log('🚪 Chiusura finestra - La sessione verrà cancellata');
+        });
+
+        // Gestione visibilità pagina (tab nascosta/visibile)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('👁️ Tab nascosta - Pausa monitoraggio attività');
+            } else {
+                console.log('👁️ Tab visibile - Ripresa monitoraggio attività');
+                this.resetInactivityTimer();
+            }
+        });
+    }
+
+    /**
+     * Ottiene il tempo rimanente prima del logout per inattività (in secondi)
+     */
+    getTimeUntilInactivityLogout() {
+        if (!this.token) return 0;
+        
+        const elapsed = Date.now() - this.lastActivity;
+        const remaining = this.inactivityTimeout - elapsed;
+        
+        return Math.max(0, Math.floor(remaining / 1000));
     }
 }
 
