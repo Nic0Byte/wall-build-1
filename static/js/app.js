@@ -5488,7 +5488,11 @@ function getDefaultMoralettiConfig() {
         thickness: 58,
         height: blockHeight,  // Moraletti height matches block height
         heightFromGround: 0,
-        spacing: Math.floor(largestBlock / 3)  // Preset intelligente
+        spacing: Math.floor(largestBlock / 3),  // Preset intelligente
+        // Numero moraletti default per tipo blocco
+        countLarge: 3,
+        countMedium: 2,
+        countSmall: 1
     };
 }
 
@@ -5498,6 +5502,9 @@ function applyMoralettiConfigToUI(config) {
     const heightInput = document.getElementById('moralettiHeight');
     const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
     const spacingInput = document.getElementById('moralettiSpacing');
+    const countLargeInput = document.getElementById('moralettiCountLarge');
+    const countMediumInput = document.getElementById('moralettiCountMedium');
+    const countSmallInput = document.getElementById('moralettiCountSmall');
     const presetHint = document.getElementById('presetHint');
     const activeSummary = document.getElementById('moralettiActiveSummary');
     
@@ -5505,6 +5512,9 @@ function applyMoralettiConfigToUI(config) {
     if (heightInput) heightInput.value = config.height;
     if (heightFromGroundInput) heightFromGroundInput.value = config.heightFromGround;
     if (spacingInput) spacingInput.value = config.spacing;
+    if (countLargeInput) countLargeInput.value = config.countLarge || 3;
+    if (countMediumInput) countMediumInput.value = config.countMedium || 2;
+    if (countSmallInput) countSmallInput.value = config.countSmall || 1;
     
     // Update preset display
     if (presetHint) presetHint.textContent = `Spaziatura: ${config.spacing}mm`;
@@ -5520,7 +5530,8 @@ function applyMoralettiConfigToUI(config) {
 
 // Setup moraletti event listeners
 function setupMoralettiEventListeners() {
-    const inputs = ['moralettiThickness', 'moralettiHeight', 'moralettiHeightFromGround', 'moralettiSpacing'];
+    const inputs = ['moralettiThickness', 'moralettiHeight', 'moralettiHeightFromGround', 'moralettiSpacing', 
+                    'moralettiCountLarge', 'moralettiCountMedium', 'moralettiCountSmall'];
     
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
@@ -5714,14 +5725,24 @@ function updateEnhancedAlignmentStatus() {
 }
 
 // Calculate moraletti positions (JavaScript version)
-function calculateMoralettiPositionsJS(totalWidth, baseWidth) {
-    const offset = Math.floor(baseWidth / 2);
+// Calculate moraletti positions (JavaScript version) - NUOVA LOGICA Ottobre 2025
+// Calculate moraletti positions (JavaScript version) - NUOVA LOGICA Ottobre 2025
+function calculateMoralettiPositionsJS(totalWidth, thickness, spacing, count) {
     const positions = [];
-    let currentPos = offset;
     
-    while (currentPos < totalWidth) {
-        positions.push(currentPos);
-        currentPos += baseWidth;
+    for (let i = 0; i < count; i++) {
+        // Distanza dal bordo destro: 0mm, spacing, 2*spacing, ...
+        const distanceFromRight = i * spacing;
+        
+        // Converti in posizione dal bordo sinistro
+        const positionFromLeft = totalWidth - distanceFromRight;
+        
+        // Controlla che non si esca dal blocco a sinistra
+        if (positionFromLeft - (thickness / 2) >= 0) {
+            positions.push(Math.round(positionFromLeft));
+        } else {
+            break; // Ferma se il moraletto esce dal blocco
+        }
     }
     
     return positions;
@@ -5794,7 +5815,11 @@ function saveMoralettiConfiguration() {
         thickness: parseInt(document.getElementById('moralettiThickness').value) || 58,
         height: parseInt(document.getElementById('moralettiHeight').value) || 495,
         heightFromGround: parseInt(document.getElementById('moralettiHeightFromGround').value) || 0,
-        spacing: parseInt(document.getElementById('moralettiSpacing').value) || 413
+        spacing: parseInt(document.getElementById('moralettiSpacing').value) || 413,
+        // Nuovi parametri per numero moraletti per tipo blocco
+        countLarge: parseInt(document.getElementById('moralettiCountLarge').value) || 3,
+        countMedium: parseInt(document.getElementById('moralettiCountMedium').value) || 2,
+        countSmall: parseInt(document.getElementById('moralettiCountSmall').value) || 1
     };
     
     // Save to localStorage
@@ -6010,6 +6035,11 @@ function generateTechnicalPreview(blockDimensions, spacing, thickness) {
     // Clear existing content
     previewContainer.innerHTML = '';
     
+    // Get moraletti counts from inputs (with defaults)
+    const countLarge = parseInt(document.getElementById('moralettiCountLarge')?.value) || 3;
+    const countMedium = parseInt(document.getElementById('moralettiCountMedium')?.value) || 2;
+    const countSmall = parseInt(document.getElementById('moralettiCountSmall')?.value) || 1;
+    
     // Sort blocks by width to determine: large, medium, small
     const blocks = [
         { id: 'block1', width: blockDimensions.block1.width, height: blockDimensions.block1.height },
@@ -6017,24 +6047,24 @@ function generateTechnicalPreview(blockDimensions, spacing, thickness) {
         { id: 'block3', width: blockDimensions.block3.width, height: blockDimensions.block3.height }
     ].sort((a, b) => b.width - a.width); // Sort descending by width
     
-    const largeBlock = blocks[0];   // Largest width = 3 moraletti
-    const mediumBlock = blocks[1];  // Medium width = 2 moraletti  
-    const smallBlock = blocks[2];   // Smallest width = 1 moraletto
+    const largeBlock = blocks[0];   // Largest width
+    const mediumBlock = blocks[1];  // Medium width
+    const smallBlock = blocks[2];   // Smallest width
     
-    // Generate preview for large block (3 moraletti)
-    generateBlockPreview(largeBlock, 3, 'Blocco Grande', previewContainer, spacing, thickness);
-    
-    // Generate preview for medium block (2 moraletti)
-    generateBlockPreview(mediumBlock, 2, 'Blocco Medio', previewContainer, spacing, thickness);
-    
-    // Generate preview for small block (1 moraletto)
-    generateBlockPreview(smallBlock, 1, 'Blocco Piccolo', previewContainer, spacing, thickness);
+    // Generate preview with configured moraletti counts
+    generateBlockPreview(largeBlock, countLarge, 'Blocco Grande', previewContainer, spacing, thickness);
+    generateBlockPreview(mediumBlock, countMedium, 'Blocco Medio', previewContainer, spacing, thickness);
+    generateBlockPreview(smallBlock, countSmall, 'Blocco Piccolo', previewContainer, spacing, thickness);
 }
 
 // Generate individual block preview with correct moraletti positioning
 function generateBlockPreview(block, moralettiCount, title, container, spacing, thickness) {
     const previewDiv = document.createElement('div');
     previewDiv.className = 'block-configuration-preview';
+    
+    // Get height from ground parameter
+    const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
+    const heightFromGround = parseInt(heightFromGroundInput?.value) || 0;
     
     // Header
     const header = document.createElement('div');
@@ -6044,75 +6074,235 @@ function generateBlockPreview(block, moralettiCount, title, container, spacing, 
         <span class="config-width">${block.width}mm</span>
     `;
     
-    // Calculate moraletti positions according to original logic:
-    // First moraletto at spacing/2, then every spacing distance
+    // NUOVA LOGICA (Ottobre 2025): Posizionamento da DESTRA a SINISTRA
+    // Primo moraletto con CENTRO sul bordo destro (0mm dal bordo destro)
     const moralettiPositions = [];
-    const offset = spacing / 2; // Half of spacing = start position
     
     for (let i = 0; i < moralettiCount; i++) {
-        const position = offset + (i * spacing);
-        moralettiPositions.push(Math.round(position));
+        // Distanza dal bordo destro: 0mm, 420mm, 840mm, ...
+        const distanceFromRight = i * spacing;
+        
+        // Converti in posizione dal bordo sinistro per rendering
+        const positionFromLeft = block.width - distanceFromRight;
+        
+        // Controlla che non si esca dal blocco a sinistra
+        if (positionFromLeft - (thickness / 2) >= 0) {
+            moralettiPositions.push(Math.round(positionFromLeft));
+        } else {
+            break; // Ferma se il moraletto esce dal blocco
+        }
     }
     
     // Visual container
     const visualContainer = document.createElement('div');
     visualContainer.className = 'visual-blocks-container';
     
-    // Create SVG
+    // Create SVG con spazio per moraletti che escono sopra e sotto - PIÙ GRANDE!
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'blocks-svg');
-    svg.setAttribute('viewBox', '0 0 400 120');
+    svg.setAttribute('viewBox', '0 0 500 250'); // SVG più grande per visibilità
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('style', 'min-height: 200px;'); // Altezza minima più grande
     
-    // Calculate scale to fit SVG
-    const svgWidth = 380; // With padding
-    const scale = svgWidth / Math.max(block.width, spacing * moralettiCount);
+    // Calculate scale to fit SVG - varia in base alla dimensione del blocco
+    const svgWidth = 480; // Più largo
+    const scale = svgWidth / block.width;
     
-    // Draw block (centered)
+    // Get moraletto height input
+    const moralettoHeightInput = document.getElementById('moralettiHeight');
+    const moralettoHeight = parseInt(moralettoHeightInput?.value) || 495;
+    
+    // Calcola altezze moraletto:
+    // - heightFromGround (es. 95mm) = piedini SOTTO il blocco
+    // - Dentro blocco = moralettoHeight - heightFromGround (es. 495 - 95 = 400mm)
+    // - Spazio sopra = Lo spazio che resta nel blocco è per l'INCASTRO del blocco superiore
+    const heightBelowBlock = heightFromGround; // Piedini sotto (95mm)
+    const heightInsideBlock = moralettoHeight - heightFromGround; // Dentro blocco (400mm)
+    
+    // Il moraletto NON sporge mai sopra - lo spazio vuoto è per l'incastro
+    const heightAboveBlock = 0; // Non disegnato - è spazio vuoto per incastro
+    const spaceForInterlocking = block.height - heightInsideBlock; // Spazio per incastro blocco superiore
+    
+    // Posizioni Y nel SVG (scala proporzionale) - SVG più grande!
+    const blockY = 40; // Più in alto visto che non c'è parte sopra
+    const blockHeightSvg = 120; // Altezza SVG del blocco più grande per visibilità
+    
+    // Calcola proporzioni per le altezze nel SVG (basate su altezza blocco reale)
+    const svgScale = blockHeightSvg / block.height; // Scala SVG rispetto a dimensioni reali
+    const heightBelowSvg = heightBelowBlock * svgScale;
+    const heightInsideSvg = heightInsideBlock * svgScale;
+    
+    // Draw block
     const blockRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     blockRect.setAttribute('x', '10');
-    blockRect.setAttribute('y', '30');
+    blockRect.setAttribute('y', blockY);
     blockRect.setAttribute('width', block.width * scale);
-    blockRect.setAttribute('height', '60');
+    blockRect.setAttribute('height', blockHeightSvg);
     blockRect.setAttribute('fill', '#E5E7EB');
     blockRect.setAttribute('stroke', '#374151');
     blockRect.setAttribute('stroke-width', '2');
     svg.appendChild(blockRect);
     
-    // Draw moraletti (half outside, half inside the block)
-    moralettiPositions.forEach((position, index) => {
-        const scaledX = 10 + (position * scale) - (thickness * scale / 2);
+    // Draw ground line (pavimento) se ci sono piedini
+    if (heightFromGround > 0) {
+        const groundY = blockY + blockHeightSvg + heightBelowSvg;
+        const groundLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        groundLine.setAttribute('x1', '5');
+        groundLine.setAttribute('y1', groundY);
+        groundLine.setAttribute('x2', '495');
+        groundLine.setAttribute('y2', groundY);
+        groundLine.setAttribute('stroke', '#666');
+        groundLine.setAttribute('stroke-width', '3');
+        groundLine.setAttribute('stroke-dasharray', '8,4');
+        svg.appendChild(groundLine);
         
-        const moralettoRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        moralettoRect.setAttribute('x', scaledX);
-        moralettoRect.setAttribute('y', '15'); // Half above block
-        moralettoRect.setAttribute('width', Math.max(8, thickness * scale));
-        moralettoRect.setAttribute('height', '90'); // Extends through block
-        moralettoRect.setAttribute('fill', '#8B4513');
-        moralettoRect.setAttribute('stroke', '#654321');
-        moralettoRect.setAttribute('stroke-width', '1');
-        svg.appendChild(moralettoRect);
+        // Label per pavimento
+        const groundText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        groundText.setAttribute('x', '10');
+        groundText.setAttribute('y', groundY + 18);
+        groundText.setAttribute('font-size', '12');
+        groundText.setAttribute('font-weight', 'bold');
+        groundText.setAttribute('fill', '#666');
+        groundText.textContent = '═══ Pavimento ═══';
+        svg.appendChild(groundText);
+    }
+    
+    // Draw moraletti con annotazioni dettagliate
+    moralettiPositions.forEach((positionFromLeft, index) => {
+        const scaledX = 10 + (positionFromLeft * scale) - (thickness * scale / 2);
+        const moralettoWidth = Math.max(12, thickness * scale); // Più largo per visibilità
         
-        // Add position text
+        // Calcola distanza dal bordo destro per la label
+        const distanceFromRight = block.width - positionFromLeft;
+        
+        // MORALETTO COMPLETO con 2 PARTI (DENTRO + PIEDINI):
+        // Il moraletto parte dall'alto del blocco e scende giù
+        
+        // 1. PARTE DENTRO IL BLOCCO (400mm) - colore medio
+        // Questa parte va dal TOP del blocco verso il basso
+        const insideY = blockY + blockHeightSvg - heightInsideSvg; // Parte dal fondo del blocco verso l'alto
+        const insideRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        insideRect.setAttribute('x', scaledX);
+        insideRect.setAttribute('y', insideY);
+        insideRect.setAttribute('width', moralettoWidth);
+        insideRect.setAttribute('height', heightInsideSvg);
+        insideRect.setAttribute('fill', '#8B4513'); // Marrone medio
+        insideRect.setAttribute('stroke', '#654321');
+        insideRect.setAttribute('stroke-width', '2');
+        svg.appendChild(insideRect);
+        
+        // 2. PIEDINI SOTTO IL BLOCCO (95mm) - colore scuro - ATTACCATI alla parte dentro
+        if (heightFromGround > 0) {
+            const piediniRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            piediniRect.setAttribute('x', scaledX);
+            piediniRect.setAttribute('y', blockY + blockHeightSvg); // Parte subito sotto il blocco
+            piediniRect.setAttribute('width', moralettoWidth);
+            piediniRect.setAttribute('height', heightBelowSvg);
+            piediniRect.setAttribute('fill', '#654321'); // Marrone scuro per piedini
+            piediniRect.setAttribute('stroke', '#4A2511');
+            piediniRect.setAttribute('stroke-width', '2');
+            svg.appendChild(piediniRect);
+            
+            // Annotazione piedini (solo sul primo moraletto per chiarezza)
+            if (index === 0) {
+                const piediniLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                piediniLabel.setAttribute('x', scaledX + moralettoWidth + 5);
+                piediniLabel.setAttribute('y', blockY + blockHeightSvg + (heightBelowSvg / 2));
+                piediniLabel.setAttribute('font-size', '12');
+                piediniLabel.setAttribute('font-weight', 'bold');
+                piediniLabel.setAttribute('fill', '#654321');
+                piediniLabel.textContent = `⬇ ${heightFromGround}mm`;
+                svg.appendChild(piediniLabel);
+            }
+            
+            // Annotazione dentro blocco (solo sul primo moraletto)
+            if (index === 0) {
+                const insideLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                insideLabel.setAttribute('x', scaledX + moralettoWidth + 5);
+                insideLabel.setAttribute('y', insideY + (heightInsideSvg / 2));
+                insideLabel.setAttribute('font-size', '12');
+                insideLabel.setAttribute('font-weight', 'bold');
+                insideLabel.setAttribute('fill', '#8B4513');
+                insideLabel.textContent = `■ ${heightInsideBlock}mm`;
+                svg.appendChild(insideLabel);
+            }
+        }
+        
+        // Label: mostra distanza dal bordo destro (0mm, 420mm, 840mm...)
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', scaledX + (thickness * scale / 2));
-        text.setAttribute('y', '12');
+        text.setAttribute('x', scaledX + (moralettoWidth / 2));
+        text.setAttribute('y', blockY - 10); // Sopra il blocco
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-size', '10');
-        text.setAttribute('fill', '#374151');
-        text.textContent = position + 'mm';
+        text.setAttribute('font-size', '14');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', '#1F2937');
+        text.textContent = distanceFromRight + 'mm';
         svg.appendChild(text);
     });
     
     visualContainer.appendChild(svg);
     
-    // Config info
+    // Config info con informazioni dettagliate
     const configInfo = document.createElement('div');
     configInfo.className = 'config-info';
-    configInfo.innerHTML = `
+    
+    // Calcola distanze e range per ogni moraletto (dal bordo DESTRO)
+    const moralettiDetails = moralettiPositions.map((posFromLeft, index) => {
+        // Distanza dal bordo destro
+        const distanceFromRight = block.width - posFromLeft;
+        
+        // Range del moraletto (dal bordo destro)
+        const moralettoStart = distanceFromRight - (thickness / 2);
+        const moralettoEnd = distanceFromRight + (thickness / 2);
+        
+        return {
+            index: index + 1,
+            distanceFromRight: Math.round(distanceFromRight),
+            start: Math.round(moralettoStart),
+            end: Math.round(moralettoEnd)
+        };
+    });
+    
+    // Crea lista distanze semplici
+    const distances = moralettiDetails.map(m => m.distanceFromRight + 'mm').join(', ');
+    
+    // Crea lista dettagliata con range
+    const detailsHTML = moralettiDetails.map(m => 
+        `<div class="moraletto-detail">
+            <strong>M${m.index}:</strong> Centro a ${m.distanceFromRight}mm → Range (${m.start}mm, ${m.end}mm)
+        </div>`
+    ).join('');
+    
+    let infoHTML = `
         <span class="moraletti-count">${moralettiCount} Moraletti</span>
-        <span class="positions-text">a ${moralettiPositions.join(', ')}mm</span>
+        <span class="positions-text">Distanze centri dal bordo destro: ${distances}</span>
+        <div class="moraletti-ranges" style="margin-top: 8px; font-size: 11px; line-height: 1.6;">
+            ${detailsHTML}
+        </div>
     `;
+    
+    // Info dettagliate sulle altezze
+    if (heightFromGround > 0 || moralettoHeight > 0) {
+        const heightInside = moralettoHeight - heightFromGround;
+        const spaceForInterlocking = block.height - heightInside;
+        
+        infoHTML += `
+            <div class="height-details" style="margin-top: 12px; font-size: 12px; border-top: 2px solid #ddd; padding-top: 10px; line-height: 1.8;">
+                <div style="font-weight: bold; margin-bottom: 6px;">📏 Composizione Moraletto (${moralettoHeight}mm totale):</div>
+                <div style="color: #8B4513;">■ Dentro blocco: ${heightInside}mm</div>
+                <div style="color: #654321;">⬇ Piedini sotto blocco: ${heightFromGround}mm</div>
+                <div style="margin-top: 8px; padding: 8px; background: #FFF3CD; border-left: 3px solid #FFC107; border-radius: 4px;">
+                    <div style="font-weight: bold; color: #856404; margin-bottom: 4px;">🔧 Spazio per incastro blocco superiore:</div>
+                    <div style="color: #856404; font-size: 14px; font-weight: bold;">${spaceForInterlocking}mm</div>
+                    <div style="font-style: italic; font-size: 11px; color: #666; margin-top: 4px;">
+                        (Blocco ${block.height}mm - Moraletto dentro ${heightInside}mm)
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    configInfo.innerHTML = infoHTML;
     visualContainer.appendChild(configInfo);
     
     previewDiv.appendChild(header);

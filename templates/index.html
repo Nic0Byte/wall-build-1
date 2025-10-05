@@ -921,15 +921,22 @@
                                 <div class="system-explanation" id="moralettiExplanation">
                                     <div class="explanation-header">
                                         <i class="fas fa-info-circle"></i>
-                                        <strong>Come funziona il sistema:</strong>
+                                        <strong>Come funziona il sistema moraletti:</strong>
                                     </div>
                                     <ol class="explanation-steps">
                                         <li><strong>Configura i blocchi:</strong> Prima devi salvare le dimensioni dei 3 blocchi standard</li>
-                                        <li><strong>Calcolo automatico:</strong> Il sistema propone automaticamente la spaziatura ottimale (Blocco grande/3)</li>
-                                        <li><strong>Personalizza:</strong> Puoi modificare tutti i parametri secondo le tue esigenze</li>
-                                        <li><strong>Visualizza:</strong> Genera l'anteprima per vedere il posizionamento dei moraletti</li>
-                                        <li><strong>Salva:</strong> Conferma la configurazione per bloccarla in sicurezza</li>
+                                        <li><strong>Spaziatura automatica:</strong> Il sistema propone spaziatura ottimale = Blocco Grande ÷ 3</li>
+                                        <li><strong>Posizionamento da DESTRA:</strong> Il primo moraletto parte dal bordo destro del blocco (29mm fuori + 29mm dentro per moraletto 58mm)</li>
+                                        <li><strong>Spaziatura tra moraletti:</strong> Dal centro del primo moraletto, distanza configurabile verso SINISTRA</li>
+                                        <li><strong>Altezza da terra (Piedini):</strong> Imposta quanti mm il moraletto sporge SOTTO il blocco per sollevarlo dal pavimento</li>
+                                        <li><strong>Numero moraletti:</strong> Configura quanti moraletti per ogni tipo di blocco (default: Grande=3, Medio=2, Piccolo=1)</li>
+                                        <li><strong>Visualizza:</strong> Genera anteprima per vedere posizionamento e allineamento verticale</li>
+                                        <li><strong>Salva:</strong> Conferma configurazione per usarla nell'algoritmo di packing</li>
                                     </ol>
+                                    <div class="explanation-note">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <em><strong>Esempio:</strong> Blocco 1260mm, moraletto 58mm, spaziatura 420mm → Posizioni: 1231mm, 811mm, 391mm dal bordo sinistro</em>
+                                    </div>
                                     <div class="explanation-note">
                                         <i class="fas fa-shield-alt"></i>
                                         <em>Una volta salvati i moraletti, per modificarli devi riconfermare prima i blocchi</em>
@@ -969,10 +976,13 @@
                                             </div>
                                             
                                             <div class="control-group">
-                                                <label for="moralettiHeightFromGround">Altezza da Terra (mm)</label>
+                                                <label for="moralettiHeightFromGround">Altezza da Terra (Piedini) (mm)</label>
                                                 <div class="control-input-wrapper">
                                                     <input type="number" id="moralettiHeightFromGround" value="0" min="0" max="200" class="control-input">
                                                     <span class="input-unit">mm</span>
+                                                </div>
+                                                <div class="auto-suggestion">
+                                                    <span style="font-size: 11px;">⬇ Quanto il moraletto sporge SOTTO il blocco (es. 95mm = piedini che sollevano il blocco)</span>
                                                 </div>
                                             </div>
                                             
@@ -984,6 +994,30 @@
                                                 </div>
                                                 <div class="auto-suggestion" id="spacingSuggestion">
                                                     <span>💡 Spaziatura Calcolata Automaticamente: <strong id="suggestedSpacing">-</strong></span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiCountLarge">N° Moraletti Blocco Grande</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiCountLarge" value="3" min="1" max="5" class="control-input">
+                                                    <span class="input-unit">pz</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiCountMedium">N° Moraletti Blocco Medio</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiCountMedium" value="2" min="1" max="5" class="control-input">
+                                                    <span class="input-unit">pz</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="control-group">
+                                                <label for="moralettiCountSmall">N° Moraletti Blocco Piccolo</label>
+                                                <div class="control-input-wrapper">
+                                                    <input type="number" id="moralettiCountSmall" value="1" min="1" max="5" class="control-input">
+                                                    <span class="input-unit">pz</span>
                                                 </div>
                                             </div>
                                         </div>

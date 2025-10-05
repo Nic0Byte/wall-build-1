@@ -135,49 +135,62 @@ def get_moraletto_preset_spacing(block_widths: List[int] = None) -> int:
 MORALETTO_BASE_WIDTH_MM = get_moraletto_base_width()  # Larghezza base per griglia moraletti
 MORALETTO_PRESET_SPACING_MM = get_moraletto_preset_spacing()  # Spaziatura preset
 
-def calculate_moraletto_positions(total_width_mm: int, base_width_mm: int = None, offset_mm: int = None) -> List[int]:
+def calculate_moraletto_positions(total_width_mm: int, thickness_mm: int, spacing_mm: int, count: int) -> List[int]:
     """
     Calcola le posizioni dei moraletti per una data larghezza totale.
     
-    LOGICA CORRETTA:
-    - Primo moraletto: a metà del primo blocco (base_width_mm / 2)
-    - Moraletti successivi: ogni base_width_mm dalla prima posizione
-    - Questo garantisce l'allineamento verticale tra i livelli
+    NUOVA LOGICA (Ottobre 2025 - CORRETTA):
+    - Primo moraletto: CENTRO sul bordo destro (0mm dal bordo destro)
+    - Moraletti successivi: distanziati di spacing_mm verso SINISTRA
+    - Distanze dal bordo destro: 0mm, spacing_mm, 2*spacing_mm, ...
+    
+    Esempio: Blocco 1260mm, thickness=58mm, spacing=420mm, count=3
+    - M1: Centro a 0mm dal bordo destro → Range (-29mm, 29mm)
+    - M2: Centro a 420mm dal bordo destro → Range (391mm, 449mm)
+    - M3: Centro a 840mm dal bordo destro → Range (811mm, 869mm)
     
     Args:
-        total_width_mm: Larghezza totale della configurazione
-        base_width_mm: Larghezza base per il posizionamento (default: blocco più piccolo)
-        offset_mm: Offset iniziale personalizzato (default: base_width_mm / 2)
+        total_width_mm: Larghezza totale del blocco
+        thickness_mm: Larghezza/spessore del moraletto
+        spacing_mm: Spaziatura tra i centri dei moraletti
+        count: Numero di moraletti da posizionare
         
     Returns:
-        Lista delle posizioni X dei moraletti in mm
+        Lista delle posizioni X dei moraletti in mm (dal bordo sinistro)
     """
-    if base_width_mm is None:
-        base_width_mm = MORALETTO_BASE_WIDTH_MM
-    
-    if offset_mm is None:
-        offset_mm = base_width_mm // 2  # Metà del blocco base
-    
     positions = []
-    current_pos = offset_mm
     
-    while current_pos < total_width_mm:
-        positions.append(current_pos)
-        current_pos += base_width_mm
+    for i in range(count):
+        # Distanza dal bordo destro: 0, spacing, 2*spacing, ...
+        distance_from_right = i * spacing_mm
+        
+        # Converti in posizione dal bordo sinistro
+        position_from_left = total_width_mm - distance_from_right
+        
+        # Controlla che il moraletto non esca dal blocco a sinistra
+        if position_from_left - (thickness_mm / 2) >= 0:
+            positions.append(int(position_from_left))
+        else:
+            break  # Ferma se il moraletto esce dal blocco
     
     return positions
 
-def validate_moraletto_alignment(level_configurations: List[Dict]) -> bool:
+def validate_moraletto_alignment(level_configurations: List[Dict], thickness_mm: int, spacing_mm: int) -> bool:
     """
     Valida che i moraletti siano allineati verticalmente tra tutti i livelli.
+    
+    NUOVA LOGICA: Con posizionamento da destra, i moraletti dei livelli più piccoli
+    devono allinearsi con quelli del livello più grande.
     
     Args:
         level_configurations: Lista di configurazioni per livello nel formato:
         [
-            {"total_width": 1239, "blocks": [{"width": 413}, {"width": 413}, {"width": 413}]},
-            {"total_width": 826, "blocks": [{"width": 413}, {"width": 413}]},
-            ...
+            {"total_width": 1260, "count": 3},
+            {"total_width": 840, "count": 2},
+            {"total_width": 420, "count": 1}
         ]
+        thickness_mm: Larghezza del moraletto
+        spacing_mm: Spaziatura tra moraletti
         
     Returns:
         True se tutti i livelli hanno moraletti allineati, False altrimenti
@@ -185,14 +198,26 @@ def validate_moraletto_alignment(level_configurations: List[Dict]) -> bool:
     if not level_configurations:
         return True
     
-    # Calcola le posizioni per il primo livello come riferimento
-    reference_positions = set(calculate_moraletto_positions(level_configurations[0]["total_width"]))
+    # Calcola le posizioni per il primo livello (più grande) come riferimento
+    ref_config = level_configurations[0]
+    reference_positions = set(calculate_moraletto_positions(
+        ref_config["total_width"], 
+        thickness_mm, 
+        spacing_mm, 
+        ref_config["count"]
+    ))
     
     # Verifica che tutti gli altri livelli abbiano moraletti compatibili
     for level_config in level_configurations[1:]:
-        level_positions = set(calculate_moraletto_positions(level_config["total_width"]))
+        level_positions = set(calculate_moraletto_positions(
+            level_config["total_width"], 
+            thickness_mm, 
+            spacing_mm, 
+            level_config["count"]
+        ))
         
         # I moraletti del livello devono essere un sottoinsieme del riferimento
+        # (partendo da destra, i livelli più piccoli avranno meno moraletti ma allineati)
         if not level_positions.issubset(reference_positions):
             return False
     
