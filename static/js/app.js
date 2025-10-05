@@ -6104,9 +6104,16 @@ function generateBlockPreview(block, moralettiCount, title, container, spacing, 
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svg.setAttribute('style', 'min-height: 200px;'); // Altezza minima più grande
     
-    // Calculate scale to fit SVG - varia in base alla dimensione del blocco
-    const svgWidth = 480; // Più largo
-    const scale = svgWidth / block.width;
+    // SCALA FISSA DINAMICA - basata sul blocco PIÙ GRANDE disponibile
+    // Così tutti i blocchi usano la stessa scala e i moraletti sono allineati!
+    const blockSizes = [
+        parseInt(document.getElementById('blockWidthLarge')?.value) || 1260,
+        parseInt(document.getElementById('blockWidthMedium')?.value) || 840,
+        parseInt(document.getElementById('blockWidthSmall')?.value) || 420
+    ];
+    const maxBlockWidth = Math.max(...blockSizes); // Blocco più grande
+    const svgWidth = 480; // Larghezza disponibile nel SVG
+    const scale = svgWidth / maxBlockWidth; // Scala fissa per tutti i blocchi!
     
     // Get moraletto height input
     const moralettoHeightInput = document.getElementById('moralettiHeight');
@@ -6132,11 +6139,16 @@ function generateBlockPreview(block, moralettiCount, title, container, spacing, 
     const heightBelowSvg = heightBelowBlock * svgScale;
     const heightInsideSvg = heightInsideBlock * svgScale;
     
+    // ALLINEA I BLOCCHI A DESTRA - perché i moraletti partono da destra!
+    const maxBlockWidthSvg = maxBlockWidth * scale; // Larghezza SVG del blocco più grande
+    const blockWidthSvg = block.width * scale; // Larghezza SVG di questo blocco
+    const blockX = 10 + (maxBlockWidthSvg - blockWidthSvg); // Allineamento a destra
+    
     // Draw block
     const blockRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    blockRect.setAttribute('x', '10');
+    blockRect.setAttribute('x', blockX);
     blockRect.setAttribute('y', blockY);
-    blockRect.setAttribute('width', block.width * scale);
+    blockRect.setAttribute('width', blockWidthSvg);
     blockRect.setAttribute('height', blockHeightSvg);
     blockRect.setAttribute('fill', '#E5E7EB');
     blockRect.setAttribute('stroke', '#374151');
@@ -6169,8 +6181,8 @@ function generateBlockPreview(block, moralettiCount, title, container, spacing, 
     
     // Draw moraletti con annotazioni dettagliate
     moralettiPositions.forEach((positionFromLeft, index) => {
-        const scaledX = 10 + (positionFromLeft * scale) - (thickness * scale / 2);
-        const moralettoWidth = Math.max(12, thickness * scale); // Più largo per visibilità
+        const moralettoWidth = 15; // SPESSORE FISSO - lo spessore reale (58mm) è uguale per tutti i blocchi!
+        const scaledX = blockX + (positionFromLeft * scale) - (moralettoWidth / 2); // Usa blockX per allineamento
         
         // Calcola distanza dal bordo destro per la label
         const distanceFromRight = block.width - positionFromLeft;
