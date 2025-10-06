@@ -269,11 +269,26 @@ async def enhanced_pack_from_preview(
         except json.JSONDecodeError:
             material_params = {}
         
-        # Estrai direzione di partenza dai parametri calcolati
-        starting_point = material_params.get('calculated', {}).get('starting_point', 'left')
-        # Normalizza: right -> right, altrimenti left
-        starting_direction = 'right' if starting_point == 'right' else 'left'
-        print(f"🔄 Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
+        # DEBUG: Stampa tutto il material_params per vedere cosa arriva
+        print(f"DEBUG material_params completo: {json.dumps(material_params, indent=2)}")
+        
+        # Estrai direzione di partenza - supporta sia formato nidificato che flat
+        # Formato nidificato: material_params['calculated']['starting_point']
+        # Formato flat: material_params['calculated_starting_point']
+        starting_point = (
+            material_params.get('calculated', {}).get('starting_point') or  # Formato nidificato
+            material_params.get('calculated_starting_point') or              # Formato flat
+            'left'  # Default
+        )
+        
+        # Normalizza: supporta vari formati (right, destra, right side, etc.)
+        starting_point_lower = str(starting_point).lower().strip()
+        if 'right' in starting_point_lower or 'destra' in starting_point_lower or 'dest' in starting_point_lower:
+            starting_direction = 'right'
+        else:
+            starting_direction = 'left'
+        
+        print(f"Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
         
         # Parse dimensioni blocchi
         try:
@@ -832,13 +847,28 @@ async def enhanced_upload_and_process(
         except json.JSONDecodeError:
             material_params = {}
         
-        print(f"🔧 Material parameters ricevuti: {material_params}")
+        print(f"Material parameters ricevuti: {material_params}")
         
-        # Estrai direzione di partenza dai parametri calcolati
-        starting_point = material_params.get('calculated', {}).get('starting_point', 'left')
-        # Normalizza: right -> right, altrimenti left
-        starting_direction = 'right' if starting_point == 'right' else 'left'
-        print(f"🔄 Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
+        # DEBUG: Stampa tutto il material_params per vedere cosa arriva
+        print(f"DEBUG material_params completo: {json.dumps(material_params, indent=2)}")
+        
+        # Estrai direzione di partenza - supporta sia formato nidificato che flat
+        # Formato nidificato: material_params['calculated']['starting_point']
+        # Formato flat: material_params['calculated_starting_point']
+        starting_point = (
+            material_params.get('calculated', {}).get('starting_point') or  # Formato nidificato
+            material_params.get('calculated_starting_point') or              # Formato flat
+            'left'  # Default
+        )
+        
+        # Normalizza: supporta vari formati (right, destra, right side, etc.)
+        starting_point_lower = str(starting_point).lower().strip()
+        if 'right' in starting_point_lower or 'destra' in starting_point_lower or 'dest' in starting_point_lower:
+            starting_direction = 'right'
+        else:
+            starting_direction = 'left'
+        
+        print(f"Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
         
         # Parse block dimensions from frontend
         try:
