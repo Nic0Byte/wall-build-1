@@ -597,17 +597,16 @@ def _pack_segment_with_order_adaptive(comp: Polygon, y: float, stripe_top: float
 def pack_wall(polygon: Polygon,
               block_widths: List[int],
               block_height: int,
-              row_offset: Optional[int] = None,  # Deprecato: mantenuto per compatibilità
+              row_offset: Optional[int] = None,
               apertures: Optional[List[Polygon]] = None,
-              enable_debug: bool = False) -> Tuple[List[Dict], List[Dict]]:
+              enable_debug: bool = False,
+              starting_direction: str = 'left') -> Tuple[List[Dict], List[Dict]]:
     """
-    🔄 PACKER PRINCIPALE CON ALGORITMO BIDIREZIONALE
+    PACKER PRINCIPALE CON ALGORITMO DIREZIONALE UNIFORME
     
-    NOVITÀ: 
-    - Algoritmo bidirezionale (sinistra/destra alternato) 
-    - row_offset deprecato (ignorato)
-    - Sistema debug integrato
-    - Effetto mattoncino naturale
+    Args:
+        starting_direction: 'left' = tutte le righe da sinistra-destra
+                           'right' = tutte le righe da destra-sinistra
     """
     
     # Inizializza debugger
@@ -618,25 +617,32 @@ def pack_wall(polygon: Polygon,
         debugger.log_optimization(
             "OFFSET_DEPRECATION", 
             f"row_offset={row_offset} ignorato", 
-            "Algoritmo bidirezionale elimina necessità di offset manuale"
+            "Algoritmo direzionale uniforme elimina necessita di offset manuale"
         )
     
-    print(f"� NUOVO ALGORITMO BIDIREZIONALE:")
-    print(f"   📏 Polygon bounds: {polygon.bounds}")
-    print(f"   📐 Polygon area: {polygon.area}")
-    print(f"   🔲 Polygon valid: {polygon.is_valid}")
-    print(f"   📦 Block widths: {block_widths}")
-    print(f"   📏 Block height: {block_height}")
-    print(f"   🚪 Aperture: {len(apertures) if apertures else 0}")
-    print(f"   � Debug: {'ATTIVO' if enable_debug else 'DISATTIVO'}")
+    # Normalizza starting_direction
+    starting_direction = starting_direction.lower() if starting_direction else 'left'
+    if starting_direction not in ['left', 'right']:
+        print(f"Warning: starting_direction '{starting_direction}' non valida, uso 'left' di default")
+        starting_direction = 'left'
+    
+    print(f"NUOVO ALGORITMO DIREZIONALE UNIFORME:")
+    print(f"   Polygon bounds: {polygon.bounds}")
+    print(f"   Polygon area: {polygon.area}")
+    print(f"   Polygon valid: {polygon.is_valid}")
+    print(f"   Block widths: {block_widths}")
+    print(f"   Block height: {block_height}")
+    print(f"   Aperture: {len(apertures) if apertures else 0}")
+    print(f"   Direzione: TUTTE le righe partono da {'SINISTRA' if starting_direction == 'left' else 'DESTRA'}")
+    print(f"   Debug: {'ATTIVO' if enable_debug else 'DISATTIVO'}")
     
     polygon = sanitize_polygon(polygon)
 
     # Aperture dal poligono + eventuali passate a parte
     hole_polys = polygon_holes(polygon)
     ap_list = list(apertures) if apertures else []
-    print(f"   🕳️ Holes nel poligono: {len(hole_polys)}")
-    print(f"   🚪 Aperture passate: {len(ap_list)}")
+    print(f"   Holes nel poligono: {len(hole_polys)}")
+    print(f"   Aperture passate: {len(ap_list)}")
     
     # FILTRO CRITICO: Escludi aperture troppo grandi (probabilmente la parete stessa)
     wall_area = polygon.area
@@ -644,9 +650,9 @@ def pack_wall(polygon: Polygon,
     for i, ap in enumerate(ap_list):
         ap_area = ap.area
         area_ratio = ap_area / wall_area
-        print(f"   🔍 Apertura {i}: area={ap_area:.0f}, ratio={area_ratio:.3f}")
+        print(f"   Apertura {i}: area={ap_area:.0f}, ratio={area_ratio:.3f}")
         
-        if area_ratio > 0.8:  # Se copre più dell'80% è probabilmente la parete stessa
+        if area_ratio > 0.8:  # Se copre piu dell'80% e probabilmente la parete stessa
             print(f"   ❌ Apertura {i} SCARTATA: troppo grande (ratio {area_ratio:.1%})")
             continue
         
@@ -706,35 +712,35 @@ def pack_wall(polygon: Polygon,
                 continue
             
             # ===== NUOVO ALGORITMO BIDIREZIONALE =====
-            print(f"   🔧 Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
+            print(f"   Processando componente {i}: bounds={comp.bounds}, area={comp.area:.2f}")
 
-            # Determina direzione per algoritmo bidirezionale
-            if row % 2 == 0:
-                # Riga pari: da sinistra a destra
+            # Determina direzione: TUTTE le righe seguono starting_direction
+            if starting_direction == 'left':
+                # TUTTE le righe: da sinistra a destra
                 direction = 'left_to_right'
-                reasoning = "Riga pari - direzione naturale sinistra→destra"
-                print(f"   🧱 Riga PARI {row}: ←→ sinistra → destra")
+                reasoning = f"Tutte le righe partono da SINISTRA (starting_direction='{starting_direction}')"
+                print(f"   Riga {row}: sinistra -> destra")
             else:
-                # Riga dispari: da destra a sinistra per effetto mattoncino
+                # TUTTE le righe: da destra a sinistra
                 direction = 'right_to_left'  
-                reasoning = "Riga dispari - inversione per pattern mattoncino naturale"
-                print(f"   🧱 Riga DISPARI {row}: →← destra → sinistra")
+                reasoning = f"Tutte le righe partono da DESTRA (starting_direction='{starting_direction}')"
+                print(f"   Riga {row}: destra -> sinistra")
 
             # Debug logging
             debugger.current_row = row
             debugger.current_segment = i
             debugger.log_row_decision(row, direction, len(comps), reasoning)
 
-            # NUOVO ALGORITMO: Bidirezionale con debug
+            # ALGORITMO DIREZIONALE con debug
             placed_row, custom_row = _pack_segment_bidirectional(
                 comp, y, stripe_top, 
-                sorted(block_widths, reverse=True),  # GREEDY: grande → piccolo
+                sorted(block_widths, reverse=True),  # GREEDY: grande -> piccolo
                 block_height,  # Pass dynamic block height
                 direction=direction,
                 debugger=debugger
             )
             
-            print(f"   ✅ Risultato: {len(placed_row)} placed, {len(custom_row)} custom")
+            print(f"   Risultato: {len(placed_row)} placed, {len(custom_row)} custom")
             placed_all.extend(placed_row)
             custom_all.extend(custom_row)
 
@@ -760,22 +766,22 @@ def pack_wall(polygon: Polygon,
             if comp.is_empty or comp.area < AREA_EPS:
                 continue
 
-            # ===== GREEDY SEMPLICE ANCHE PER RIGA ADATTIVA =====
-            # Determina offset per pattern mattoncino
-            if row % 2 == 0:
-                # Riga pari: inizia da sinistra
-                offset = 0
+            # ===== DIREZIONE UNIFORME ANCHE PER RIGA ADATTIVA =====
+            # Usa la stessa direzione di tutte le altre righe
+            if starting_direction == 'left':
+                direction = 'left_to_right'
+                print(f"   Riga adattiva {row}: sinistra -> destra")
             else:
-                # Riga dispari: usa offset per pattern mattoncino  
-                offset = row_offset if row_offset is not None else min(block_widths)
+                direction = 'right_to_left'
+                print(f"   Riga adattiva {row}: destra -> sinistra")
 
-            # CHIAMATA DIRETTA SENZA CONFRONTI
-            placed_row, custom_row = _pack_segment_with_order_adaptive(
+            # Usa _pack_segment_bidirectional anche per la riga adattiva
+            placed_row, custom_row = _pack_segment_bidirectional(
                 comp, y, stripe_top, 
-                sorted(block_widths, reverse=True),  # GREEDY: grande → piccolo
+                sorted(block_widths, reverse=True),  # GREEDY: grande -> piccolo
                 block_height,  # Pass dynamic block height
-                adaptive_height, 
-                offset=offset
+                direction=direction,
+                debugger=None  # No debugger for adaptive row
             )
             
             placed_all.extend(placed_row)
@@ -797,11 +803,12 @@ def pack_wall(polygon: Polygon,
     
     debugger.log_final_stats(len(placed_all), len(validated_customs), efficiency, waste_ratio)
     
-    print(f"📊 ALGORITMO BIDIREZIONALE COMPLETATO:")
-    print(f"   🧱 Blocchi standard: {len(placed_all)}")
-    print(f"   ✂️ Pezzi custom: {len(validated_customs)}")
-    print(f"   📈 Efficienza: {efficiency*100:.1f}%")
-    print(f"   🗑️ Spreco: {waste_ratio*100:.1f}%")
+    print(f"ALGORITMO DIREZIONALE UNIFORME COMPLETATO:")
+    print(f"   Blocchi standard: {len(placed_all)}")
+    print(f"   Pezzi custom: {len(validated_customs)}")
+    print(f"   Direzione usata: {'SINISTRA->DESTRA (tutte le righe)' if starting_direction == 'left' else 'DESTRA->SINISTRA (tutte le righe)'}")
+    print(f"   Efficienza: {efficiency*100:.1f}%")
+    print(f"   Spreco: {waste_ratio*100:.1f}%")
     
     return placed_all, validated_customs
 

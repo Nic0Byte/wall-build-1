@@ -40,7 +40,8 @@ async def pack_from_json(payload: Dict):
         row_offset = payload.get("row_offset", 826)
 
         placed, custom = pack_wall(poly, widths, height, row_offset=row_offset,
-                                   apertures=apertures if apertures else None)
+                                   apertures=apertures if apertures else None,
+                                   starting_direction='left')
         placed, custom = opt_pass(placed, custom, widths)
 
         summary = summarize_blocks(placed)
@@ -83,7 +84,8 @@ async def pack_from_file(file: UploadFile = File(...),
         height = BLOCK_HEIGHT
 
         placed, custom = pack_wall(wall, widths, height, row_offset=row_offset,
-                                   apertures=apertures if apertures else None)
+                                   apertures=apertures if apertures else None,
+                                   starting_direction='left')
         placed, custom = opt_pass(placed, custom, widths)
         summary = summarize_blocks(placed)
         out_path = export_to_json(summary, custom, placed, out_path="distinta_wall.json", params=build_run_params(row_offset=row_offset))
@@ -112,7 +114,8 @@ async def pack_from_svg(file: UploadFile = File(...),
         height = BLOCK_HEIGHT
 
         placed, custom = pack_wall(wall, widths, height, row_offset=row_offset,
-                                   apertures=apertures if apertures else None)
+                                   apertures=apertures if apertures else None,
+                                   starting_direction='left')
         placed, custom = opt_pass(placed, custom, widths)
         summary = summarize_blocks(placed)
         out_path = export_to_json(summary, custom, placed, out_path="distinta_wall.json", params=build_run_params(row_offset=row_offset))

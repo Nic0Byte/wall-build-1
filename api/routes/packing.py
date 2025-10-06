@@ -269,6 +269,12 @@ async def enhanced_pack_from_preview(
         except json.JSONDecodeError:
             material_params = {}
         
+        # Estrai direzione di partenza dai parametri calcolati
+        starting_point = material_params.get('calculated', {}).get('starting_point', 'left')
+        # Normalizza: right -> right, altrimenti left
+        starting_direction = 'right' if starting_point == 'right' else 'left'
+        print(f"🔄 Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
+        
         # Parse dimensioni blocchi
         try:
             block_dims = json.loads(block_dimensions)
@@ -326,7 +332,8 @@ async def enhanced_pack_from_preview(
                 widths_list, 
                 block_schema["block_height"],
                 row_offset=row_offset,
-                apertures=apertures
+                apertures=apertures,
+                starting_direction=starting_direction
             )
             summary = summarize_blocks(placed)
         
@@ -545,13 +552,14 @@ async def upload_and_process(
         # Parse file (SVG o DWG)
         wall, apertures = parse_wall_file(file_bytes, file.filename)
         
-        # Packing con dimensioni personalizzate
+        # Packing con dimensioni personalizzate (usa default left per questa route legacy)
         placed, custom = pack_wall(
             wall, 
             final_widths,
             final_height,
             row_offset=row_offset,
-            apertures=apertures if apertures else None
+            apertures=apertures if apertures else None,
+            starting_direction='left'
         )
         
         # Ottimizzazione
@@ -826,6 +834,12 @@ async def enhanced_upload_and_process(
         
         print(f"🔧 Material parameters ricevuti: {material_params}")
         
+        # Estrai direzione di partenza dai parametri calcolati
+        starting_point = material_params.get('calculated', {}).get('starting_point', 'left')
+        # Normalizza: right -> right, altrimenti left
+        starting_direction = 'right' if starting_point == 'right' else 'left'
+        print(f"🔄 Direzione packing: {starting_direction} (da starting_point='{starting_point}')")
+        
         # Parse block dimensions from frontend
         try:
             block_dims = json.loads(block_dimensions)
@@ -884,13 +898,14 @@ async def enhanced_upload_and_process(
         print(f"   📏 Block height: {block_schema['block_height']}")
         print(f"   ↔️ Row offset: {row_offset}")
         
-        # Perform standard packing
+        # Perform standard packing with starting direction
         placed, custom = pack_wall(
             wall_exterior, 
             widths_list, 
             block_schema["block_height"],
             row_offset=row_offset, 
-            apertures=apertures
+            apertures=apertures,
+            starting_direction=starting_direction
         )
         
         print(f"🎯 RISULTATI ENHANCED PACK:")
