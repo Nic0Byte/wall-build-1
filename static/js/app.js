@@ -2220,7 +2220,7 @@ class WallPackingApp {
         console.log('💾 Salvataggio automatico progetto:', projectName);
         
         // Verifica che l'utente sia autenticato
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (!token) {
             console.log('❌ Auto-save bloccato: utente non autenticato');
             this.showToast('Effettua il login per salvare automaticamente i progetti', 'warning');
@@ -4611,7 +4611,7 @@ async function loadPastProjects() {
         emptyState.style.display = 'none';
         
         // Check if user is authenticated
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (!token) {
             console.log('No auth token found, showing empty state');
             showEmptyProjectsState(listContainer, emptyState, countBadge, 'Effettua il login per vedere i tuoi progetti');
@@ -4793,7 +4793,7 @@ async function reuseProject(projectId, event) {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`
             }
         });
         
@@ -4914,7 +4914,7 @@ async function loadAndProcessProjectFile(projectId, project) {
         const fileResponse = await fetch(`/api/v1/saved-projects/${projectId}/file`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`
             }
         });
         
@@ -5038,7 +5038,7 @@ async function deleteProject(projectId, event) {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`
             }
         });
         
@@ -5071,8 +5071,8 @@ async function clearAllProjects() {
     console.log('🗑️ clearAllProjects chiamata');
     
     // Debug: Controlla stato autenticazione
-    const token = localStorage.getItem('access_token');
-    const tokenType = localStorage.getItem('token_type');
+    const token = sessionStorage.getItem('access_token');
+    const tokenType = sessionStorage.getItem('token_type');
     console.log('🔍 Debug auth state:', {
         hasToken: !!token,
         tokenLength: token ? token.length : 0,
@@ -5189,7 +5189,7 @@ async function executeDeleteAll() {
         confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Eliminazione...';
         
         // Ottieni token corretto (usa access_token come il resto del sistema)
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (!token) {
             throw new Error('Sessione scaduta. Effettua nuovamente il login.');
         }
@@ -5313,11 +5313,12 @@ async function saveCurrentProject(projectData) {
         console.log('💾 Salvando progetto con session_id:', sessionId);
         console.log('📝 Dati da salvare:', saveData);
         
-        const token = localStorage.getItem('access_token');
+        // FIXED: Usa sessionStorage invece di localStorage per il token
+        const token = sessionStorage.getItem('access_token');
         if (!token) {
             console.warn('❌ Cannot save project: missing authentication token');
             if (window.wallPackingApp) {
-                window.wallPackingApp.showToast('Errore: token di autenticazione mancante', 'error');
+                window.wallPackingApp.showToast('Effettua il login per salvare il progetto', 'error');
             }
             return false;
         }
