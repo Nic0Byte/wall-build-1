@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="12000" height="3500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Parete principale (perimetro esterno) -->
+  <rect x="0" y="0" width="12000" height="3500" 
+        fill="none" stroke="blue" stroke-width="10" 
+        id="parete-principale"/>
+  
+  <!-- Apertura 1: A sinistra con molto spazio -->
+  <rect x="2000" y="500" width="1000" height="1800" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="20,10"
+        id="apertura-sinistra"/>
+  
+  <!-- Apertura 2: A destra con molto spazio -->
+  <rect x="8000" y="700" width="1200" height="1600" 
+        fill="none" stroke="red" stroke-width="5" stroke-dasharray="20,10"
+        id="apertura-destra"/>
+  
+  <!-- Aree libere evidenziate -->
+  <text x="1000" y="1750" font-family="Arial" font-size="60" fill="darkgreen">
+    AREA LIBERA
+  </text>
+  <text x="5000" y="1750" font-family="Arial" font-size="60" fill="darkgreen">
+    AREA LIBERA CENTRALE
+  </text>
+  <text x="10200" y="1750" font-family="Arial" font-size="60" fill="darkgreen">
+    AREA LIBERA
+  </text>
+  
+  <!-- Testo informativo -->
+  <text x="6000" y="3000" text-anchor="middle" font-family="Arial" font-size="100" fill="green">
+    Test Wall - 2 Aperture Distanziate - 12m x 3.5m
+  </text>
+  
+  <!-- Legenda -->
+  <text x="100" y="3300" font-family="Arial" font-size="60" fill="blue">
+    Parete: 12000x3500mm
+  </text>
+  <text x="100" y="3400" font-family="Arial" font-size="60" fill="red">
+    Aperture: 1000x1800 (sx), 1200x1600 (dx) - Ben distanziate
+  </text>
+</svg>

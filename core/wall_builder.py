@@ -833,7 +833,8 @@ def pack_wall(polygon: Polygon,
         placed_blocks=placed_all,
         custom_blocks=validated_customs,
         wall_polygon=polygon,
-        block_widths=block_widths
+        block_widths=block_widths,
+        apertures=apertures  # 🔥 PASSA LE APERTURE!
     )
     
     print(f"   Dopo il taglio: {len(placed_all)} standard, {len(validated_customs)} custom")
@@ -1035,7 +1036,8 @@ def clip_all_blocks_to_wall_geometry(
     placed_blocks: List[Dict],
     custom_blocks: List[Dict],
     wall_polygon: Polygon,
-    block_widths: List[int]
+    block_widths: List[int],
+    apertures: Optional[List[Polygon]] = None
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     🔪 POST-PROCESSING: Taglia TUTTI i blocchi (standard + custom) per adattarli alla geometria.
@@ -1047,8 +1049,9 @@ def clip_all_blocks_to_wall_geometry(
     Args:
         placed_blocks: Lista blocchi standard
         custom_blocks: Lista custom
-        wall_polygon: Poligono parete (con buchi aperture)
+        wall_polygon: Poligono parete (senza buchi aperture)
         block_widths: Dimensioni blocchi disponibili (dinamiche)
+        apertures: Lista aperture (finestre/porte) da sottrarre
     
     Returns:
         Tuple (placed_blocks_finali, custom_blocks_finali)
@@ -1056,7 +1059,87 @@ def clip_all_blocks_to_wall_geometry(
     if not block_widths:
         return placed_blocks, custom_blocks
     
+    # � FASE 0: Crea poligono con buchi sottraendo le aperture
+    print(f"\n� CREAZIONE POLIGONO CON BUCHI:")
+    print(f"   Poligono originale: area={wall_polygon.area:.0f}mm², bounds={wall_polygon.bounds}")
+    
+    if apertures and len(apertures) > 0:
+        # Filtra aperture valide (stesso criterio del packing)
+        wall_area = wall_polygon.area
+        valid_apertures = []
+        
+        print(f"   📋 Filtraggio {len(apertures)} aperture:")
+        for i, ap in enumerate(apertures):
+            ap_area = ap.area
+            area_ratio = ap_area / wall_area
+            
+            # Filtro 1: Troppo grande (>80% parete)
+            if area_ratio > 0.8:
+                print(f"      ❌ Apertura {i+1} SCARTATA: troppo grande ({area_ratio:.1%} della parete)")
+                continue
+            
+            # Filtro 2: Troppo piccola (<1m²)
+            if ap_area < 1000:
+                print(f"      ❌ Apertura {i+1} SCARTATA: troppo piccola ({ap_area:.0f}mm²)")
+                continue
+            
+            valid_apertures.append(ap)
+            print(f"      ✅ Apertura {i+1} VALIDA: {ap_area:.0f}mm² ({area_ratio:.1%}), bounds={ap.bounds}")
+        
+        if valid_apertures:
+            print(f"   📊 Aperture valide: {len(valid_apertures)}/{len(apertures)}")
+            print(f"   🔧 Unendo aperture...")
+            
+            # Unisci tutte le aperture in una sola forma
+            apertures_union = unary_union(valid_apertures)
+            print(f"      Union type: {apertures_union.geom_type}, area: {apertures_union.area:.0f}mm²")
+            
+            # Sottrai le aperture dalla parete
+            print(f"   ✂️  Sottraendo aperture dalla parete...")
+            wall_with_holes = wall_polygon.difference(apertures_union)
+            
+            # Gestisci MultiPolygon (aperture che dividono la parete)
+            if wall_with_holes.geom_type == 'MultiPolygon':
+                print(f"   ⚠️  Risultato: MultiPolygon con {len(wall_with_holes.geoms)} parti")
+                # Prendi la parte più grande
+                largest = max(wall_with_holes.geoms, key=lambda p: p.area)
+                discarded_area = sum(p.area for p in wall_with_holes.geoms if p != largest)
+                print(f"      Usando parte più grande: {largest.area:.0f}mm²")
+                print(f"      Parti scartate: {discarded_area:.0f}mm²")
+                wall_with_holes = largest
+            
+            # Conta buchi creati
+            num_holes = len(wall_with_holes.interiors) if wall_with_holes.geom_type == 'Polygon' else 0
+            print(f"   ✅ Poligono con buchi creato:")
+            print(f"      Tipo: {wall_with_holes.geom_type}")
+            print(f"      Area finale: {wall_with_holes.area:.0f}mm²")
+            print(f"      🚪 Buchi interni: {num_holes}")
+            
+            if num_holes > 0:
+                for i, interior in enumerate(wall_with_holes.interiors):
+                    interior_poly = Polygon(interior)
+                    print(f"         Buco {i+1}: area={interior_poly.area:.0f}mm², bounds={interior_poly.bounds}")
+            
+            # Usa il poligono con buchi
+            wall_polygon = wall_with_holes
+        else:
+            print(f"   ℹ️  Nessuna apertura valida dopo il filtraggio")
+    else:
+        print(f"   ℹ️  Nessuna apertura fornita")
+    
+    # FASE 1: Pulisci geometria
+    print(f"\n🧹 Pulizia geometria con buffer(0)...")
     wall_clean = wall_polygon.buffer(0)
+    
+    # Verifica se buffer(0) ha modificato i buchi
+    num_holes_before = len(wall_polygon.interiors) if wall_polygon.geom_type == 'Polygon' else 0
+    num_holes_after = len(wall_clean.interiors) if wall_clean.geom_type == 'Polygon' else 0
+    
+    if num_holes_after != num_holes_before:
+        print(f"   ⚠️  buffer(0) ha modificato i buchi: {num_holes_before} → {num_holes_after}")
+    else:
+        print(f"   ✅ buffer(0) completato, buchi preservati: {num_holes_after}")
+    print()
     
     final_placed = []
     final_customs = list(custom_blocks)  # Partiamo dai custom esistenti
@@ -1100,7 +1183,14 @@ def clip_all_blocks_to_wall_geometry(
                 continue
             
             # ⚠️ Blocco TAGLIATO → diventa CUSTOM!
-            print(f"   🔪 Standard {block.get('type', 'unknown')} tagliato → diventa custom")
+            area_lost = block_box.area - clipped.area
+            percent_lost = (1 - area_ratio) * 100
+            print(f"   🔪 Standard {block.get('type', 'unknown')} tagliato:")
+            print(f"      Posizione: x={x:.0f}, y={y:.0f}, w={w}, h={h}")
+            print(f"      Area originale: {block_box.area:.0f}mm²")
+            print(f"      Area dopo taglio: {clipped.area:.0f}mm²")
+            print(f"      Area persa: {area_lost:.0f}mm² ({percent_lost:.1f}%)")
+            print(f"      Tipo geometria risultante: {clipped.geom_type}")
             
             clipped_clean = clipped.buffer(0)
             
@@ -1126,7 +1216,12 @@ def clip_all_blocks_to_wall_geometry(
             final_placed.append(block)
     
     # 🔍 Processa ogni CUSTOM (usa la funzione esistente)
-    final_customs = clip_customs_to_wall_geometry(final_customs, wall_polygon, block_widths)
+    final_customs = clip_customs_to_wall_geometry(
+        custom_blocks=final_customs,
+        wall_polygon=wall_polygon,  # Usa il poligono ORIGINALE (già con buchi creati in questa funzione)
+        block_widths=block_widths,
+        apertures=apertures  # 🔥 PASSA LE APERTURE!
+    )
     
     return final_placed, final_customs
 
@@ -1134,7 +1229,8 @@ def clip_all_blocks_to_wall_geometry(
 def clip_customs_to_wall_geometry(
     custom_blocks: List[Dict],
     wall_polygon: Polygon,
-    block_widths: List[int]
+    block_widths: List[int],
+    apertures: Optional[List[Polygon]] = None
 ) -> List[Dict]:
     """
     🔪 POST-PROCESSING: Taglia i custom per adattarli alla geometria della parete.
@@ -1145,8 +1241,9 @@ def clip_customs_to_wall_geometry(
     
     Args:
         custom_blocks: Lista custom da tagliare
-        wall_polygon: Poligono della parete (già con buchi per aperture)
+        wall_polygon: Poligono della parete (senza buchi aperture)
         block_widths: Dimensioni blocchi per calcolo source_block_width
+        apertures: Lista aperture (finestre/porte) da sottrarre
     
     Returns:
         Lista custom con geometria adattata
@@ -1154,9 +1251,40 @@ def clip_customs_to_wall_geometry(
     if not custom_blocks:
         return []
     
-    clipped_customs = []
+    # 🔥 FASE 0: Crea poligono con buchi (stesso procedimento di clip_all_blocks)
+    print(f"\n🔥 TAGLIO CUSTOM: Creazione poligono con buchi...")
     
-    for custom in custom_blocks:
+    if apertures and len(apertures) > 0:
+        wall_area = wall_polygon.area
+        valid_apertures = []
+        
+        for i, ap in enumerate(apertures):
+            ap_area = ap.area
+            area_ratio = ap_area / wall_area
+            
+            if area_ratio > 0.8 or ap_area < 1000:
+                continue
+            
+            valid_apertures.append(ap)
+        
+        if valid_apertures:
+            apertures_union = unary_union(valid_apertures)
+            wall_with_holes = wall_polygon.difference(apertures_union)
+            
+            if wall_with_holes.geom_type == 'MultiPolygon':
+                wall_with_holes = max(wall_with_holes.geoms, key=lambda p: p.area)
+            
+            num_holes = len(wall_with_holes.interiors) if wall_with_holes.geom_type == 'Polygon' else 0
+            print(f"   ✅ Poligono custom con {num_holes} buchi, area={wall_with_holes.area:.0f}mm²")
+            
+            wall_polygon = wall_with_holes
+    
+    print(f"\n🔍 TAGLIO CUSTOM: Processando {len(custom_blocks)} custom...")
+    
+    clipped_customs = []
+    custom_tagliati = 0
+    
+    for idx, custom in enumerate(custom_blocks):
         try:
             # Crea Polygon dal custom
             if 'geometry' in custom:
@@ -1177,11 +1305,17 @@ def clip_customs_to_wall_geometry(
             
             # Se l'intersezione è vuota → custom completamente fuori (non dovrebbe succedere)
             if clipped.is_empty:
-                print(f"   ⚠️  Custom fuori dalla parete: x={custom.get('x', 0)}, y={custom.get('y', 0)}")
+                print(f"   ⚠️  Custom {idx+1} fuori dalla parete: x={custom.get('x', 0)}, y={custom.get('y', 0)}")
                 continue
             
             # Calcola quanto è stato tagliato (area e bounds)
             area_ratio = clipped.area / custom_poly.area if custom_poly.area > 0 else 0
+            
+            # Se non è stato tagliato significativamente
+            if area_ratio < 0.995:
+                custom_tagliati += 1
+                area_lost = custom_poly.area - clipped.area
+                print(f"   ✂️  Custom {idx+1} tagliato: area persa {area_lost:.0f}mm² ({(1-area_ratio)*100:.1f}%)")
             
             # Verifica anche se i bounds sono diversi (per catturare tagli piccoli ma significativi)
             orig_bounds = custom_poly.bounds
@@ -1244,6 +1378,8 @@ def clip_customs_to_wall_geometry(
         except Exception as e:
             print(f"   ⚠️  Errore taglio custom x={custom.get('x', 0)}, y={custom.get('y', 0)}: {e}")
             clipped_customs.append(custom)  # In caso di errore, mantieni originale
+    
+    print(f"   ✅ Taglio custom completato: {custom_tagliati}/{len(custom_blocks)} custom tagliati\n")
     
     return clipped_customs
 
