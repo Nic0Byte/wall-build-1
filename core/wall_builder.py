@@ -810,6 +810,21 @@ def pack_wall(polygon: Polygon,
     print(f"   Efficienza: {efficiency*100:.1f}%")
     print(f"   Spreco: {waste_ratio*100:.1f}%")
     
+    # 🔥 POST-PROCESSING: Merge small blocks into large customs
+    print(f"\n🔧 POST-PROCESSING: Unione blocchi consecutivi...")
+    print(f"   Prima del merge: {len(placed_all)} standard, {len(validated_customs)} custom")
+    
+    placed_all, validated_customs = merge_small_blocks_into_large_customs(
+        placed_blocks=placed_all,
+        custom_blocks=validated_customs,
+        block_widths=block_widths,
+        row_height=block_height,
+        tolerance=5.0
+    )
+    
+    print(f"   Dopo il merge: {len(placed_all)} standard, {len(validated_customs)} custom")
+    print(f"   ✅ Merge completato: {efficiency*100:.1f}% efficienza mantenuta\n")
+    
     return placed_all, validated_customs
 
 
@@ -836,6 +851,168 @@ def merge_customs_row_aware(customs: List[Dict], tol: float = 5, row_height: int
             if g.area > AREA_EPS:
                 out.append(_mk_custom(g))
     return out
+
+
+def merge_small_blocks_into_large_customs(
+    placed_blocks: List[Dict], 
+    custom_blocks: List[Dict],
+    block_widths: List[int],
+    row_height: int = 495,
+    tolerance: float = 5.0
+) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Post-processing: unisce blocchi consecutivi nella stessa riga in custom grandi.
+    
+    Regole:
+    1. Custom + Custom consecutivi → Custom unificato
+    2. Standard piccolo + Custom consecutivo → Custom unificato
+    3. Limite massimo: max(block_widths) (blocco standard più grande)
+    4. Solo blocchi adiacenti nella stessa riga
+    
+    Args:
+        placed_blocks: Lista blocchi standard piazzati
+        custom_blocks: Lista blocchi custom
+        block_widths: Dimensioni disponibili dei blocchi (DINAMICHE)
+        row_height: Altezza riga per raggruppamento
+        tolerance: Tolleranza per considerare blocchi consecutivi
+    
+    Returns:
+        Tuple (new_placed_blocks, new_custom_blocks)
+    """
+    if not block_widths:
+        return placed_blocks, custom_blocks
+    
+    MAX_CUSTOM_WIDTH = max(block_widths)
+    MIN_STANDARD_WIDTH = min(block_widths)
+    
+    # Raggruppa tutti i blocchi per riga
+    all_blocks = []
+    for b in placed_blocks:
+        all_blocks.append({**b, 'source': 'standard'})
+    for c in custom_blocks:
+        all_blocks.append({**c, 'source': 'custom'})
+    
+    if not all_blocks:
+        return [], []
+    
+    # Raggruppa per riga (basato su y)
+    rows = defaultdict(list)
+    for block in all_blocks:
+        y_val = snap(block['y'])
+        row_id = int(round(y_val / row_height))
+        rows[row_id].append(block)
+    
+    # Ordina blocchi in ogni riga per x
+    for row_id in rows:
+        rows[row_id].sort(key=lambda b: snap(b['x']))
+    
+    # Processa ogni riga
+    new_placed = []
+    new_customs = []
+    
+    for row_id in sorted(rows.keys()):
+        row_blocks = rows[row_id]
+        i = 0
+        
+        while i < len(row_blocks):
+            current = row_blocks[i]
+            
+            # Identifica candidati per merge
+            mergeable = [current]
+            total_width = snap(current['width'])
+            j = i + 1
+            
+            while j < len(row_blocks):
+                next_block = row_blocks[j]
+                
+                # Verifica se sono consecutivi (x_end di current ≈ x_start di next)
+                current_end = snap(mergeable[-1]['x'] + mergeable[-1]['width'])
+                next_start = snap(next_block['x'])
+                
+                if abs(current_end - next_start) > tolerance:
+                    # Non consecutivi
+                    break
+                
+                potential_width = total_width + snap(next_block['width'])
+                
+                # Verifica se merge supererebbe il limite
+                if potential_width > MAX_CUSTOM_WIDTH + tolerance:
+                    # Troppo grande, stop
+                    break
+                
+                # Verifica condizioni di merge:
+                # 1. Custom + Custom
+                # 2. Standard piccolo + Custom (in qualsiasi ordine)
+                current_is_custom = mergeable[-1]['source'] == 'custom'
+                next_is_custom = next_block['source'] == 'custom'
+                current_is_small_std = (mergeable[-1]['source'] == 'standard' and 
+                                       snap(mergeable[-1]['width']) <= MIN_STANDARD_WIDTH + tolerance)
+                next_is_small_std = (next_block['source'] == 'standard' and 
+                                    snap(next_block['width']) <= MIN_STANDARD_WIDTH + tolerance)
+                
+                can_merge = False
+                if current_is_custom and next_is_custom:
+                    can_merge = True  # Custom + Custom
+                elif current_is_custom and next_is_small_std:
+                    can_merge = True  # Custom + Standard piccolo
+                elif current_is_small_std and next_is_custom:
+                    can_merge = True  # Standard piccolo + Custom
+                
+                if not can_merge:
+                    # Non soddisfa condizioni di merge
+                    break
+                
+                # OK, merge
+                mergeable.append(next_block)
+                total_width = potential_width
+                j += 1
+            
+            # Decide cosa fare con i blocchi merge-abili
+            if len(mergeable) == 1:
+                # Nessun merge, mantieni come era
+                block = mergeable[0]
+                if block['source'] == 'standard':
+                    new_placed.append({k: v for k, v in block.items() if k != 'source'})
+                else:
+                    new_customs.append({k: v for k, v in block.items() if k != 'source'})
+            else:
+                # Merge multipli blocchi in UN custom grande
+                x_min = min(snap(b['x']) for b in mergeable)
+                x_max = max(snap(b['x'] + b['width']) for b in mergeable)
+                y_min = min(snap(b['y']) for b in mergeable)
+                y_max = max(snap(b['y'] + b['height']) for b in mergeable)
+                
+                # Crea geometria Polygon per compatibilità con frontend
+                coords_list = [
+                    (x_min, y_min),
+                    (x_max, y_min),
+                    (x_max, y_max),
+                    (x_min, y_max),
+                    (x_min, y_min)
+                ]
+                poly = Polygon(coords_list)
+                
+                merged_width = snap(x_max - x_min)
+                # Calcola source_block_width ottimale per il custom mergiato
+                source_block = max(block_widths)  # Usa il blocco più grande disponibile
+                
+                merged_custom = {
+                    'x': snap(x_min),
+                    'y': snap(y_min),
+                    'width': merged_width,
+                    'height': snap(y_max - y_min),
+                    'type': 'custom',
+                    'geometry': mapping(poly),  # 🔥 CHIAVE PER VISUALIZZAZIONE
+                    'coords': coords_list,
+                    'source_block_width': source_block,
+                    'waste': source_block - merged_width
+                }
+                new_customs.append(merged_custom)
+            
+            # Avanza al prossimo blocco non processato
+            i = j if j > i + 1 else i + 1
+    
+    return new_placed, new_customs
 
 
 def split_out_of_spec(customs: List[Dict], max_w: int = 413, max_h: int = 495) -> List[Dict]:
