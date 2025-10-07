@@ -825,6 +825,19 @@ def pack_wall(polygon: Polygon,
     print(f"   Dopo il merge: {len(placed_all)} standard, {len(validated_customs)} custom")
     print(f"   ✅ Merge completato: {efficiency*100:.1f}% efficienza mantenuta\n")
     
+    # 🔪 POST-PROCESSING 2: Taglia custom per adattarli alla geometria della parete
+    print(f"🔪 POST-PROCESSING: Taglio custom per adattamento geometria...")
+    print(f"   Prima del taglio: {len(validated_customs)} custom")
+    
+    validated_customs = clip_customs_to_wall_geometry(
+        custom_blocks=validated_customs,
+        wall_polygon=polygon,
+        block_widths=block_widths
+    )
+    
+    print(f"   Dopo il taglio: {len(validated_customs)} custom")
+    print(f"   ✅ Taglio completato: custom adattati a parete/aperture\n")
+    
     return placed_all, validated_customs
 
 
@@ -1013,6 +1026,93 @@ def merge_small_blocks_into_large_customs(
             i = j if j > i + 1 else i + 1
     
     return new_placed, new_customs
+
+
+def clip_customs_to_wall_geometry(
+    custom_blocks: List[Dict],
+    wall_polygon: Polygon,
+    block_widths: List[int]
+) -> List[Dict]:
+    """
+    🔪 POST-PROCESSING: Taglia i custom per adattarli alla geometria della parete.
+    
+    Ogni custom viene intersecato con il poligono della parete (che già include
+    buchi per porte/finestre). Se un custom esce dalla geometria valida, viene
+    tagliato e trasformato in trapezio/triangolo.
+    
+    Args:
+        custom_blocks: Lista custom da tagliare
+        wall_polygon: Poligono della parete (già con buchi per aperture)
+        block_widths: Dimensioni blocchi per calcolo source_block_width
+    
+    Returns:
+        Lista custom con geometria adattata
+    """
+    if not custom_blocks:
+        return []
+    
+    clipped_customs = []
+    
+    for custom in custom_blocks:
+        try:
+            # Crea Polygon dal custom
+            if 'geometry' in custom:
+                custom_poly = shape(custom['geometry'])
+            elif 'coords' in custom:
+                custom_poly = Polygon(custom['coords'])
+            else:
+                # Custom senza geometria valida → skip
+                print(f"   ⚠️  Custom senza geometria: {custom.get('x', 0)}, {custom.get('y', 0)}")
+                continue
+            
+            # Sanitizza il poligono
+            custom_poly = sanitize_polygon(custom_poly)
+            
+            # Interseca con il poligono della parete
+            clipped = custom_poly.intersection(wall_polygon)
+            
+            # Se l'intersezione è vuota → custom completamente fuori (non dovrebbe succedere)
+            if clipped.is_empty:
+                print(f"   ⚠️  Custom fuori dalla parete: x={custom.get('x', 0)}, y={custom.get('y', 0)}")
+                continue
+            
+            # Calcola quanto è stato tagliato
+            area_ratio = clipped.area / custom_poly.area if custom_poly.area > 0 else 0
+            
+            # Se il custom è rimasto quasi identico (>99%) → mantieni originale (efficienza)
+            if area_ratio > 0.99:
+                clipped_customs.append(custom)
+                continue
+            
+            # Custom tagliato → gestisci multi-geometrie
+            if clipped.geom_type == 'Polygon':
+                # Singolo poligono → crea custom
+                clipped_customs.append(_mk_custom(clipped, block_widths))
+            elif clipped.geom_type == 'MultiPolygon':
+                # Multipli poligoni → crea un custom per ognuno
+                for poly in clipped.geoms:
+                    if poly.area > AREA_EPS:
+                        clipped_customs.append(_mk_custom(poly, block_widths))
+            elif clipped.geom_type == 'GeometryCollection':
+                # Collezione mista → estrai solo i poligoni
+                for geom in clipped.geoms:
+                    if geom.geom_type in ['Polygon', 'MultiPolygon']:
+                        if geom.geom_type == 'Polygon':
+                            clipped_customs.append(_mk_custom(geom, block_widths))
+                        else:
+                            for poly in geom.geoms:
+                                if poly.area > AREA_EPS:
+                                    clipped_customs.append(_mk_custom(poly, block_widths))
+            else:
+                # Tipo geometrico non gestito
+                print(f"   ⚠️  Geometria non gestita: {clipped.geom_type}")
+                clipped_customs.append(custom)  # Mantieni originale
+                
+        except Exception as e:
+            print(f"   ⚠️  Errore taglio custom x={custom.get('x', 0)}, y={custom.get('y', 0)}: {e}")
+            clipped_customs.append(custom)  # In caso di errore, mantieni originale
+    
+    return clipped_customs
 
 
 def split_out_of_spec(customs: List[Dict], max_w: int = 413, max_h: int = 495) -> List[Dict]:
