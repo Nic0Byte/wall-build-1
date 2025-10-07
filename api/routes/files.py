@@ -15,9 +15,10 @@ async def download_result(session_id: str, format: str):
     """
     # Import qui per evitare circular imports
     from main import (
-        SESSIONS, export_to_json, export_to_pdf, export_to_dxf,
+        SESSIONS, export_to_json, export_to_dxf,
         build_run_params, reportlab_available, ezdxf_available
     )
+    from exporters.pdf_exporter import export_to_pdf_professional_multipage
     
     try:
         if session_id not in SESSIONS:
@@ -70,21 +71,23 @@ async def download_result(session_id: str, format: str):
             )
             
         elif format.lower() == "pdf":
-            # Export PDF
+            # Export PDF PROFESSIONALE MULTIPAGE (3 pagine A4 landscape)
             if not reportlab_available:
                 raise HTTPException(status_code=501, detail="Export PDF non disponibile")
             
-            filename = f"report_{session_id[:8]}_{timestamp}.pdf"
-            pdf_path = export_to_pdf(
-                summary,
-                customs,
-                placed,
-                wall_polygon,
-                apertures,
+            filename = f"distinta_base_{session_id[:8]}_{timestamp}.pdf"
+            pdf_path = export_to_pdf_professional_multipage(
+                summary=summary,
+                customs=customs,
+                placed=placed,
+                wall_polygon=wall_polygon,
+                apertures=apertures,
                 project_name=project_name,
                 out_path=filename,
                 params=build_run_params(row_offset),
-                block_config=config
+                block_config=config,
+                author="WallBuild TAKTAK®",
+                revision="Auto"
             )
             
             return FileResponse(

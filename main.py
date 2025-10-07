@@ -39,7 +39,7 @@ except Exception:  # pragma: no cover
 from parsers import parse_dwg_wall, parse_svg_wall, parse_wall_file
 from utils.file_manager import setup_output_directories, get_organized_output_path, generate_unique_filename
 from exporters.json_exporter import export_to_json
-from exporters.pdf_exporter import export_to_pdf, REPORTLAB_AVAILABLE as reportlab_available
+from exporters.pdf_exporter import export_to_pdf_professional_multipage, REPORTLAB_AVAILABLE as reportlab_available
 from exporters.labels import create_block_labels, create_detailed_block_labels
 from exporters.dxf_exporter import export_to_dxf, EZDXF_AVAILABLE as ezdxf_available
 from core.wall_builder import pack_wall, opt_pass
@@ -352,14 +352,22 @@ def _demo():
     out = export_to_json(summary, custom, placed, out_path=json_filename, params=build_run_params(row_offset=826))
     logger.info("JSON demo generato", file_path=out)
 
-    # Test export PDF
+    # Test export PDF PROFESSIONALE MULTIPAGE
     if reportlab_available:
         try:
-            pdf_path = export_to_pdf(summary, custom, placed, wall_exterior, 
-                                   apertures=[porta1, porta2],
-                                   project_name="Demo Parete Trapezoidale", 
-                                   out_path=pdf_filename,
-                                   params=build_run_params(row_offset=826))
+            pdf_path = export_to_pdf_professional_multipage(
+                summary=summary,
+                customs=custom,
+                placed=placed,
+                wall_polygon=wall_exterior,
+                apertures=[porta1, porta2],
+                project_name="Demo Parete Trapezoidale",
+                out_path=pdf_filename,
+                params=build_run_params(row_offset=826),
+                block_config=None,
+                author="WallBuild TAKTAK®",
+                revision="Demo"
+            )
             logger.info("PDF demo generato", file_path=pdf_path)
         except Exception as e:
             error("Errore PDF demo", error=str(e))
