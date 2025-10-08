@@ -790,8 +790,8 @@ def pack_wall(polygon: Polygon,
         print(f"⚠️ Spazio rimanente {remaining_space:.0f}mm insufficiente per riga adattiva")
 
     custom_all = merge_customs_row_aware(custom_all, tol=SCARTO_CUSTOM_MM, row_height=block_height)
-    custom_all = split_out_of_spec(custom_all, max_w=SPLIT_MAX_WIDTH_MM)
-    validated_customs = validate_and_tag_customs(custom_all)
+    custom_all = split_out_of_spec(custom_all, max_w=SPLIT_MAX_WIDTH_MM, max_h=block_height)
+    validated_customs = validate_and_tag_customs(custom_all, block_height=block_height, block_widths=block_widths)
     
     # Log statistiche finali per il debug
     total_wall_area = polygon.area
@@ -1410,27 +1410,34 @@ def split_out_of_spec(customs: List[Dict], max_w: int = 413, max_h: int = 495) -
     return out
 
 
-def validate_and_tag_customs(custom: List[Dict]) -> List[Dict]:
+def validate_and_tag_customs(custom: List[Dict], block_height: int = 495, block_widths: List[int] = None) -> List[Dict]:
     """
     Regole custom: Type 1 ("larghezza"), Type 2 ("flex").
     AGGIORNATO: i blocchi custom possono nascere da tutti i tipi di blocco standard.
+    
+    Args:
+        custom: Lista blocchi custom da validare
+        block_height: Altezza standard dei blocchi (dinamica, default 495mm)
+        block_widths: Lista larghezze blocchi disponibili (default BLOCK_WIDTHS)
     """
     out = []
-    max_standard_width = max(BLOCK_WIDTHS)  # 1239mm (blocco grande)
+    if block_widths is None:
+        block_widths = BLOCK_WIDTHS
+    max_standard_width = max(block_widths)
     
     for c in custom:
         w = int(round(c["width"]))
         h = int(round(c["height"]))
         
         # Controlla se supera i limiti massimi (fuori specifica)
-        if w >= max_standard_width + SCARTO_CUSTOM_MM or h > 495 + SCARTO_CUSTOM_MM:
+        if w >= max_standard_width + SCARTO_CUSTOM_MM or h > block_height + SCARTO_CUSTOM_MM:
             c["ctype"] = "out_of_spec"
             out.append(c)
             continue
         
-        # Type 1: blocchi derivati da qualsiasi blocco standard (altezza ≈ 495mm)
+        # Type 1: blocchi derivati da qualsiasi blocco standard (altezza ≈ block_height)
         # Ora può essere tagliato da blocchi piccoli, medi, grandi o standard
-        if abs(h - 495) <= SCARTO_CUSTOM_MM and w <= max_standard_width + SCARTO_CUSTOM_MM:
+        if abs(h - block_height) <= SCARTO_CUSTOM_MM and w <= max_standard_width + SCARTO_CUSTOM_MM:
             c["ctype"] = 1
         else:
             # Type 2: blocchi con altezza diversa (flex)
