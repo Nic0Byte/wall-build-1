@@ -2024,7 +2024,7 @@ def _build_compact_standard_table(summary, placed, styles, block_config) -> Tabl
     # Riga totale
     data.append(["TOTALE STANDARD", "—", str(total_count), f"{total_area:.2f}", f"{total_count} blocchi"])
     
-    table = Table(data, colWidths=[30 * mm, 40 * mm, 20 * mm, 25 * mm, 152 * mm])
+    table = Table(data, colWidths=[45 * mm, 40 * mm, 20 * mm, 25 * mm, 137 * mm])
     table.setStyle(TableStyle([
         # Header principale (riga 0)
         ('BACKGROUND', (0, 0), (-1, 0), BRAND_BLUE),
@@ -2100,7 +2100,7 @@ def _build_compact_custom_table(customs, styles) -> Table:
         # Riga totale
         data.append(["TOTALE CUSTOM", "—", str(total_count), f"{total_area:.2f}", f"{total_count} pezzi"])
     
-    table = Table(data, colWidths=[30 * mm, 40 * mm, 20 * mm, 25 * mm, 152 * mm])
+    table = Table(data, colWidths=[45 * mm, 40 * mm, 20 * mm, 25 * mm, 137 * mm])
     table.setStyle(TableStyle([
         # Header principale (riga 0)
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
