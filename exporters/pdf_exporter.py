@@ -33,6 +33,7 @@ try:  # ReportLab
         TableStyle,
         PageTemplate,
         Frame,
+        KeepTogether,
     )
     from reportlab.pdfgen import canvas
 
@@ -1189,31 +1190,42 @@ def export_to_pdf_professional_multipage(
     # PAGINA 2: SCHEMA COSTRUTTIVO PARETE FULL-PAGE (SOLO IMMAGINE)
     # ========================================================================
     
-    story.extend(_build_page2_header_fullpage(project_name, wall_width_m, wall_height_m, styles))
-    story.append(Spacer(1, 3 * mm))
+    # Costruiamo gli elementi della pagina 2 in una lista separata
+    page2_elements = []
+    page2_elements.extend(_build_page2_header_fullpage(project_name, wall_width_m, wall_height_m, styles))
+    page2_elements.append(Spacer(1, 2 * mm))  # Ridotto da 3mm a 2mm
     
     # Schema MOLTO GRANDE full-page - MASSIMA DIMENSIONE POSSIBILE
+    print(f"🎨 [DEBUG] Generazione schema pagina 2: matplotlib={'DISPONIBILE' if MATPLOTLIB_AVAILABLE else 'NON DISPONIBILE'}")
+    print(f"🎨 [DEBUG] Parametri: wall_polygon={wall_polygon is not None}, placed={len(placed) if placed else 0}, customs={len(customs) if customs else 0}")
+    
     schema_fullpage = _generate_wall_schema_fullpage(
         wall_polygon, placed, customs, apertures, block_config,
         width_mm=260,  # MASSIMA larghezza per A4 landscape
-        height_mm=150   # MASSIMA altezza disponibile
+        height_mm=120   # RIDOTTO da 135 a 120 per sicurezza
     )
+    
+    print(f"🎨 [DEBUG] Schema generato: {schema_fullpage is not None}")
     
     if schema_fullpage:
         # Immagine centrata senza troppo spazio
-        story.append(schema_fullpage)
-        story.append(Spacer(1, 3 * mm))
+        page2_elements.append(schema_fullpage)
+        page2_elements.append(Spacer(1, 2 * mm))  # Ridotto da 3mm a 2mm
         
         # Nota sotto lo schema
         note_style = ParagraphStyle("SchemaNote", parent=styles["Normal"], fontSize=7, textColor=colors.grey, alignment=TA_CENTER)
-        story.append(Paragraph("Schema costruttivo con numerazione blocchi (A1, A2, B1... D1, D2, E1...)", note_style))
+        page2_elements.append(Paragraph("Schema costruttivo con numerazione blocchi (A1, A2, B1... D1, D2, E1...)", note_style))
     else:
         # Fallback se lo schema non viene generato
         error_style = ParagraphStyle("Error", parent=styles["Normal"], fontSize=14, textColor=colors.red, alignment=TA_CENTER)
-        story.append(Spacer(1, 30 * mm))
-        story.append(Paragraph("<b>⚠️ Schema costruttivo non disponibile</b>", error_style))
-        story.append(Spacer(1, 5 * mm))
-        story.append(Paragraph("Matplotlib non disponibile o errore nella generazione dell'immagine", error_style))
+        page2_elements.append(Spacer(1, 30 * mm))
+        page2_elements.append(Paragraph("<b>⚠️ Schema costruttivo non disponibile</b>", error_style))
+        page2_elements.append(Spacer(1, 5 * mm))
+        page2_elements.append(Paragraph("Matplotlib non disponibile o errore nella generazione dell'immagine", error_style))
+    
+    # Aggiungiamo TUTTO in un KeepTogether per forzare header + schema sulla stessa pagina
+    # MA NON funziona per immagini grandi, quindi aggiungiamo direttamente alla story
+    story.extend(page2_elements)
     
     # Fine pagina 2 - FORZA nuovo breakpoint qui
     story.append(PageBreak())
@@ -1235,10 +1247,10 @@ def export_to_pdf_professional_multipage(
     
     # RIEPILOGO FINALE (barra visiva compatta)
     story.append(_build_final_summary_compact(summary, customs, wall_polygon, styles))
-    story.append(_build_final_summary_compact(summary, customs, wall_polygon, styles))
     
-    # Build con footer dinamico per 3 pagine
-    total_pages = 3
+    # Build con footer dinamico - total_pages viene calcolato DOPO il build
+    # ma dobbiamo stimarlo: con il contenuto attuale sono 4 pagine
+    total_pages = 4  # Aggiornato da 3 a 4 perché pagina 3 si estende su 2 pagine
     
     # Classe counter per tracciare le pagine correttamente
     class PageCounter:
@@ -2407,7 +2419,7 @@ def _build_final_summary_bar(summary, customs, styles) -> Table:
 
 
 def _draw_multipage_footer(canvas_obj, doc, project_name: str, filename: str, page_num: int, total_pages: int):
-    """Footer con paginazione multipagina (1/3, 2/3, 3/3)."""
+    """Footer con paginazione multipagina (1/4, 2/4, 3/4, 4/4)."""
     canvas_obj.saveState()
     
     page_width, page_height = landscape(A4)
@@ -2421,13 +2433,14 @@ def _draw_multipage_footer(canvas_obj, doc, project_name: str, filename: str, pa
     canvas_obj.setFont('Helvetica', 7)
     canvas_obj.setFillColor(colors.grey)
     
-    # Titolo pagina specifico per 3 pagine
+    # Titolo pagina specifico per 4 pagine
     page_titles = {
         1: "Sintesi e Riepilogo Tecnico",
         2: "Schema Costruttivo Full-Page con Numerazione",
-        3: "Distinta Completa - Blocchi Standard, Custom e Riepilogo Finale"
+        3: "Distinta Completa - Blocchi Standard e Custom (1/2)",
+        4: "Distinta Completa - Blocchi Standard e Custom (2/2)"
     }
-    page_title = page_titles.get(page_num, "")
+    page_title = page_titles.get(page_num, "Distinta Base")
     
     # Sinistra: progetto e titolo pagina
     footer_left = f"Distinta Base – {project_name} | {page_title}"
