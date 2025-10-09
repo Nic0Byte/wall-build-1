@@ -118,11 +118,6 @@ class SmartLoadingSystem {
                     <div class="taktak-message">
                         ⚡ La tecnologia TAKTAK® sta elaborando...
                     </div>
-                    
-                    <!-- Pulsante Cancel -->
-                    <button class="cancel-btn-3d" id="cancelBtn" onclick="smartLoading.cancel()">
-                        ❌ Annulla Operazione
-                    </button>
                 </div>
             </div>
         `;
@@ -135,7 +130,6 @@ class SmartLoadingSystem {
         this.progressPercent = document.getElementById('progressPercent');
         this.progressFill = document.getElementById('progressFill');
         this.estimatedTime = document.getElementById('estimatedTime');
-        this.cancelBtn = document.getElementById('cancelBtn');
     }
     
     setupInterceptors() {
