@@ -229,8 +229,8 @@ class ProjectMaterialConfigService:
     
     @staticmethod
     def calculate_closure_thickness(material_thickness_mm: int, guide_width_mm: int) -> int:
-        """Calcola lo spessore di chiusura."""
-        return material_thickness_mm + guide_width_mm
+        """Calcola lo spessore di chiusura: materiale + guida + materiale."""
+        return (material_thickness_mm * 2) + guide_width_mm
     
     @staticmethod
     def validate_material_guide_combination(material_id: int, guide_id: int, 

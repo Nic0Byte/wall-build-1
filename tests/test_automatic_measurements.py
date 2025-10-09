@@ -36,8 +36,8 @@ def test_basic_calculation():
     calculator = AutoMeasurementCalculator()
     result = calculator.calculate_closure_thickness(material, guide)
     
-    # Validazione
-    expected_closure = 14 + 75  # 89mm (non 103mm come nell'esempio documento)
+    # Validazione con nuova formula: materiale + guida + materiale
+    expected_closure = (14 * 2) + 75  # 103mm
     actual_closure = result.closure_thickness_mm
     
     print(f"Formula applicata: {result.formula}")
@@ -47,7 +47,7 @@ def test_basic_calculation():
     
     # Test note tecniche
     assert len(result.technical_notes) > 0, "Mancano note tecniche"
-    assert result.formula == "14 + 75 = 89", f"Formula errata: {result.formula}"
+    assert result.formula == "14 + 75 + 14 = 103", f"Formula errata: {result.formula}"
     
     return actual_closure == expected_closure
 
@@ -206,8 +206,8 @@ def test_enhanced_packing_integration():
     print(f"Costo stimato: €{result['material_requirements']['cost_estimate']['total_cost']:.2f}")
     
     # Validazioni
-    assert result['closure_calculation'].closure_thickness_mm == 89, f"Spessore errato: {result['closure_calculation'].closure_thickness_mm}"
-    assert result['closure_calculation'].formula == "14 + 75 = 89", f"Formula errata: {result['closure_calculation'].formula}"
+    assert result['closure_calculation'].closure_thickness_mm == 103, f"Spessore errato: {result['closure_calculation'].closure_thickness_mm}"
+    assert result['closure_calculation'].formula == "14 + 75 + 14 = 103", f"Formula errata: {result['closure_calculation'].formula}"
     assert result['wall_dimensions']['area_m2'] == 13.5, f"Area errata: {result['wall_dimensions']['area_m2']}"
     
     return True

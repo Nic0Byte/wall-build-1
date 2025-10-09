@@ -131,9 +131,9 @@ class ProjectMaterialConfig(Base):
     
     def calculate_closure_thickness(self):
         """Calcola lo spessore di chiusura automaticamente."""
-        # Logica: spessore_materiale + larghezza_guida
+        # Logica: spessore_materiale + larghezza_guida + spessore_materiale
         if self.material and self.guide:
-            self.closure_thickness_mm = self.material_thickness_mm + self.guide.width_mm
+            self.closure_thickness_mm = (self.material_thickness_mm * 2) + self.guide.width_mm
         return self.closure_thickness_mm
     
     def get_existing_walls_list(self):

@@ -82,17 +82,17 @@ class AutoMeasurementCalculator:
     
     def calculate_closure_thickness(self, material: MaterialSpec, guide: GuideSpec) -> CalculationResult:
         """
-        Calcola lo spessore di chiusura secondo la formula base.
-        Esempio dal documento: 14mm (materiale) + 75mm (guide) = 103mm (chiusura)
+        Calcola lo spessore di chiusura secondo la formula: materiale + guida + materiale.
+        Esempio: 14mm + 75mm + 14mm = 103mm
         """
         
-        # Formula principale
-        closure_thickness = material.thickness_mm + guide.width_mm
+        # Formula principale: materiale + guida + materiale
+        closure_thickness = (material.thickness_mm * 2) + guide.width_mm
         
         # Note tecniche
         notes = [
-            f"Formula base: {material.thickness_mm}mm (materiale) + {guide.width_mm}mm (guide) = {closure_thickness}mm",
-            f"Esempio documento: 14mm + 75mm = 103mm",
+            f"Formula: {material.thickness_mm}mm (materiale) + {guide.width_mm}mm (guida) + {material.thickness_mm}mm (materiale) = {closure_thickness}mm",
+            f"Esempio: 14mm + 75mm + 14mm = 103mm",
             f"Tolleranza taglio: ±{self.tolerance_mm}mm"
         ]
         
@@ -115,7 +115,7 @@ class AutoMeasurementCalculator:
             moretti_height_mm=None,
             technical_notes=notes,
             warnings=warnings,
-            formula=f"{material.thickness_mm} + {guide.width_mm} = {closure_thickness}"
+            formula=f"{material.thickness_mm} + {guide.width_mm} + {material.thickness_mm} = {closure_thickness}"
         )
     
     def calculate_moretti_dimensions(self, ceiling_height_mm: int, closure_thickness_mm: int, 

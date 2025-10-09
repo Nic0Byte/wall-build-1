@@ -1676,8 +1676,8 @@ class WallPackingApp {
             closureText += `<div class="info-item"><strong>Spessore Finale:</strong> ${calc.closure_thickness_mm} mm</div>`;
             console.log('✅ Usando calcoli dinamici per spessore chiusura');
         } else {
-            // Fallback
-            closureText = `<div class="info-item"><strong>Spessore Finale:</strong> 93 mm</div><div class="info-item"><strong>Formula:</strong> 18mm + 75mm = 93mm</div>`;
+            // Fallback con nuova formula: materiale + guida + materiale
+            closureText = `<div class="info-item"><strong>Spessore Finale:</strong> 111 mm</div><div class="info-item"><strong>Formula:</strong> 18mm + 75mm + 18mm = 111mm</div>`;
         }
         
         if (closureInfo) {
@@ -2463,7 +2463,8 @@ class WallPackingApp {
         const enableCostEstimation = document.getElementById('enableCostEstimation')?.checked !== false; // Default true
         
         // NUOVO: Calcolo automatico spessore chiusura (per validazione frontend)
-        const calculatedClosureThickness = materialThickness + parseInt(guideType);
+        // Formula: materiale + guida + materiale
+        const calculatedClosureThickness = (materialThickness * 2) + parseInt(guideType);
         
         // NUOVO: Fixed walls configuration per backend
         const fixedWalls = attachmentPoints.map(side => ({
@@ -2521,7 +2522,7 @@ class WallPackingApp {
             // NUOVO: Parametri calcolati (per validazione)
             calculated: {
                 closure_thickness_mm: calculatedClosureThickness,
-                formula_description: `${materialThickness}mm + ${guideType}mm = ${calculatedClosureThickness}mm`,
+                formula_description: `${materialThickness}mm + ${guideType}mm + ${materialThickness}mm = ${calculatedClosureThickness}mm`,
                 starting_point: wallType === 'attached' && attachmentPoints.length > 0 ? attachmentPoints[0] : 'left'
             }
         };
