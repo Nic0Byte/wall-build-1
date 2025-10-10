@@ -2762,10 +2762,8 @@ table tbody tr:hover {
 
 .project-item {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px;
+    flex-direction: column;
+    padding: 0;
     margin-bottom: 0;
     background: white;
     border: 1px solid var(--gray-200);
@@ -2773,95 +2771,140 @@ table tbody tr:hover {
     transition: all 0.2s ease;
     cursor: pointer;
     flex: 1;
-    min-width: 300px;
-    max-width: 450px;
+    min-width: 320px;
+    max-width: 400px;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 .project-item:hover {
     border-color: var(--primary-300);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     transform: translateY(-2px);
-    background: var(--gray-50);
 }
 
 .project-info {
     flex: 1;
-    margin-right: 20px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
 
 .project-name {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 17px;
     color: var(--gray-900);
-    margin-bottom: 0;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .project-meta {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    font-size: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    font-size: 13px;
     color: var(--gray-600);
-    flex-wrap: wrap;
 }
 
 .project-meta span {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+}
+
+.project-meta span i {
+    color: var(--gray-400);
+    width: 14px;
+    text-align: center;
 }
 
 .project-actions {
     display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-shrink: 0;
+    gap: 0;
+    border-top: 1px solid var(--gray-200);
+    background: var(--gray-50);
 }
 
 .reuse-btn {
-    padding: 10px 18px;
-    background: var(--primary-500);
-    color: white;
+    flex: 1;
+    padding: 12px 16px;
+    background: white;
+    color: var(--primary-600);
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-right: 1px solid var(--gray-200);
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+    justify-content: center;
+    gap: 6px;
 }
 
 .reuse-btn:hover {
-    background: var(--primary-600);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    background: var(--primary-50);
+    color: var(--primary-700);
 }
 
-.delete-project-btn {
-    padding: 10px;
-    background: var(--red-50);
-    color: var(--red-600);
-    border: 1px solid var(--red-200);
-    border-radius: 8px;
+.download-file-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: white;
+    color: var(--success-600);
+    border: none;
+    border-right: 1px solid var(--gray-200);
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    gap: 6px;
+}
+
+.download-file-btn:hover {
+    background: var(--success-50);
+    color: var(--success-700);
+}
+
+.delete-project-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--red-50);
+    color: var(--red-600);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 .delete-project-btn:hover {
     background: var(--red-100);
-    border-color: var(--red-300);
-    transform: translateY(-1px);
+    color: var(--red-700);
+}
+
+.delete-project-btn i {
+    color: var(--red-600);
+}
+
+.delete-project-btn:hover i {
+    color: var(--red-700);
+}
+
+.delete-project-btn span {
+    color: var(--red-600);
+}
+
+.delete-project-btn:hover span {
+    color: var(--red-700);
 }
 
 .projects-count-badge {
@@ -3250,28 +3293,90 @@ table tbody tr:hover {
     }
 }
 
+/* Delete Project Modal - Simple Version */
+.delete-modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 450px;
+    overflow: hidden;
+    animation: slideIn 0.3s ease;
+}
+
+.delete-modal-actions {
+    padding: 20px 24px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #dee2e6;
+}
+
+.modal-btn-cancel {
+    padding: 12px 28px;
+    background: #f8f9fa;
+    color: #495057;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-btn-cancel:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
+}
+
+.modal-btn-confirm {
+    padding: 12px 28px;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.modal-btn-confirm:hover {
+    background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
 .efficiency-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
-    border-radius: 12px;
+    padding: 4px 10px;
+    border-radius: 16px;
     font-size: 12px;
     font-weight: 600;
+    grid-column: span 2;
+    justify-self: start;
 }
 
 .efficiency-high {
-    background: var(--green-100);
+    background: linear-gradient(135deg, var(--green-100) 0%, var(--green-50) 100%);
     color: var(--green-700);
+    border: 1px solid var(--green-200);
 }
 
 .efficiency-medium {
-    background: var(--yellow-100);
+    background: linear-gradient(135deg, var(--yellow-100) 0%, var(--yellow-50) 100%);
     color: var(--yellow-700);
+    border: 1px solid var(--yellow-200);
 }
 
 .efficiency-low {
-    background: var(--red-100);
+    background: linear-gradient(135deg, var(--red-100) 0%, var(--red-50) 100%);
     color: var(--red-700);
+    border: 1px solid var(--red-200);
 }
 
 /* Responsive Design */
@@ -3291,28 +3396,26 @@ table tbody tr:hover {
     }
     
     .project-item {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 15px;
         min-width: auto;
         max-width: none;
-        flex: none;
     }
     
     .project-info {
-        margin-right: 0;
-        margin-bottom: 15px;
+        padding: 16px;
+    }
+    
+    .project-name {
+        font-size: 15px;
     }
     
     .project-meta {
-        flex-direction: column;
-        align-items: flex-start;
+        grid-template-columns: 1fr;
         gap: 8px;
+        font-size: 12px;
     }
     
-    .project-actions {
-        justify-content: flex-end;
-        gap: 8px;
+    .efficiency-badge {
+        grid-column: span 1;
     }
 }
 

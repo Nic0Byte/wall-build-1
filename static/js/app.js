@@ -4788,43 +4788,46 @@ function renderPastProjects(projects) {
                 console.warn('Error parsing dates for project:', project.id, dateError);
             }
             
-            // Determine efficiency class
-            let efficiencyClass = 'efficiency-low';
-            let efficiencyValue = 0;
-            if (project.efficiency) {
-                try {
-                    efficiencyValue = parseFloat(project.efficiency.toString().replace('%', '')) || 0;
-                    if (efficiencyValue >= 85) efficiencyClass = 'efficiency-high';
-                    else if (efficiencyValue >= 70) efficiencyClass = 'efficiency-medium';
-                } catch (effError) {
-                    console.warn('Error parsing efficiency for project:', project.id, effError);
-                }
-            }
-            
             // Safely get project name
             const projectName = project.name || project.filename || `Progetto ${project.id}`;
             
             return `
                 <div class="project-item" data-project-id="${project.id}">
                     <div class="project-info">
-                        <div class="project-name">${projectName}</div>
+                        <div class="project-name">
+                            <i class="fas fa-file-alt"></i>
+                            ${projectName}
+                        </div>
                         <div class="project-meta">
-                            <span><i class="fas fa-calendar"></i> ${createdDate}</span>
-                            <span><i class="fas fa-clock"></i> ${lastUsed}</span>
-                            <span><i class="fas fa-cogs"></i> ${project.profile_name || 'Sistema Standard'}</span>
-                            <span><i class="fas fa-expand-arrows-alt"></i> ${project.wall_dimensions || 'N/A'}</span>
-                            <span><i class="fas fa-cubes"></i> ${project.total_blocks || 0} blocchi</span>
-                            ${project.efficiency ? `<span class="efficiency-badge ${efficiencyClass}">
-                                <i class="fas fa-chart-line"></i> ${project.efficiency}
-                            </span>` : ''}
+                            <span title="Data creazione">
+                                <i class="fas fa-calendar-plus"></i>
+                                ${createdDate}
+                            </span>
+                            <span title="Ultimo utilizzo">
+                                <i class="fas fa-clock"></i>
+                                ${lastUsed}
+                            </span>
+                            <span title="Sistema profilo">
+                                <i class="fas fa-cogs"></i>
+                                ${project.profile_name || 'Standard'}
+                            </span>
+                            <span title="Numero blocchi">
+                                <i class="fas fa-cubes"></i>
+                                ${project.total_blocks || 0} blocchi
+                            </span>
+                            ${project.wall_dimensions && project.wall_dimensions !== 'N/A' ? 
+                                `<span title="Dimensioni parete"><i class="fas fa-expand-arrows-alt"></i> ${project.wall_dimensions}</span>` : ''}
                         </div>
                     </div>
                     <div class="project-actions">
-                        <button class="reuse-btn" onclick="reuseProject(${project.id}, event)">
-                            <i class="fas fa-redo"></i> Riusa
+                        <button class="download-file-btn" onclick="downloadProjectFile(${project.id}, event); return false;" title="Scarica file originale">
+                            <i class="fas fa-file-download"></i><span> Scarica</span>
                         </button>
-                        <button class="delete-project-btn" onclick="deleteProject(${project.id}, event)" title="Elimina progetto">
-                            <i class="fas fa-trash"></i>
+                        <button class="reuse-btn" onclick="reuseProject(${project.id}, event); return false;" title="Riusa questo progetto">
+                            <i class="fas fa-redo"></i><span> Riusa</span>
+                        </button>
+                        <button class="delete-project-btn" onclick="deleteProject(${project.id}, event); return false;" title="Elimina progetto">
+                            <i class="fas fa-trash"></i><span> Elimina</span>
                         </button>
                     </div>
                 </div>
@@ -5144,6 +5147,86 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// Download Project File - Scarica il file originale del progetto
+async function downloadProjectFile(projectId, event) {
+    // Prevent event propagation to avoid closing the panel
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
+    console.log(`📥 Download file per progetto ID: ${projectId}`);
+    
+    try {
+        // Show loading toast
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Download in corso...', 'info');
+        }
+        
+        // Get authentication token
+        const token = sessionStorage.getItem('access_token');
+        if (!token) {
+            throw new Error('Autenticazione richiesta');
+        }
+        
+        // Fetch the file
+        const response = await fetch(`/api/v1/saved-projects/${projectId}/file`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('File non trovato');
+            }
+            throw new Error(`Errore download: ${response.status}`);
+        }
+        
+        // Get filename from Content-Disposition header or use default
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'project_file.dwg';
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+        
+        // Get the blob
+        const blob = await response.blob();
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        
+        // Trigger download
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log(`✅ File scaricato: ${filename}`);
+        
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast(`File "${filename}" scaricato con successo`, 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Errore download file:', error);
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast(error.message || 'Errore nel download del file', 'error');
+        }
+    }
+}
+
 // Delete Project - NO CONFIRMATION, KEEP CARD OPEN
 async function deleteProject(projectId, event) {
     // Prevent event propagation to avoid closing the panel
@@ -5152,30 +5235,88 @@ async function deleteProject(projectId, event) {
         event.preventDefault();
     }
     
+    // Mostra modal di conferma personalizzato
+    showDeleteProjectModal(projectId);
+}
+
+function showDeleteProjectModal(projectId) {
+    // Rimuovi modal esistente se presente
+    const existingModal = document.getElementById('deleteProjectModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Crea modal HTML
+    const modalHTML = `
+        <div id="deleteProjectModal" class="delete-modal-overlay" onclick="closeDeleteProjectModal()">
+            <div class="delete-modal-content" onclick="event.stopPropagation()">
+                <div class="delete-modal-header">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>Conferma eliminazione</h3>
+                </div>
+                <div class="delete-modal-body">
+                    <p>Sei sicuro di voler eliminare questo progetto?</p>
+                </div>
+                <div class="delete-modal-actions">
+                    <button class="modal-btn-cancel" onclick="closeDeleteProjectModal()">
+                        Annulla
+                    </button>
+                    <button class="modal-btn-confirm" onclick="confirmDeleteProject(${projectId})">
+                        Conferma
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeDeleteProjectModal() {
+    const modal = document.getElementById('deleteProjectModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function confirmDeleteProject(projectId) {
+    closeDeleteProjectModal();
+    
+    const token = sessionStorage.getItem('access_token');
+    if (!token) {
+        console.error('❌ Nessun token trovato');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Sessione scaduta. Effettua il login.', 'warning');
+        }
+        window.location.href = '/login';
+        return;
+    }
+    
     try {
         const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`
+                'Authorization': `Bearer ${token}`
             }
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
         }
         
-        // Reload projects list BUT keep the card open
-        loadPastProjects();
+        // Reload projects list
+        await loadPastProjects();
         
         if (window.wallPackingApp) {
-            window.wallPackingApp.showToast('Progetto eliminato', 'success');
+            window.wallPackingApp.showToast('Progetto eliminato con successo', 'success');
         }
         
     } catch (error) {
         console.error('Error deleting project:', error);
         if (window.wallPackingApp) {
-            window.wallPackingApp.showToast('Errore nell\'eliminazione progetto', 'error');
+            window.wallPackingApp.showToast(`Errore: ${error.message}`, 'error');
         }
     }
 }
