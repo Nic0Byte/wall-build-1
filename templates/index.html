@@ -413,27 +413,34 @@
                                 </div>
                             </div>
 
-                            <!-- Advanced Options -->
-                            <div class="config-card advanced-config-card">
+                            <!-- System Profile Display -->
+                            <div class="config-card system-profile-display-card">
                                 <label>
-                                    <i class="fas fa-cogs"></i>
-                                    Opzioni Avanzate
+                                    <i class="fas fa-cog"></i>
+                                    Sistema Utilizzato
                                 </label>
-                                <div class="param-row">
-                                    <label>
-                                        <input type="checkbox" id="enableAutoMeasurements" class="param-checkbox" checked>
-                                        Calcoli Automatici Attivati
-                                    </label>
-                                    <span class="param-help">Calcolo spessore chiusure e parametri</span>
-                                </div>
-                                <div class="param-row">
-                                    <label>
-                                        <input type="checkbox" id="enableCostEstimation" class="param-checkbox" checked>
-                                        Stima Costi Materiali
-                                    </label>
-                                    <span class="param-help">Calcolo automatico fabbisogno e costi</span>
+                                <div class="current-profile-display">
+                                    <div class="profile-display-content">
+                                        <div class="profile-icon">
+                                            <i class="fas fa-cubes"></i>
+                                        </div>
+                                        <div class="profile-info">
+                                            <span class="profile-name" id="displayedProfileName">Nessun profilo selezionato</span>
+                                            <span class="profile-description" id="displayedProfileDesc">Seleziona un profilo nello Step 2</span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-specs" id="displayedProfileSpecs" style="display: none;">
+                                        <div class="spec-item">
+                                            <i class="fas fa-cube"></i>
+                                            <span id="displayedBlocksCount">0 blocchi configurati</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <!-- Hidden inputs for advanced options (always enabled) -->
+                            <input type="hidden" id="enableAutoMeasurements" checked>
+                            <input type="hidden" id="enableCostEstimation" checked>
                         </div>
 
                         <!-- Parameters Summary -->

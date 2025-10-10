@@ -47,8 +47,45 @@ function setupProfileEventListeners() {
             const profileId = parseInt(e.target.value);
             if (profileId) {
                 activateProfile(profileId);
+                updateProfileDisplay(profileId); // Aggiorna la visualizzazione nello Step 3
             }
         });
+    }
+}
+
+// Funzione per aggiornare la visualizzazione del profilo nello Step 3
+function updateProfileDisplay(profileId) {
+    const profile = systemProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+    
+    const nameElement = document.getElementById('displayedProfileName');
+    const descElement = document.getElementById('displayedProfileDesc');
+    const specsElement = document.getElementById('displayedProfileSpecs');
+    const blocksCountElement = document.getElementById('displayedBlocksCount');
+    
+    if (nameElement) {
+        nameElement.textContent = (profile.is_default ? '⭐ ' : '') + profile.name;
+    }
+    
+    if (descElement) {
+        descElement.textContent = profile.description || 'Profilo sistema configurato';
+    }
+    
+    if (specsElement && blocksCountElement) {
+        // Conta i blocchi configurati
+        const blockCount = profile.block_config ? 
+            (profile.block_config.widths ? profile.block_config.widths.length : 3) : 3;
+        
+        blocksCountElement.textContent = `${blockCount} blocchi configurati`;
+        specsElement.style.display = 'flex';
+    }
+}
+
+// Aggiorna la visualizzazione quando viene caricato il profilo default
+function updateDefaultProfileDisplay() {
+    const defaultProfile = systemProfiles.find(p => p.is_default);
+    if (defaultProfile) {
+        updateProfileDisplay(defaultProfile.id);
     }
 }
 
@@ -94,6 +131,7 @@ async function loadSystemProfiles() {
         
         renderProfilesList();
         renderProfileSelector();
+        updateDefaultProfileDisplay(); // Aggiorna la visualizzazione del profilo default
         
     } catch (error) {
         console.error('❌ Errore caricamento profili:', error);
