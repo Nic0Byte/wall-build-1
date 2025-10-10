@@ -2588,7 +2588,7 @@ class WallPackingApp {
         const summaryMaterial = document.getElementById('summaryMaterial');
         const summaryGuides = document.getElementById('summaryGuides');
         const summaryWallType = document.getElementById('summaryWallType');
-        const summaryCeiling = document.getElementById('summaryCeiling');
+        const summarySystem = document.getElementById('summarySystem');
         
         if (summaryMaterial) {
             summaryMaterial.textContent = `${params.material.type.charAt(0).toUpperCase() + params.material.type.slice(1)} ${params.material.thickness_mm}mm`;
@@ -2606,9 +2606,8 @@ class WallPackingApp {
             summaryWallType.textContent = wallText;
         }
         
-        if (summaryCeiling) {
-            summaryCeiling.textContent = `${params.ceiling.height_mm}mm`;
-        }
+        // Aggiorna il sistema nel riepilogo (viene settato quando si seleziona un profilo)
+        // Il valore viene gestito dalla funzione updateProfileDisplay in system-profiles.js
         
         // NUOVO: Aggiungi elementi calcolati dinamicamente 
         this.updateDynamicCalculatedFields(params);

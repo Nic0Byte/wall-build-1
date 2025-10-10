@@ -62,6 +62,7 @@ function updateProfileDisplay(profileId) {
     const descElement = document.getElementById('displayedProfileDesc');
     const specsElement = document.getElementById('displayedProfileSpecs');
     const blocksCountElement = document.getElementById('displayedBlocksCount');
+    const summarySystemElement = document.getElementById('summarySystem');
     
     if (nameElement) {
         nameElement.textContent = (profile.is_default ? '⭐ ' : '') + profile.name;
@@ -78,6 +79,11 @@ function updateProfileDisplay(profileId) {
         
         blocksCountElement.textContent = `${blockCount} blocchi configurati`;
         specsElement.style.display = 'flex';
+    }
+    
+    // Aggiorna anche il riepilogo parametri
+    if (summarySystemElement) {
+        summarySystemElement.textContent = profile.name;
     }
 }
 
