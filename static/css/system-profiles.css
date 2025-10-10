@@ -72,8 +72,8 @@
 }
 
 .system-profiles-card .feature-icon {
-    /* Icona con lo stesso gradient delle altre card */
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Icona con gradient blu-verdolino */
+    background: linear-gradient(135deg, #3EAAAF 0%, #2E8B8F 100%);
 }
 
 .system-profiles-card h3 {
@@ -104,7 +104,7 @@
 
 .create-profile-btn {
     padding: 15px 30px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #3EAAAF 0%, #2E8B8F 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -112,12 +112,12 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px rgba(62, 170, 175, 0.3);
 }
 
 .create-profile-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px rgba(62, 170, 175, 0.4);
 }
 
 .create-profile-btn:active {
