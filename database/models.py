@@ -69,6 +69,7 @@ class SavedProject(Base):
     project_name = Column(String(200), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)  # Path al file DWG/DXF originale
+    profile_name = Column(String(100), default='Sistema Standard', nullable=True)  # NEW: Nome profilo sistema utilizzato
     
     # Configurazioni progetto (JSON serializzato)
     block_dimensions = Column(Text, nullable=True)  # Dimensioni blocchi personalizzate

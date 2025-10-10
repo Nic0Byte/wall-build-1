@@ -528,3 +528,119 @@ def ensure_default_profile(user_id: int) -> 'SystemProfile':
         is_default=True
     )
 
+# ────────────────────────────────────────────────────────────────────────────────
+# System Snapshot Services
+# ────────────────────────────────────────────────────────────────────────────────
+
+def get_complete_system_snapshot(user_id: int) -> Dict[str, Any]:
+    """
+    Recupera uno snapshot completo del sistema per salvataggio con progetto.
+    Include tutti i profili sistema e le configurazioni disponibili al momento del salvataggio.
+    
+    Returns:
+        Dict contenente:
+        - saved_at: timestamp ISO
+        - user_profiles: lista di tutti i profili dell'utente
+        - default_profile_id: ID del profilo predefinito (None se non esiste)
+    """
+    import json
+    from datetime import datetime
+    
+    try:
+        # Recupera tutti i profili dell'utente
+        profiles = get_user_profiles(user_id)
+        default_profile = get_default_profile(user_id)
+        
+        # Serializza i profili
+        profiles_data = []
+        for profile in profiles:
+            try:
+                profiles_data.append({
+                    "id": profile.id,
+                    "name": profile.name,
+                    "description": profile.description,
+                    "block_config": json.loads(profile.block_config) if profile.block_config else None,
+                    "moraletti_config": json.loads(profile.moraletti_config) if profile.moraletti_config else None,
+                    "is_default": profile.is_default,
+                    "created_at": profile.created_at.isoformat() if profile.created_at else None,
+                    "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
+                })
+            except Exception as e:
+                print(f"⚠️ Errore serializzazione profilo {profile.id}: {e}")
+                continue
+        
+        snapshot = {
+            "saved_at": datetime.now().isoformat(),
+            "user_profiles": profiles_data,
+            "default_profile_id": default_profile.id if default_profile else None,
+            "snapshot_version": "1.0"  # Versione del formato snapshot per future migrazioni
+        }
+        
+        print(f"✅ Snapshot creato con successo: {len(profiles_data)} profili")
+        return snapshot
+        
+    except Exception as e:
+        # In caso di errore, ritorna snapshot vuoto ma valido
+        print(f"⚠️ Errore creazione snapshot sistema: {e}")
+        return {
+            "saved_at": datetime.now().isoformat(),
+            "user_profiles": [],
+            "default_profile_id": None,
+            "snapshot_version": "1.0",
+            "error": str(e)
+        }
+
+def get_materials_snapshot() -> Dict[str, Any]:
+    """
+    Recupera snapshot completo di tutti i materiali disponibili nel database.
+    Include blocchi, malte, rivestimenti, ecc.
+    
+    NOTA: Per ora ritorna struttura vuota, da implementare quando avremo
+    tabelle materiali nel database.
+    
+    Returns:
+        Dict contenente i materiali disponibili
+    """
+    try:
+        # Try to import material services if available
+        from database.material_services import (
+            get_all_blocks,
+            get_all_mortars, 
+            get_all_coatings
+        )
+        
+        # Recupera tutti i materiali dal database
+        blocks = get_all_blocks()
+        mortars = get_all_mortars()
+        coatings = get_all_coatings()
+        
+        snapshot = {
+            "blocks": [block.to_dict() for block in blocks] if blocks else [],
+            "mortars": [mortar.to_dict() for mortar in mortars] if mortars else [],
+            "coatings": [coating.to_dict() for coating in coatings] if coatings else [],
+            "snapshot_version": "1.0"
+        }
+        
+        return snapshot
+        
+    except ImportError as e:
+        # Material services not yet implemented
+        print(f"ℹ️ Material services non ancora implementato: {e}")
+        return {
+            "blocks": [],
+            "mortars": [],
+            "coatings": [],
+            "snapshot_version": "1.0",
+            "note": "Materials database not yet implemented"
+        }
+    except Exception as e:
+        # Se non ci sono tabelle materiali o errore, ritorna snapshot vuoto
+        print(f"⚠️ Materiali snapshot non disponibile: {e}")
+        return {
+            "blocks": [],
+            "mortars": [],
+            "coatings": [],
+            "snapshot_version": "1.0",
+            "note": "Materials database error"
+        }
+

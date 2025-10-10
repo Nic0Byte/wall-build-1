@@ -2155,6 +2155,26 @@ class WallPackingApp {
         // Get configuration data
         const config = this.getConfiguration();
         
+        // NEW: Get current system profile name
+        const activeProfileSelector = document.getElementById('activeProfileSelector');
+        const selectedProfileId = activeProfileSelector ? parseInt(activeProfileSelector.value) : null;
+        let profileName = 'Sistema Standard'; // Default
+        
+        if (selectedProfileId && window.systemProfiles) {
+            const activeProfile = window.systemProfiles.find(p => p.id === selectedProfileId);
+            if (activeProfile) {
+                profileName = activeProfile.name;
+                console.log('📋 Profilo attivo al salvataggio:', profileName);
+            }
+        } else {
+            // Try to get from displayed profile name
+            const displayedProfileName = document.getElementById('displayedProfileName');
+            if (displayedProfileName && displayedProfileName.textContent) {
+                profileName = displayedProfileName.textContent.replace('⭐ ', '').trim();
+                console.log('📋 Profilo dal display:', profileName);
+            }
+        }
+        
         // NEW: Collect extended configuration parameters
         const extendedConfig = {
             // Material configuration (try app instance first, then session data)
@@ -2194,6 +2214,7 @@ class WallPackingApp {
             name: projectName,
             filename: filename,
             file_path: savedFilePath, // This is the path where the file was saved on server
+            profile_name: profileName, // NEW: Nome profilo/sistema utilizzato
             block_dimensions: getCurrentBlockDimensions(),
             color_theme: getCurrentColorTheme(),
             packing_config: {
@@ -4790,6 +4811,7 @@ function renderPastProjects(projects) {
                         <div class="project-meta">
                             <span><i class="fas fa-calendar"></i> ${createdDate}</span>
                             <span><i class="fas fa-clock"></i> ${lastUsed}</span>
+                            <span><i class="fas fa-cogs"></i> ${project.profile_name || 'Sistema Standard'}</span>
                             <span><i class="fas fa-expand-arrows-alt"></i> ${project.wall_dimensions || 'N/A'}</span>
                             <span><i class="fas fa-cubes"></i> ${project.total_blocks || 0} blocchi</span>
                             ${project.efficiency ? `<span class="efficiency-badge ${efficiencyClass}">
@@ -4877,6 +4899,51 @@ async function reuseProject(projectId, event) {
 // Restore project configurations
 async function restoreProjectConfigurations(project) {
     console.log('⚙️ Ripristino configurazioni...');
+    
+    // ===== NUOVO: Gestione Snapshot Sistema =====
+    if (project.snapshot_info && project.snapshot_info.has_snapshot) {
+        console.log('📸 Progetto con snapshot sistema rilevato!');
+        const snapshotInfo = project.snapshot_info;
+        
+        // Mostra badge snapshot nell'UI
+        const snapshotBadge = document.getElementById('snapshotBadge');
+        const snapshotBadgeText = document.getElementById('snapshotBadgeText');
+        
+        if (snapshotBadge && snapshotBadgeText) {
+            // Formatta la data
+            const savedAt = new Date(snapshotInfo.saved_at);
+            const formattedDate = savedAt.toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            
+            snapshotBadgeText.textContent = `Configurazione snapshot del ${formattedDate}`;
+            snapshotBadge.style.display = 'flex';
+            
+            console.log(`✅ Badge snapshot mostrato: ${formattedDate}`);
+            console.log(`📊 Profili salvati nello snapshot: ${snapshotInfo.profiles_count}`);
+        }
+        
+        // Store snapshot info for use during processing
+        if (window.wallPackingApp) {
+            window.wallPackingApp.currentSnapshot = project.extended_config.system_snapshot;
+            console.log('💾 Snapshot salvato in app instance per utilizzo futuro');
+        }
+        
+    } else if (project.snapshot_info && !project.snapshot_info.has_snapshot) {
+        console.warn('⚠️ Progetto LEGACY senza snapshot - userà configurazione corrente');
+        
+        // Mostra badge warning per progetto legacy
+        const snapshotBadge = document.getElementById('snapshotBadge');
+        const snapshotBadgeText = document.getElementById('snapshotBadgeText');
+        
+        if (snapshotBadge && snapshotBadgeText) {
+            snapshotBadgeText.textContent = '⚠️ Progetto legacy - usa configurazione sistema corrente';
+            snapshotBadge.classList.add('legacy');
+            snapshotBadge.style.display = 'flex';
+        }
+    }
     
     // Restore block dimensions
     if (project.block_dimensions) {

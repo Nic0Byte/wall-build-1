@@ -340,13 +340,29 @@ async def save_project(
     project_data: dict,
     current_user: User = Depends(get_current_active_user)
 ):
-    """Salva un progetto completato per riutilizzo futuro."""
+    """Salva un progetto completato per riutilizzo futuro con snapshot del sistema."""
     try:
         from database.models import SavedProject
         from database.config import get_db_session
+        from database.services import get_complete_system_snapshot, get_materials_snapshot
         import json
         import os
         from pathlib import Path
+        
+        # ===== NUOVO: Crea snapshot completo del sistema =====
+        print(f"📸 Creazione snapshot sistema per progetto '{project_data.get('name')}'...")
+        
+        system_snapshot = get_complete_system_snapshot(current_user.id)
+        materials_snapshot = get_materials_snapshot()
+        
+        # Combina gli snapshot
+        complete_snapshot = {
+            "system_config": system_snapshot,
+            "materials": materials_snapshot,
+            "snapshot_version": "1.0"
+        }
+        
+        print(f"✅ Snapshot creato: {len(system_snapshot.get('user_profiles', []))} profili salvati")
         
         # Salva il file dal session_id se fornito
         file_path = None
@@ -357,6 +373,14 @@ async def save_project(
                 project_data.get("filename", "project_file")
             )
         
+        # ===== Prepara extended_config con snapshot =====
+        extended_config = project_data.get("extended_config", {})
+        if not isinstance(extended_config, dict):
+            extended_config = {}
+        
+        # Aggiungi snapshot al extended_config
+        extended_config["system_snapshot"] = complete_snapshot
+        
         with get_db_session() as db:
             # Crea nuovo progetto salvato
             saved_project = SavedProject(
@@ -364,11 +388,12 @@ async def save_project(
                 project_name=project_data.get("name"),
                 original_filename=project_data.get("filename"),
                 file_path=file_path,
+                profile_name=project_data.get("profile_name", "Sistema Standard"),  # NEW: Nome profilo
                 block_dimensions=json.dumps(project_data.get("block_dimensions")),
                 color_theme=json.dumps(project_data.get("color_theme")),
                 packing_config=json.dumps(project_data.get("packing_config")),
                 results_summary=json.dumps(project_data.get("results")),
-                extended_config=json.dumps(project_data.get("extended_config")),  # NEW: Extended config
+                extended_config=json.dumps(extended_config),  # Include snapshot
                 wall_dimensions=project_data.get("wall_dimensions"),
                 total_blocks=project_data.get("total_blocks"),
                 efficiency_percentage=project_data.get("efficiency"),
@@ -383,9 +408,13 @@ async def save_project(
             
             return {
                 "success": True,
-                "message": "Progetto salvato con successo",
+                "message": "Progetto salvato con successo (con snapshot sistema)",
                 "project_id": saved_project.id,
-                "file_path": file_path
+                "file_path": file_path,
+                "snapshot_info": {
+                    "profiles_count": len(system_snapshot.get("user_profiles", [])),
+                    "saved_at": system_snapshot.get("saved_at")
+                }
             }
             
     except Exception as e:
@@ -417,6 +446,7 @@ async def get_saved_projects(
                     "id": project.id,
                     "name": project.project_name,
                     "filename": project.original_filename,
+                    "profile_name": project.profile_name or "Sistema Standard",  # NEW: Nome profilo
                     "wall_dimensions": project.wall_dimensions,
                     "total_blocks": project.total_blocks,
                     "efficiency": project.efficiency_percentage,
@@ -467,6 +497,33 @@ async def get_saved_project(
             project.last_used = datetime.now()
             db.commit()
             
+            # Recupera extended_config
+            extended_config = json.loads(project.extended_config) if project.extended_config else {}
+            
+            # ===== NUOVO: Verifica presenza snapshot =====
+            has_snapshot = False
+            snapshot_info = None
+            
+            if "system_snapshot" in extended_config:
+                has_snapshot = True
+                snapshot = extended_config["system_snapshot"]
+                system_config = snapshot.get("system_config", {})
+                
+                snapshot_info = {
+                    "has_snapshot": True,
+                    "saved_at": system_config.get("saved_at"),
+                    "profiles_count": len(system_config.get("user_profiles", [])),
+                    "snapshot_version": snapshot.get("snapshot_version", "unknown")
+                }
+                
+                print(f"📸 Progetto caricato con snapshot del {system_config.get('saved_at', 'unknown')}")
+            else:
+                snapshot_info = {
+                    "has_snapshot": False,
+                    "warning": "Progetto in formato legacy, potrebbe usare configurazione corrente del sistema"
+                }
+                print(f"⚠️ Progetto legacy senza snapshot, userà configurazione corrente")
+            
             return {
                 "success": True,
                 "project": {
@@ -478,7 +535,7 @@ async def get_saved_project(
                     "color_theme": json.loads(project.color_theme) if project.color_theme else None,
                     "packing_config": json.loads(project.packing_config) if project.packing_config else None,
                     "results": json.loads(project.results_summary) if project.results_summary else None,
-                    "extended_config": json.loads(project.extended_config) if project.extended_config else {},  # NEW: Extended config
+                    "extended_config": extended_config,
                     "wall_dimensions": project.wall_dimensions,
                     "total_blocks": project.total_blocks,
                     "efficiency": project.efficiency_percentage,
@@ -486,7 +543,8 @@ async def get_saved_project(
                     "pdf_path": project.pdf_path,
                     "json_path": project.json_path,
                     "created_at": project.created_at.isoformat(),
-                    "last_used": project.last_used.isoformat()
+                    "last_used": project.last_used.isoformat(),
+                    "snapshot_info": snapshot_info  # NEW: Info sullo snapshot
                 }
             }
             

@@ -4668,3 +4668,52 @@ table tbody tr:hover {
  
  
  
+ 
+ 
+/* ===== NUOVO: Snapshot Badge ===== */
+.snapshot-badge {
+    margin-top: 12px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: #9a3412;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(251, 146, 60, 0.1);
+    transition: all 0.2s ease;
+}
+
+.snapshot-badge:hover {
+    box-shadow: 0 4px 8px rgba(251, 146, 60, 0.2);
+    transform: translateY(-1px);
+}
+
+.snapshot-badge i.fa-history {
+    color: #ea580c;
+    font-size: 1.1rem;
+}
+
+.snapshot-badge .snapshot-info-icon {
+    margin-left: auto;
+    color: #9a3412;
+    opacity: 0.7;
+    cursor: help;
+    transition: opacity 0.2s ease;
+}
+
+.snapshot-badge .snapshot-info-icon:hover {
+    opacity: 1;
+}
+
+.snapshot-badge.legacy {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
+}
+
+.snapshot-badge.legacy i {
+    color: #dc2626;
+}
