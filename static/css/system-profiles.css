@@ -1,0 +1,379 @@
+/**
+ * System Profiles Styles
+ * Stili per la gestione dei profili sistema
+ */
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Profile Selector Card (Inline nella features-grid) */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.profile-selector-card {
+    /* Usa lo stesso stile delle altre feature-card */
+    display: flex !important;
+    align-items: center;
+    gap: 20px;
+}
+
+.profile-selector-container-inline {
+    flex-shrink: 0;
+    min-width: 240px;
+}
+
+.profile-selector-inline {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    color: #333;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+.profile-selector-inline:hover {
+    border-color: #667eea;
+    background-color: #f8f9ff;
+}
+
+.profile-selector-inline:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.profile-selector-inline option {
+    padding: 10px;
+    font-weight: 600;
+}
+
+/* Rimuovi i vecchi stili */
+.profile-selector-wrapper,
+.profile-selector-label,
+.profile-selector,
+.profile-selector-container {
+    display: none !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* System Profiles Card */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.system-profiles-card {
+    /* Usa lo stesso stile delle altre card */
+    background: white;
+    /* Rimosso il gradient per coerenza */
+}
+
+.system-profiles-card .feature-icon {
+    /* Icona con lo stesso gradient delle altre card */
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.system-profiles-card h3 {
+    /* Testo normale come le altre card */
+    color: inherit;
+}
+
+.system-profiles-card p {
+    /* Descrizione normale come le altre card */
+    color: inherit;
+}
+
+.system-profiles-panel {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 20px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Create Profile Button */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.create-profile-section {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.create-profile-btn {
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.create-profile-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.create-profile-btn:active {
+    transform: translateY(0);
+}
+
+.create-profile-btn i {
+    margin-right: 8px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Profiles Grid */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.profiles-list-section h4 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.profile-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.profile-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    transform: translateY(-2px);
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.profile-header h4 {
+    margin: 0;
+    color: #333;
+    font-size: 1.2em;
+}
+
+.profile-description {
+    margin: 5px 0 0 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.profile-actions .btn-icon {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+}
+
+.profile-actions .btn-icon:hover {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+.profile-actions .btn-icon:last-child:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
+.profile-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-section strong {
+    color: #667eea;
+    font-size: 0.9em;
+}
+
+.detail-section span {
+    color: #555;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Loading & Empty States */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.loading-state,
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.loading-state i,
+.empty-state i {
+    font-size: 3em;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.loading-state p,
+.empty-state p {
+    font-size: 1.2em;
+    margin: 10px 0;
+    color: #666;
+}
+
+.empty-state span {
+    font-size: 0.9em;
+    color: #999;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Modal Enhancements */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+#profileModal .modal-content {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-section {
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 20px;
+}
+
+.modal-section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.block-config-group {
+    transition: all 0.3s ease;
+}
+
+.block-config-group:hover {
+    background: #f0f0f0 !important;
+}
+
+.block-config-group h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.block-config-group input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Responsive Design */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .profiles-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .profile-selector-card {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 15px;
+    }
+    
+    .profile-selector-container-inline {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .profile-selector-inline {
+        font-size: 0.95em;
+    }
+    
+    #profileModal .modal-content {
+        margin: 20px;
+        max-height: 95vh;
+    }
+    
+    .block-config-group > div {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .profile-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .profile-selector-inline {
+        font-size: 0.9em;
+        padding: 10px 14px;
+    }
+}

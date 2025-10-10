@@ -94,3 +94,37 @@ class SavedProject(Base):
     
     def __repr__(self):
         return f"<SavedProject(name='{self.project_name}', user_id={self.user_id})>"
+
+class SystemProfile(Base):
+    """
+    Profilo sistema con configurazioni preset per blocchi e moraletti.
+    Permette agli utenti di creare e salvare diverse configurazioni complete
+    (es. 'TakTak Big', 'TakTak Small') che possono essere rapidamente applicate.
+    """
+    __tablename__ = 'system_profiles'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    
+    # Informazioni profilo
+    name = Column(String(100), nullable=False)  # Es: "TakTak Big", "Default"
+    description = Column(Text, nullable=True)    # Descrizione opzionale
+    
+    # Configurazioni (salvate come JSON)
+    block_config = Column(Text, nullable=False)
+    # Formato: {"widths": [1239, 826, 413], "heights": [495, 495, 495]}
+    
+    moraletti_config = Column(Text, nullable=False)
+    # Formato: {"thickness": 58, "height": 495, "heightFromGround": 95, 
+    #           "spacing": 420, "countLarge": 3, "countMedium": 2, "countSmall": 1}
+    
+    # Flags
+    is_default = Column(Boolean, default=False, nullable=False)  # Profilo predefinito per l'utente
+    is_active = Column(Boolean, default=True, nullable=False)    # Profilo attivo/disattivato
+    
+    # Timestamping
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    
+    def __repr__(self):
+        return f"<SystemProfile(name='{self.name}', user_id={self.user_id}, is_default={self.is_default})>"

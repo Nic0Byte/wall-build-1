@@ -3930,6 +3930,58 @@ function saveBlockDimensions() {
     enableMoralettiConfiguration();
     
     console.log('✅ Block dimensions saved:', dimensions);
+    
+    // Se stiamo caricando un profilo, apri automaticamente il pannello moraletti
+    if (window.isLoadingProfile) {
+        console.log('🔄 Caricamento profilo in corso - apertura automatica pannello moraletti');
+        
+        setTimeout(() => {
+            // Chiudi il pannello blocchi
+            const blockPanel = document.getElementById('blockDimensionsPanel');
+            const blockIcon = document.getElementById('blockDimensionsExpandIcon');
+            if (blockPanel && blockIcon) {
+                blockPanel.style.display = 'none';
+                blockIcon.classList.remove('expanded');
+            }
+            
+            // Apri il pannello moraletti
+            const moralettiPanel = document.getElementById('moralettiPanel');
+            const moralettiIcon = document.getElementById('moralettiExpandIcon');
+            if (moralettiPanel && moralettiIcon) {
+                moralettiPanel.style.display = 'block';
+                moralettiIcon.classList.add('expanded');
+                
+                // Inizializza se necessario
+                if (!window.moralettiInitialized && typeof initializeMoralettiConfiguration === 'function') {
+                    initializeMoralettiConfiguration();
+                    window.moralettiInitialized = true;
+                }
+                
+                console.log('✅ Pannello moraletti aperto automaticamente');
+                
+                // Aspetta che il pannello sia completamente aperto, poi riapplica i dati moraletti
+                setTimeout(() => {
+                    if (window.pendingMoralettiConfig) {
+                        console.log('🔄 Riapplicazione dati moraletti nel pannello aperto');
+                        
+                        // Riapplica la configurazione moraletti che era stata salvata
+                        if (typeof applyMoralettiConfig === 'function') {
+                            applyMoralettiConfig(window.pendingMoralettiConfig);
+                        }
+                        
+                        // Pulisci la configurazione pendente
+                        delete window.pendingMoralettiConfig;
+                    }
+                    
+                    // Scroll verso il pannello moraletti
+                    const moralettiCard = document.querySelector('.moraletti-card');
+                    if (moralettiCard) {
+                        moralettiCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+            }
+        }, 500);
+    }
 }
 
 // Export current block dimensions for use in processing
@@ -5839,6 +5891,18 @@ function saveMoralettiConfiguration() {
     }
     
     console.log('✅ Moraletti configuration saved:', config);
+    
+    // Se stavamo caricando un profilo, resetta il flag e mostra messaggio completamento
+    if (window.isLoadingProfile) {
+        console.log('✅ Caricamento profilo completato!');
+        window.isLoadingProfile = false;
+        
+        setTimeout(() => {
+            if (window.wallPackingApp) {
+                window.wallPackingApp.showToast('✅ Profilo caricato completamente! Configurazioni applicate.', 'success');
+            }
+        }, 1000);
+    }
 }
 
 // Get current moraletti configuration

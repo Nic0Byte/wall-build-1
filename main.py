@@ -102,6 +102,7 @@ try:
     # Import routes refactorizzate
     from api.routes import frontend_router, packing_router, files_router, legacy_router
     from api.auth_routes import router as auth_router  # Routes di autenticazione
+    from api.routes.profiles import router as profiles_router  # Routes profili sistema
     from api.auth import get_current_active_user
     from database.services import cleanup_expired_sessions
     from api.models import User
@@ -229,6 +230,7 @@ if FastAPI:
     app.include_router(files_router, prefix="/api")
     app.include_router(legacy_router, prefix="/api")
     app.include_router(auth_router, prefix="/api/v1")  # Authentication routes
+    app.include_router(profiles_router)  # System Profiles routes (già ha prefix="/api/v1/profiles")
     
     # Cleanup sessioni scadute all'avvio
     try:

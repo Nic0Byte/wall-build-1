@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from passlib.context import CryptContext
 
-from .models import User, Session as DBSession, Project
+from .models import User, Session as DBSession, Project, SystemProfile
 from .config import get_db_session
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -313,3 +313,218 @@ def delete_project(project_id: int, user_id: int) -> bool:
         db.commit()
         
         return True
+
+# ────────────────────────────────────────────────────────────────────────────────
+# System Profile Services
+# ────────────────────────────────────────────────────────────────────────────────
+
+def get_user_profiles(user_id: int) -> List['SystemProfile']:
+    """Ottiene tutti i profili sistema di un utente."""
+    from .models import SystemProfile
+    with get_db_session() as db:
+        profiles = db.query(SystemProfile).filter(
+            and_(
+                SystemProfile.user_id == user_id,
+                SystemProfile.is_active == True
+            )
+        ).order_by(SystemProfile.is_default.desc(), SystemProfile.name).all()
+        
+        # Detach from session
+        db.expunge_all()
+        return profiles
+
+def get_profile_by_id(profile_id: int, user_id: int) -> Optional['SystemProfile']:
+    """Ottiene un profilo specifico."""
+    from .models import SystemProfile
+    with get_db_session() as db:
+        profile = db.query(SystemProfile).filter(
+            and_(
+                SystemProfile.id == profile_id,
+                SystemProfile.user_id == user_id,
+                SystemProfile.is_active == True
+            )
+        ).first()
+        
+        if profile:
+            db.expunge(profile)
+        return profile
+
+def get_default_profile(user_id: int) -> Optional['SystemProfile']:
+    """Ottiene il profilo predefinito dell'utente."""
+    from .models import SystemProfile
+    with get_db_session() as db:
+        profile = db.query(SystemProfile).filter(
+            and_(
+                SystemProfile.user_id == user_id,
+                SystemProfile.is_default == True,
+                SystemProfile.is_active == True
+            )
+        ).first()
+        
+        if profile:
+            db.expunge(profile)
+        return profile
+
+def create_system_profile(
+    user_id: int,
+    name: str,
+    block_config: str,  # JSON string
+    moraletti_config: str,  # JSON string
+    description: str = None,
+    is_default: bool = False
+) -> 'SystemProfile':
+    """Crea un nuovo profilo sistema."""
+    from .models import SystemProfile
+    
+    with get_db_session() as db:
+        # Se questo profilo è impostato come default, rimuovi flag default da altri
+        if is_default:
+            db.query(SystemProfile).filter(
+                and_(
+                    SystemProfile.user_id == user_id,
+                    SystemProfile.is_default == True
+                )
+            ).update({SystemProfile.is_default: False})
+        
+        # Crea nuovo profilo
+        profile = SystemProfile(
+            user_id=user_id,
+            name=name,
+            description=description,
+            block_config=block_config,
+            moraletti_config=moraletti_config,
+            is_default=is_default,
+            is_active=True,
+            created_at=datetime.now()
+        )
+        
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        db.expunge(profile)
+        
+        return profile
+
+def update_system_profile(
+    profile_id: int,
+    user_id: int,
+    name: str = None,
+    description: str = None,
+    block_config: str = None,
+    moraletti_config: str = None,
+    is_default: bool = None
+) -> Optional['SystemProfile']:
+    """Aggiorna un profilo sistema esistente."""
+    from .models import SystemProfile
+    
+    with get_db_session() as db:
+        profile = db.query(SystemProfile).filter(
+            and_(
+                SystemProfile.id == profile_id,
+                SystemProfile.user_id == user_id
+            )
+        ).first()
+        
+        if not profile:
+            return None
+        
+        # Se questo profilo diventa default, rimuovi flag da altri
+        if is_default and not profile.is_default:
+            db.query(SystemProfile).filter(
+                and_(
+                    SystemProfile.user_id == user_id,
+                    SystemProfile.is_default == True,
+                    SystemProfile.id != profile_id
+                )
+            ).update({SystemProfile.is_default: False})
+        
+        # Aggiorna campi
+        if name is not None:
+            profile.name = name
+        if description is not None:
+            profile.description = description
+        if block_config is not None:
+            profile.block_config = block_config
+        if moraletti_config is not None:
+            profile.moraletti_config = moraletti_config
+        if is_default is not None:
+            profile.is_default = is_default
+        
+        profile.updated_at = datetime.now()
+        
+        db.commit()
+        db.refresh(profile)
+        db.expunge(profile)
+        
+        return profile
+
+def delete_system_profile(profile_id: int, user_id: int) -> bool:
+    """Elimina (soft delete) un profilo sistema."""
+    from .models import SystemProfile
+    
+    with get_db_session() as db:
+        profile = db.query(SystemProfile).filter(
+            and_(
+                SystemProfile.id == profile_id,
+                SystemProfile.user_id == user_id
+            )
+        ).first()
+        
+        if not profile:
+            return False
+        
+        # Soft delete
+        profile.is_active = False
+        db.commit()
+        
+        return True
+
+def ensure_default_profile(user_id: int) -> 'SystemProfile':
+    """
+    Assicura che l'utente abbia un profilo Default.
+    Se non esiste, lo crea con valori standard.
+    Chiamato automaticamente al primo login.
+    """
+    import json
+    from .models import SystemProfile
+    
+    # Verifica se esiste già un profilo default
+    default_profile = get_default_profile(user_id)
+    if default_profile:
+        return default_profile
+    
+    # Verifica se l'utente ha almeno un profilo
+    profiles = get_user_profiles(user_id)
+    if profiles:
+        # Ha profili ma nessuno è default, imposta il primo come default
+        return update_system_profile(
+            profile_id=profiles[0].id,
+            user_id=user_id,
+            is_default=True
+        )
+    
+    # Nessun profilo esistente, crea "Default" con valori standard
+    default_block_config = json.dumps({
+        "widths": [1239, 826, 413],
+        "heights": [495, 495, 495]
+    })
+    
+    default_moraletti_config = json.dumps({
+        "thickness": 58,
+        "height": 495,
+        "heightFromGround": 95,
+        "spacing": 420,
+        "countLarge": 3,
+        "countMedium": 2,
+        "countSmall": 1
+    })
+    
+    return create_system_profile(
+        user_id=user_id,
+        name="Default",
+        description="Configurazione standard del sistema",
+        block_config=default_block_config,
+        moraletti_config=default_moraletti_config,
+        is_default=True
+    )
+

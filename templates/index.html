@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/style.css?v=3.0">
     <link rel="stylesheet" href="/static/css/moraletti-styles.css?v=3.0">
     <link rel="stylesheet" href="/static/css/materials-config.css?v=3.0">
+    <link rel="stylesheet" href="/static/css/system-profiles.css?v=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -715,6 +716,22 @@
                     </div>
                     
                     <div class="features-grid">
+                        
+                        <!-- Profile Selector Card (Prima di tutto) -->
+                        <div class="feature-card profile-selector-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-sliders-h"></i>
+                            </div>
+                            <div class="feature-content" style="flex: 1;">
+                                <h3>Profilo Sistema Attivo</h3>
+                                <p>Seleziona il profilo di configurazione da utilizzare</p>
+                            </div>
+                            <div class="profile-selector-container-inline">
+                                <select id="activeProfileSelector" class="profile-selector-inline">
+                                    <option value="">Caricamento...</option>
+                                </select>
+                            </div>
+                        </div>
                         <!-- Custom Materials Configuration Card -->
                         <div class="feature-card custom-materials-card">
                             <div class="feature-icon">
@@ -767,6 +784,53 @@
                                                 <i class="fas fa-inbox"></i>
                                                 <p>Nessun materiale personalizzato ancora creato</p>
                                                 <span>Aggiungi il tuo primo materiale usando il form sopra</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- System Profiles Configuration Card -->
+                        <div class="feature-card system-profiles-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-save"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Profili Sistema <i class="fas fa-chevron-down expand-icon" id="systemProfilesExpandIcon" onclick="toggleSystemProfilesPanel()" style="cursor: pointer;"></i></h3>
+                                <p>Gestisci preset di configurazione completi per blocchi e moraletti</p>
+                                
+                                <!-- How it works explanation -->
+                                <div class="system-explanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Crea profilo:</strong> Salva una configurazione completa di blocchi e moraletti</li>
+                                        <li><strong>Seleziona:</strong> Usa il selettore in alto per cambiare rapidamente configurazione</li>
+                                        <li><strong>Gestisci:</strong> Modifica o elimina i profili esistenti</li>
+                                    </ol>
+                                </div>
+                                
+                                <!-- System Profiles Panel (Initially Hidden) -->
+                                <div class="system-profiles-panel" id="systemProfilesPanel" style="display: none;">
+                                    
+                                    <!-- Create New Profile Button -->
+                                    <div class="create-profile-section">
+                                        <button class="create-profile-btn" onclick="event.stopPropagation(); openProfileModal()">
+                                            <i class="fas fa-plus-circle"></i> Crea Nuovo Profilo Sistema
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Existing Profiles List -->
+                                    <div class="profiles-list-section">
+                                        <h4><i class="fas fa-list"></i> Profili Salvati</h4>
+                                        <div class="profiles-grid" id="systemProfilesList">
+                                            <!-- Profiles will be dynamically inserted here -->
+                                            <div class="loading-state" id="profilesLoadingState">
+                                                <i class="fas fa-spinner fa-spin"></i>
+                                                <p>Caricamento profili...</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1375,8 +1439,147 @@
         <p class="footer-text">© 2025 ZENET SRL</p>
     </footer>
 
+    <!-- System Profile Modal -->
+    <div id="profileModal" class="modal" style="display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+        <div class="modal-content" style="background-color: #fefefe; margin: 50px auto; padding: 0; border: 1px solid #888; border-radius: 12px; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; font-size: 1.5em;"><i class="fas fa-cog"></i> <span id="profileModalTitle">Crea Nuovo Profilo Sistema</span></h2>
+                    <p style="margin: 5px 0 0 0; font-size: 0.9em; opacity: 0.9;">Configura dimensioni blocchi e moraletti</p>
+                </div>
+                <button onclick="closeProfileModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; transition: all 0.3s;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div style="padding: 30px;">
+                <!-- Profile Name and Description -->
+                <div class="modal-section">
+                    <h3 style="color: #667eea; margin-bottom: 15px;"><i class="fas fa-tag"></i> Informazioni Profilo</h3>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="profileName" style="display: block; margin-bottom: 5px; font-weight: 600;">Nome Profilo:</label>
+                        <input type="text" id="profileName" placeholder="Es: TakTak Big" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label for="profileDescription" style="display: block; margin-bottom: 5px; font-weight: 600;">Descrizione (opzionale):</label>
+                        <textarea id="profileDescription" placeholder="Es: Sistema per pareti grandi" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; resize: vertical;"></textarea>
+                    </div>
+                </div>
+
+                <!-- Block Dimensions -->
+                <div class="modal-section" style="margin-top: 25px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;"><i class="fas fa-cube"></i> Dimensioni Blocchi</h3>
+                    
+                    <!-- Block 1 -->
+                    <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Grande (Tipo 1)</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
+                                <input type="number" id="modalBlock1Width" value="1239" min="400" max="1500" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Altezza (mm):</label>
+                                <input type="number" id="modalBlock1Height" value="495" min="200" max="800" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Block 2 -->
+                    <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Medio (Tipo 2)</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
+                                <input type="number" id="modalBlock2Width" value="826" min="300" max="1000" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Altezza (mm):</label>
+                                <input type="number" id="modalBlock2Height" value="495" min="200" max="800" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Block 3 -->
+                    <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Piccolo (Tipo 3)</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
+                                <input type="number" id="modalBlock3Width" value="413" min="200" max="800" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Altezza (mm):</label>
+                                <input type="number" id="modalBlock3Height" value="495" min="200" max="800" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moraletti Configuration -->
+                <div class="modal-section" style="margin-top: 25px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;"><i class="fas fa-grip-vertical"></i> Configurazione Moraletti</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Spessore (mm):</label>
+                            <input type="number" id="modalMoralettiThickness" value="58" min="10" max="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Altezza (mm):</label>
+                            <input type="number" id="modalMoralettiHeight" value="495" min="100" max="1000" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Altezza da Terra (mm):</label>
+                            <input type="number" id="modalMoralettiHeightFromGround" value="95" min="0" max="200" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Spaziatura (mm):</label>
+                            <input type="number" id="modalMoralettiSpacing" value="420" min="100" max="800" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 15px 0 10px 0; color: #555;">Numero Moraletti per Blocco:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Blocco Grande:</label>
+                            <input type="number" id="modalMoralettiCountLarge" value="3" min="1" max="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Blocco Medio:</label>
+                            <input type="number" id="modalMoralettiCountMedium" value="2" min="1" max="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Blocco Piccolo:</label>
+                            <input type="number" id="modalMoralettiCountSmall" value="1" min="1" max="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Make Default Checkbox -->
+                <div class="modal-section" style="margin-top: 25px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="modalIsDefault" style="width: 20px; height: 20px; margin-right: 10px; cursor: pointer;">
+                        <span style="font-weight: 600;">Imposta come profilo predefinito</span>
+                    </label>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="closeProfileModal()" style="padding: 12px 24px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-size: 1em; transition: all 0.3s;">
+                        <i class="fas fa-times"></i> Annulla
+                    </button>
+                    <button onclick="saveProfile()" style="padding: 12px 24px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.3s;">
+                        <i class="fas fa-save"></i> Salva Profilo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/smart-loading.js?v=3.0"></script>
     <script src="/static/js/app.js?v=3.0"></script>
     <script src="/static/js/user-section.js?v=3.0"></script>
+    <script src="/static/js/system-profiles.js?v=1.0"></script>
 </body>
 </html>
