@@ -1367,7 +1367,7 @@ class WallPackingApp {
         // Raggruppa per categoria mostrando le dimensioni personalizzate
         for (const [type, count] of Object.entries(summary || {})) {
             const typeInfo = typeMap[type] || { 
-                name: `Categoria ${type}`, 
+                name: `Tipo ${type}`, 
                 size: 'N/A', 
                 category: 'X',
                 width: 0,
@@ -1410,7 +1410,7 @@ class WallPackingApp {
             const widthInt = parseInt(width);
             const typeKey = `std_${widthInt}x${height}`;
             typeMap[typeKey] = {
-                name: `Categoria ${letter}`,
+                name: `Blocco Tipo ${letter}`,
                 size: `${widthInt} × ${height}`,
                 category: letter,
                 width: widthInt,
@@ -1433,7 +1433,7 @@ class WallPackingApp {
             const letter = String.fromCharCode(65 + index); // A, B, C...
             const typeKey = `std_${width}x${height}`;
             typeMap[typeKey] = {
-                name: `Categoria ${letter}`,
+                name: `Blocco Tipo ${letter}`,
                 size: `${width} × ${height}`,
                 category: letter,
                 width: width,
@@ -1501,7 +1501,7 @@ class WallPackingApp {
                 <td>
                     <div class="flex items-center space-x-3">
                         <div class="category-badge bg-green-100 text-green-800 px-2 py-1 rounded font-bold">${categoryLetter}</div>
-                        <span><strong>Categoria ${categoryLetter}</strong></span>
+                        <span><strong>Pezzo Custom ${categoryLetter}</strong></span>
                     </div>
                 </td>
                 <td class="text-center">

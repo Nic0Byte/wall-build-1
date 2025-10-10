@@ -384,7 +384,8 @@ async def enhanced_pack_from_preview(
                     "block_widths": widths_list,
                     "block_height": block_schema["block_height"],
                     "row_offset": row_offset,
-                    "project_name": project_name
+                    "project_name": project_name,
+                    "size_to_letter": block_schema.get("size_to_letter", {})  # AGGIUNTO
                 },
                 "metrics": metrics
             }
@@ -419,7 +420,8 @@ async def enhanced_pack_from_preview(
                     "row_offset": row_offset,
                     "project_name": project_name,
                     "block_schema": block_schema["schema_type"],
-                    "color_theme": theme
+                    "color_theme": theme,
+                    "size_to_letter": block_schema.get("size_to_letter", {})  # AGGIUNTO: Includi mapping dimensioni->lettere
                 },
                 "metrics": metrics
             }

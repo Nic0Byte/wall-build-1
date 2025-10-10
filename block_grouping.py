@@ -125,7 +125,27 @@ class BlockGrouping:
                 try:
                     width_str = group_key.replace("std_", "").split("x")[0]
                     width = int(width_str)
-                    letter = self.custom_size_to_letter.get(width, "X")
+                    
+                    print(f"🔍 DEBUG: Cerco match per width={width} in mapping {self.custom_size_to_letter}")
+                    
+                    # Prova match esatto
+                    letter = self.custom_size_to_letter.get(width)
+                    
+                    # Se non trova match esatto, prova con tolleranza
+                    if not letter:
+                        print(f"⚠️  Nessun match esatto per width={width}, cerco con tolleranza...")
+                        tolerance = 5  # 5mm di tolleranza
+                        for map_width, map_letter in self.custom_size_to_letter.items():
+                            if abs(width - map_width) <= tolerance:
+                                letter = map_letter
+                                print(f"✅ Trovato match con tolleranza: {width} ≈ {map_width} → {letter}")
+                                break
+                    
+                    if not letter:
+                        print(f"❌ Nessun match trovato per width={width}, uso 'X'")
+                        letter = "X"
+                    else:
+                        print(f"✅ Match trovato: width={width} → letter={letter}")
                     
                     category_map[group_key] = letter
                     
