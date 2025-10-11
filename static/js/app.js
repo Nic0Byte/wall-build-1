@@ -2160,20 +2160,36 @@ class WallPackingApp {
         const selectedProfileId = activeProfileSelector ? parseInt(activeProfileSelector.value) : null;
         let profileName = 'Sistema Standard'; // Default
         
-        if (selectedProfileId && window.systemProfiles) {
+        console.log('🔍 DEBUG Profile Detection:');
+        console.log('  - currentProfileName:', this.currentProfileName);
+        console.log('  - selectedProfileId:', selectedProfileId);
+        console.log('  - window.systemProfiles:', window.systemProfiles ? window.systemProfiles.length + ' profili' : 'non disponibile');
+        
+        // First check if we have a stored profile name from reused project
+        if (this.currentProfileName) {
+            profileName = this.currentProfileName;
+            console.log('✅ Profilo da progetto riutilizzato:', profileName);
+        } else if (selectedProfileId && window.systemProfiles) {
             const activeProfile = window.systemProfiles.find(p => p.id === selectedProfileId);
             if (activeProfile) {
                 profileName = activeProfile.name;
-                console.log('📋 Profilo attivo al salvataggio:', profileName);
+                console.log('✅ Profilo attivo al salvataggio:', profileName);
+            } else {
+                console.warn('⚠️ Profilo con ID', selectedProfileId, 'non trovato in systemProfiles');
             }
         } else {
             // Try to get from displayed profile name
             const displayedProfileName = document.getElementById('displayedProfileName');
             if (displayedProfileName && displayedProfileName.textContent) {
-                profileName = displayedProfileName.textContent.replace('⭐ ', '').trim();
-                console.log('📋 Profilo dal display:', profileName);
+                const rawText = displayedProfileName.textContent;
+                profileName = rawText.replace('⭐ ', '').trim();
+                console.log('✅ Profilo dal display (raw:', rawText, ') -> pulito:', profileName);
+            } else {
+                console.warn('⚠️ displayedProfileName non trovato o vuoto');
             }
         }
+        
+        console.log('📋 PROFILO FINALE DA SALVARE:', profileName);
         
         // NEW: Collect extended configuration parameters
         const extendedConfig = {
@@ -5025,6 +5041,46 @@ async function restoreProjectConfigurations(project) {
         
         console.log('💾 Extended config salvato in localStorage');
     }
+    
+    // NEW: Restore system profile selection
+    if (project.profile_name) {
+        console.log('📋 Ripristino profilo sistema:', project.profile_name);
+        
+        const activeProfileSelector = document.getElementById('activeProfileSelector');
+        const displayedProfileName = document.getElementById('displayedProfileName');
+        
+        if (activeProfileSelector && window.systemProfiles) {
+            // Find the profile by name
+            const matchingProfile = window.systemProfiles.find(p => p.name === project.profile_name);
+            
+            if (matchingProfile) {
+                // Update the selector value
+                activeProfileSelector.value = matchingProfile.id;
+                console.log(`✅ Profilo "${project.profile_name}" (ID: ${matchingProfile.id}) ripristinato nel selector`);
+                
+                // Trigger change event to update UI
+                activeProfileSelector.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+                console.warn(`⚠️ Profilo "${project.profile_name}" non trovato nei profili disponibili`);
+                // Update display name even if profile not found in list
+                if (displayedProfileName) {
+                    displayedProfileName.textContent = project.profile_name;
+                }
+            }
+        } else {
+            console.warn('⚠️ activeProfileSelector o systemProfiles non disponibili');
+            // Still update the display name
+            if (displayedProfileName) {
+                displayedProfileName.textContent = project.profile_name;
+            }
+        }
+        
+        // Store profile name in app instance for later use during save
+        if (window.wallPackingApp) {
+            window.wallPackingApp.currentProfileName = project.profile_name;
+            console.log('💾 Profile name salvato in app instance:', project.profile_name);
+        }
+    }
 }
 
 // Load file and automatically process to show results immediately
@@ -5556,11 +5612,13 @@ async function saveCurrentProject(projectData) {
             name: projectData.name,
             filename: projectData.filename,
             file_path: projectData.file_path || '', // Will be set by backend
+            profile_name: projectData.profile_name || 'Sistema Standard', // NEW: Include profile name
             block_dimensions: getCurrentBlockDimensions(),
             color_theme: getCurrentColorTheme(),
             packing_config: projectData.packing_config || {
                 // Fallback configuration
             },
+            extended_config: projectData.extended_config || {}, // NEW: Include extended config
             results: projectData.results,
             wall_dimensions: projectData.wall_dimensions,
             total_blocks: projectData.total_blocks,
@@ -5571,7 +5629,8 @@ async function saveCurrentProject(projectData) {
         };
         
         console.log('💾 Salvando progetto con session_id:', sessionId);
-        console.log('📝 Dati da salvare:', saveData);
+        console.log('� Profile name da salvare:', saveData.profile_name);
+        console.log('�📝 Dati completi da salvare:', saveData);
         
         // FIXED: Usa sessionStorage invece di localStorage per il token
         const token = sessionStorage.getItem('access_token');

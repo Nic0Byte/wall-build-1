@@ -48,6 +48,15 @@ function setupProfileEventListeners() {
             if (profileId) {
                 activateProfile(profileId);
                 updateProfileDisplay(profileId); // Aggiorna la visualizzazione nello Step 3
+                
+                // Update current profile name in app instance
+                if (window.wallPackingApp && window.systemProfiles) {
+                    const profile = window.systemProfiles.find(p => p.id === profileId);
+                    if (profile) {
+                        window.wallPackingApp.currentProfileName = profile.name;
+                        console.log('📋 Profile name aggiornato da selector:', profile.name);
+                    }
+                }
             }
         });
     }
@@ -186,6 +195,12 @@ async function activateProfile(profileId) {
         const data = await response.json();
         
         console.log('📋 Pre-caricamento dati profilo:', data.profile_name);
+        
+        // Update current profile name in app instance
+        if (window.wallPackingApp) {
+            window.wallPackingApp.currentProfileName = data.profile_name;
+            console.log('💾 Profile name aggiornato in app instance:', data.profile_name);
+        }
         
         // 1. Chiudi tutti i pannelli prima
         if (typeof closeAllSettingsPanels === 'function') {
