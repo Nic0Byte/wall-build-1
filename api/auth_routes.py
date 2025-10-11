@@ -19,6 +19,75 @@ from .auth import (
 from .material_routes import materials_router  # NEW: Import delle route materiali
 from database.services import cleanup_expired_sessions
 from database.config import get_database_info
+from pathlib import Path
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Helper Functions
+# ────────────────────────────────────────────────────────────────────────────────
+
+def delete_project_files(project) -> dict:
+    """
+    Elimina definitivamente tutti i file fisici associati a un progetto.
+    
+    Args:
+        project: Oggetto SavedProject dal database
+        
+    Returns:
+        dict: Statistiche sui file eliminati
+    """
+    deleted_files = []
+    failed_files = []
+    
+    # Lista dei percorsi da eliminare
+    file_paths = [
+        project.file_path,      # File DWG/DXF originale
+        project.svg_path,       # File SVG generato
+        project.pdf_path,       # File PDF generato
+        project.json_path,      # File JSON generato
+    ]
+    
+    for file_path in file_paths:
+        if file_path:
+            try:
+                path = Path(file_path)
+                if path.exists() and path.is_file():
+                    path.unlink()  # Elimina il file
+                    deleted_files.append(str(path))
+                    logger.info(f"File eliminato: {path}")
+            except Exception as e:
+                failed_files.append(str(file_path))
+                logger.error(f"Errore eliminazione file {file_path}: {str(e)}")
+    
+    # Prova a eliminare eventuali file aggiuntivi nella cartella temp del progetto
+    try:
+        if project.file_path:
+            base_path = Path(project.file_path)
+            temp_dir = Path("output/temp") / base_path.stem
+            if temp_dir.exists() and temp_dir.is_dir():
+                # Elimina tutti i file nella cartella temp del progetto
+                for temp_file in temp_dir.iterdir():
+                    if temp_file.is_file():
+                        temp_file.unlink()
+                        deleted_files.append(str(temp_file))
+                # Prova a eliminare la cartella se vuota
+                try:
+                    temp_dir.rmdir()
+                    logger.info(f"Cartella temp eliminata: {temp_dir}")
+                except:
+                    pass  # Ignora se la cartella non è vuota
+    except Exception as e:
+        logger.error(f"Errore pulizia cartella temp: {str(e)}")
+    
+    return {
+        "deleted": len(deleted_files),
+        "failed": len(failed_files),
+        "deleted_files": deleted_files,
+        "failed_files": failed_files
+    }
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Setup Router
@@ -560,40 +629,53 @@ async def get_saved_project(
 async def delete_all_saved_projects(
     current_user: User = Depends(get_current_active_user)
 ):
-    """Elimina (disattiva) tutti i progetti salvati dell'utente."""
+    """Elimina definitivamente tutti i progetti salvati dell'utente e tutti i file associati."""
     try:
         from database.models import SavedProject
         from database.config import get_db_session
         
         with get_db_session() as db:
-            # Conta quanti progetti verranno eliminati
-            count = db.query(SavedProject)\
-                     .filter(SavedProject.user_id == current_user.id)\
-                     .filter(SavedProject.is_active == True)\
-                     .count()
+            # Ottieni tutti i progetti attivi dell'utente
+            projects = db.query(SavedProject)\
+                        .filter(SavedProject.user_id == current_user.id)\
+                        .filter(SavedProject.is_active == True)\
+                        .all()
             
-            if count == 0:
+            if not projects:
                 return {
                     "success": True,
                     "message": "Nessun progetto da eliminare",
-                    "deleted_count": 0
+                    "deleted_count": 0,
+                    "total_files_deleted": 0
                 }
             
-            # Disattiva tutti i progetti dell'utente
-            db.query(SavedProject)\
-              .filter(SavedProject.user_id == current_user.id)\
-              .filter(SavedProject.is_active == True)\
-              .update({"is_active": False})
+            count = len(projects)
+            total_files_deleted = 0
+            total_files_failed = 0
+            
+            # Elimina fisicamente i file di ogni progetto
+            for project in projects:
+                file_deletion_stats = delete_project_files(project)
+                total_files_deleted += file_deletion_stats["deleted"]
+                total_files_failed += file_deletion_stats["failed"]
+                
+                # Elimina il record dal database (hard delete)
+                db.delete(project)
             
             db.commit()
             
+            logger.info(f"Eliminati definitivamente {count} progetti e {total_files_deleted} file per utente {current_user.username}")
+            
             return {
                 "success": True,
-                "message": f"Eliminati {count} progetti dall'archivio",
-                "deleted_count": count
+                "message": f"Eliminati definitivamente {count} progetti dall'archivio",
+                "deleted_count": count,
+                "total_files_deleted": total_files_deleted,
+                "total_files_failed": total_files_failed
             }
             
     except Exception as e:
+        logger.error(f"Errore nell'eliminazione progetti per utente {current_user.username}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Errore nell'eliminazione progetti: {str(e)}"
@@ -604,7 +686,7 @@ async def delete_saved_project(
     project_id: int,
     current_user: User = Depends(get_current_active_user)
 ):
-    """Elimina (disattiva) un progetto salvato."""
+    """Elimina definitivamente un progetto salvato e tutti i suoi file associati."""
     try:
         from database.models import SavedProject
         from database.config import get_db_session
@@ -621,17 +703,27 @@ async def delete_saved_project(
                     detail="Progetto non trovato"
                 )
             
-            project.is_active = False
+            # Elimina fisicamente tutti i file associati
+            file_deletion_stats = delete_project_files(project)
+            
+            # Elimina il record dal database (hard delete)
+            db.delete(project)
             db.commit()
+            
+            logger.info(f"Progetto {project_id} eliminato definitivamente da utente {current_user.username}")
             
             return {
                 "success": True,
-                "message": "Progetto eliminato con successo"
+                "message": "Progetto e tutti i file associati eliminati definitivamente",
+                "project_name": project.project_name,
+                "files_deleted": file_deletion_stats["deleted"],
+                "files_failed": file_deletion_stats["failed"]
             }
             
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Errore nell'eliminazione progetto {project_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Errore nell'eliminazione progetto: {str(e)}"
