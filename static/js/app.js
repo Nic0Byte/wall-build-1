@@ -545,6 +545,11 @@ class WallPackingApp {
                 enable_cost_estimation: projectParams.advanced.enable_cost_estimation
             }));
             
+            // NEW: Add vertical spaces configuration
+            const verticalSpacesConfig = getVerticalSpacesConfig();
+            console.log('🔺🔺🔺 SENDING vertical_spaces:', verticalSpacesConfig);
+            formData.append('vertical_spaces', JSON.stringify(verticalSpacesConfig));
+            
             // Make API call to enhanced packing endpoint
             const response = await fetch('/api/enhanced-pack', {
                 method: 'POST',
@@ -656,6 +661,11 @@ class WallPackingApp {
             
             console.log('📤 Invio configurazione enhanced al backend:', enhancedMaterialConfig);
             formData.append('material_config', JSON.stringify(enhancedMaterialConfig));
+            
+            // NEW: Add vertical spaces configuration
+            const verticalSpacesConfig = getVerticalSpacesConfig();
+            console.log('🔺🔺🔺 SENDING vertical_spaces:', verticalSpacesConfig);
+            formData.append('vertical_spaces', JSON.stringify(verticalSpacesConfig));
             
             // CHIAMA ENDPOINT OTTIMIZZATO
             const response = await fetch('/api/enhanced-pack-from-preview', {

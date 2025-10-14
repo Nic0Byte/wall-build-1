@@ -5,7 +5,7 @@ Routes per operazioni di packing in Wall-Build
 import uuid
 import datetime
 import json
-from typing import Dict
+from typing import Dict, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.responses import JSONResponse
 
@@ -225,6 +225,7 @@ async def enhanced_pack_from_preview(
     color_theme: str = Form("{}"),
     block_dimensions: str = Form("{}"),
     material_config: str = Form("{}"),
+    vertical_spaces: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -302,6 +303,21 @@ async def enhanced_pack_from_preview(
         except json.JSONDecodeError:
             theme = {}
         
+        # Parse vertical spaces configuration
+        vertical_config = None
+        if vertical_spaces:
+            try:
+                vertical_config = json.loads(vertical_spaces)
+                print(f"🔺 Vertical Spaces Config: {vertical_config}")
+            except json.JSONDecodeError:
+                print(f"⚠️ Errore parsing vertical_spaces, usando default")
+                vertical_config = {
+                    'enableGroundOffset': False,
+                    'groundOffsetValue': 0,
+                    'enableCeilingSpace': False,
+                    'ceilingSpaceValue': 0
+                }
+        
         # Get block schema
         block_schema = get_block_schema_from_frontend(block_dims)
         
@@ -331,7 +347,8 @@ async def enhanced_pack_from_preview(
         can_reuse_preview = (
             preview_config.get("block_widths") == widths_list and
             preview_config.get("block_height") == block_schema["block_height"] and
-            preview_config.get("row_offset") == row_offset
+            preview_config.get("row_offset") == row_offset and
+            preview_config.get("vertical_config") == vertical_config  # NUOVO: Controlla anche vertical spaces
         )
         
         if can_reuse_preview and "preview_placed" in preview_data:
@@ -341,6 +358,7 @@ async def enhanced_pack_from_preview(
             summary = preview_data["preview_summary"]
         else:
             print("🔄 NUOVO PACKING: Parametri diversi dal preview, ricalcolo necessario")
+            print(f"🔺🔺🔺 RICEVUTO vertical_spaces dal frontend: {vertical_spaces}")
             # Perform standard packing SUI DATI GIÀ CONVERTITI
             placed, custom = pack_wall(
                 wall_exterior,
@@ -348,7 +366,8 @@ async def enhanced_pack_from_preview(
                 block_schema["block_height"],
                 row_offset=row_offset,
                 apertures=apertures,
-                starting_direction=starting_direction
+                starting_direction=starting_direction,
+                vertical_config=vertical_config
             )
             summary = summarize_blocks(placed)
         
@@ -492,6 +511,7 @@ async def upload_and_process(
     project_name: str = Form("Progetto Parete"),
     color_theme: str = Form("{}"),
     block_dimensions: str = Form("{}"),
+    vertical_spaces: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -566,6 +586,21 @@ async def upload_and_process(
             color_config = {}
             print("⚠️ Color theme parsing failed, using defaults")
         
+        # Parse vertical spaces configuration
+        vertical_config = None
+        if vertical_spaces:
+            try:
+                vertical_config = json.loads(vertical_spaces)
+                print(f"🔺 Vertical Spaces Config: {vertical_config}")
+            except json.JSONDecodeError:
+                print(f"⚠️ Errore parsing vertical_spaces, usando default")
+                vertical_config = {
+                    'enableGroundOffset': False,
+                    'groundOffsetValue': 0,
+                    'enableCeilingSpace': False,
+                    'ceilingSpaceValue': 0
+                }
+        
         # Parse file (SVG o DWG)
         wall, apertures = parse_wall_file(file_bytes, file.filename)
         
@@ -576,7 +611,8 @@ async def upload_and_process(
             final_height,
             row_offset=row_offset,
             apertures=apertures if apertures else None,
-            starting_direction='left'
+            starting_direction='left',
+            vertical_config=vertical_config
         )
         
         # Ottimizzazione
@@ -812,6 +848,7 @@ async def enhanced_upload_and_process(
     color_theme: str = Form("{}"),
     block_dimensions: str = Form("{}"),
     material_config: str = Form("{}"),  # NEW: Material configuration parameters
+    vertical_spaces: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -884,6 +921,24 @@ async def enhanced_upload_and_process(
         except json.JSONDecodeError:
             theme = {}
         
+        # Parse vertical spaces configuration
+        vertical_config = None
+        if vertical_spaces:
+            print(f"🔺🔺🔺 RICEVUTO vertical_spaces dal frontend: {vertical_spaces}")
+            try:
+                vertical_config = json.loads(vertical_spaces)
+                print(f"🔺 Vertical Spaces Config: {vertical_config}")
+            except json.JSONDecodeError:
+                print(f"⚠️ Errore parsing vertical_spaces, usando default")
+                vertical_config = {
+                    'enableGroundOffset': False,
+                    'groundOffsetValue': 0,
+                    'enableCeilingSpace': False,
+                    'ceilingSpaceValue': 0
+                }
+        else:
+            print(f"⚠️⚠️⚠️ vertical_spaces NON RICEVUTO dal frontend!")
+        
         # Get block schema (standard o custom)
         block_schema = get_block_schema_from_frontend(block_dims)
         
@@ -937,7 +992,8 @@ async def enhanced_upload_and_process(
             block_schema["block_height"],
             row_offset=row_offset, 
             apertures=apertures,
-            starting_direction=starting_direction
+            starting_direction=starting_direction,
+            vertical_config=vertical_config
         )
         
         print(f"🎯 RISULTATI ENHANCED PACK:")

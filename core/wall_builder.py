@@ -600,14 +600,30 @@ def pack_wall(polygon: Polygon,
               row_offset: Optional[int] = None,
               apertures: Optional[List[Polygon]] = None,
               enable_debug: bool = False,
-              starting_direction: str = 'left') -> Tuple[List[Dict], List[Dict]]:
+              starting_direction: str = 'left',
+              vertical_config: Optional[Dict] = None) -> Tuple[List[Dict], List[Dict]]:
     """
-    PACKER PRINCIPALE CON ALGORITMO DIREZIONALE UNIFORME
+    PACKER PRINCIPALE CON ALGORITMO DIREZIONALE UNIFORME + SPAZI VERTICALI
     
     Args:
         starting_direction: 'left' = tutte le righe da sinistra-destra
                            'right' = tutte le righe da destra-sinistra
+        vertical_config: {
+            'enableGroundOffset': bool,
+            'groundOffsetValue': int (mm),
+            'enableCeilingSpace': bool,
+            'ceilingSpaceValue': int (mm)
+        }
     """
+    
+    # Default vertical config se non specificato
+    if vertical_config is None:
+        vertical_config = {
+            'enableGroundOffset': False,
+            'groundOffsetValue': 0,
+            'enableCeilingSpace': False,
+            'ceilingSpaceValue': 0
+        }
     
     # Inizializza debugger
     debugger = AlgorithmDebugger(enable_debug)
@@ -680,17 +696,42 @@ def pack_wall(polygon: Polygon,
         print(f"   ✅ Nessuna apertura valida trovata")
 
     minx, miny, maxx, maxy = polygon.bounds
+    
+    # ========== GESTIONE SPAZI VERTICALI ==========
+    # Applica offset da terra (piedini/moraletti)
+    ground_offset = 0
+    if vertical_config.get('enableGroundOffset', False):
+        ground_offset = vertical_config.get('groundOffsetValue', 0)
+        print(f"🔺 Ground Offset ABILITATO: {ground_offset}mm")
+    
+    # Applica spazio soffitto
+    ceiling_space = 0
+    if vertical_config.get('enableCeilingSpace', False):
+        ceiling_space = vertical_config.get('ceilingSpaceValue', 0)
+        print(f"🔻 Ceiling Space ABILITATO: {ceiling_space}mm")
+    
+    # Calcola limiti reali di packing
+    miny_adjusted = miny + ground_offset
+    maxy_adjusted = maxy - ceiling_space
+    available_height = maxy_adjusted - miny_adjusted
+    
+    print(f"📐 Bounds originali: miny={miny:.1f}, maxy={maxy:.1f}, altezza={maxy-miny:.1f}mm")
+    print(f"📐 Bounds adjusted: miny_adj={miny_adjusted:.1f}, maxy_adj={maxy_adjusted:.1f}, altezza={available_height:.1f}mm")
+    # ==============================================
+    
     placed_all: List[Dict] = []
     custom_all: List[Dict] = []
 
     # CALCOLO OTTIMIZZATO: Determina righe complete e spazio residuo
-    total_height = maxy - miny
+    # IMPORTANTE: Usa miny_adjusted e available_height invece di miny e (maxy - miny)
+    total_height = available_height
     complete_rows = int(total_height / block_height)
     remaining_space = total_height - (complete_rows * block_height)
     
     print(f"📊 Algoritmo adattivo: {complete_rows} righe complete, {remaining_space:.0f}mm rimanenti")
 
-    y = miny
+    # IMPORTANTE: Inizia da miny_adjusted per rispettare ground offset
+    y = miny_adjusted
     row = 0
 
     # FASE 1: Processa righe complete con altezza standard
