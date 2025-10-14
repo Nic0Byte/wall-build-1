@@ -412,15 +412,17 @@
 }
 
 .algorithm-badge.big {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    color: #1976d2;
-    border: 1px solid #90caf9;
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    color: white;
+    border: 1px solid #1565c0;
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .algorithm-badge.small {
-    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-    color: #7b1fa2;
-    border: 1px solid #ce93d8;
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+    border: 1px solid #6a1b9a;
+    box-shadow: 0 2px 4px rgba(156, 39, 176, 0.3);
 }
 
 .algorithm-badge-inline {
@@ -436,15 +438,17 @@
 }
 
 .algorithm-badge-inline.big {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    color: #1976d2;
-    border: 2px solid #90caf9;
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    color: white;
+    border: 2px solid #1565c0;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.4);
 }
 
 .algorithm-badge-inline.small {
-    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-    color: #7b1fa2;
-    border: 2px solid #ce93d8;
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+    color: white;
+    border: 2px solid #6a1b9a;
+    box-shadow: 0 2px 6px rgba(156, 39, 176, 0.4);
 }
 
 /* Indicatore algoritmo nelle card profilo */
@@ -460,13 +464,13 @@
 }
 
 .algorithm-indicator.big {
-    background: #e3f2fd;
-    color: #1976d2;
+    background: #2196f3;
+    color: white;
 }
 
 .algorithm-indicator.small {
-    background: #f3e5f5;
-    color: #7b1fa2;
+    background: #9c27b0;
+    color: white;
 }
 
 /* Migliora allineamento badge algoritmo */
