@@ -2232,22 +2232,42 @@ class WallPackingApp {
         console.log('📦 Block Config per salvataggio:', blockConfig);
         console.log('📍 Moraletti Config per salvataggio:', moralettiConfig);
         
+        // Get vertical spaces configuration (Step 4)
+        const verticalSpacesConfig = getVerticalSpacesConfig ? getVerticalSpacesConfig() : null;
+        console.log('🔺 Vertical Spaces Config per salvataggio:', verticalSpacesConfig);
+        
+        // Get Step 3 configurations from DOM (DYNAMIC)
+        const materialConfig = getMaterialConfig ? getMaterialConfig() : null;
+        const guideSpec = getGuideSpec ? getGuideSpec() : null;
+        const wallPosition = getWallPosition ? getWallPosition() : null;
+        
+        // Get Step 4 configurations from DOM (DYNAMIC)
+        const constructionMethod = getConstructionMethod ? getConstructionMethod() : null;
+        
+        console.log('🏗️ Material Config per salvataggio:', materialConfig);
+        console.log('📏 Guide Spec per salvataggio:', guideSpec);
+        console.log('⬆️ Wall Position per salvataggio:', wallPosition);
+        console.log('🔨 Construction Method per salvataggio:', constructionMethod);
+        
         // NEW: Collect extended configuration parameters
         const extendedConfig = {
-            // Material configuration (try app instance first, then session data)
-            material_config: this.currentMaterialConfig || data.session?.material_config || {},
+            // Material configuration (DYNAMIC from DOM)
+            material_config: materialConfig || this.currentMaterialConfig || data.session?.material_config || {},
             
-            // Guide specifications  
-            guide_spec: this.currentGuideSpec || data.session?.guide_spec || {},
+            // Guide specifications (DYNAMIC from DOM)
+            guide_spec: guideSpec || this.currentGuideSpec || data.session?.guide_spec || {},
             
-            // Wall position settings
-            wall_position: this.currentWallPosition || data.session?.wall_position || {},
+            // Wall position settings (DYNAMIC from DOM)
+            wall_position: wallPosition || this.currentWallPosition || data.session?.wall_position || {},
             
             // Custom dimensions
             custom_dimensions: this.currentCustomDimensions || data.session?.custom_dimensions || {},
             
-            // Construction method
-            construction_method: this.currentConstructionMethod || data.session?.construction_method || {},
+            // Construction method (DYNAMIC from DOM)
+            construction_method: constructionMethod || this.currentConstructionMethod || data.session?.construction_method || {},
+            
+            // Vertical spaces configuration (Step 4)
+            vertical_spaces: verticalSpacesConfig,
             
             // Moretti settings
             moretti_settings: this.currentMorettiSettings || data.session?.moretti_settings || {},
@@ -5481,14 +5501,33 @@ async function showProjectInfo(projectId, event) {
         const project = data.project;
         console.log('✅ Dati progetto caricati:', project);
         
-        // Extract configuration data
+        // Extract ALL configuration data
         const extendedConfig = project.extended_config || {};
         const algorithmType = extendedConfig.algorithm_type || 'bidirectional';
         const moralettiConfig = extendedConfig.moraletti_config || null;
         const blockConfig = extendedConfig.block_config || project.packing_config || null;
         
-        // Render modal
-        renderProjectInfoModal(project.name, algorithmType, blockConfig, moralettiConfig);
+        // Step 3 & 4 configurations
+        const materialConfig = extendedConfig.material_config || null;
+        const guideSpec = extendedConfig.guide_spec || null;
+        const wallPosition = extendedConfig.wall_position || null;
+        const customDimensions = extendedConfig.custom_dimensions || null;
+        const constructionMethod = extendedConfig.construction_method || null;
+        const verticalSpaces = extendedConfig.vertical_spaces || null;
+        
+        // Render modal with ALL data
+        renderProjectInfoModal(
+            project.name, 
+            algorithmType, 
+            blockConfig, 
+            moralettiConfig,
+            materialConfig,
+            guideSpec,
+            wallPosition,
+            customDimensions,
+            constructionMethod,
+            verticalSpaces
+        );
         
     } catch (error) {
         console.error('❌ Errore caricamento info progetto:', error);
@@ -5498,7 +5537,7 @@ async function showProjectInfo(projectId, event) {
     }
 }
 
-function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralettiConfig) {
+function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralettiConfig, materialConfig, guideSpec, wallPosition, customDimensions, constructionMethod, verticalSpaces) {
     // Remove existing modal if present
     const existingModal = document.getElementById('projectInfoModal');
     if (existingModal) {
@@ -5526,7 +5565,7 @@ function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralet
         `;
     }
     
-    // Moraletti configuration HTML (always shown)
+    // Moraletti configuration HTML
     let moralettiHTML = '<p class="info-not-available">Dati non disponibili</p>';
     if (moralettiConfig) {
         moralettiHTML = `
@@ -5538,6 +5577,83 @@ function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralet
                 <li><strong>Thickness:</strong> ${moralettiConfig.thickness_mm || 'N/A'} mm</li>
                 <li><strong>Height:</strong> ${moralettiConfig.height_mm || 'N/A'} mm</li>
                 <li><strong>Height from Ground:</strong> ${moralettiConfig.height_from_ground_mm || 'N/A'} mm</li>
+            </ul>
+        `;
+    }
+    
+    // Material configuration HTML (Step 3)
+    let materialHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (materialConfig && Object.keys(materialConfig).length > 0 && materialConfig.material_type) {
+        materialHTML = `
+            <ul class="info-list">
+                <li><strong>Material Type:</strong> ${materialConfig.material_type || 'N/A'}</li>
+                <li><strong>Thickness:</strong> ${materialConfig.thickness ? materialConfig.thickness + 'mm' : 'N/A'}</li>
+            </ul>
+        `;
+    }
+    
+    // Guide specification HTML (Step 3)
+    let guideHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (guideSpec && Object.keys(guideSpec).length > 0 && guideSpec.guide_type) {
+        guideHTML = `
+            <ul class="info-list">
+                <li><strong>Guide Type:</strong> ${guideSpec.guide_type || 'N/A'}</li>
+                <li><strong>Guide Depth:</strong> ${guideSpec.guide_depth ? guideSpec.guide_depth + 'mm' : 'N/A'}</li>
+            </ul>
+        `;
+    }
+    
+    // Wall position HTML (Step 3)
+    let wallPosHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (wallPosition && Object.keys(wallPosition).length > 0 && wallPosition.wall_type) {
+        const attachments = [];
+        if (wallPosition.attach_top) attachments.push('Top');
+        if (wallPosition.attach_bottom) attachments.push('Bottom');
+        if (wallPosition.attach_left) attachments.push('Left');
+        if (wallPosition.attach_right) attachments.push('Right');
+        
+        wallPosHTML = `
+            <ul class="info-list">
+                <li><strong>Wall Type:</strong> ${wallPosition.wall_type === 'new' ? 'Parete Nuova' : 'Parete Attaccata'}</li>
+                ${attachments.length > 0 ? `<li><strong>Attachments:</strong> ${attachments.join(', ')}</li>` : ''}
+            </ul>
+        `;
+    }
+    
+    // Construction method HTML (Step 4)
+    let constructionHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (constructionMethod && Object.keys(constructionMethod).length > 0 && constructionMethod.construction_type) {
+        constructionHTML = `
+            <ul class="info-list">
+                <li><strong>Construction Type:</strong> ${constructionMethod.construction_type || 'N/A'}</li>
+            </ul>
+        `;
+    }
+    
+    // Vertical spaces HTML (Step 4) - Always show status
+    let verticalHTML = '';
+    if (verticalSpaces && typeof verticalSpaces === 'object') {
+        // Data from saved project
+        const groundStatus = verticalSpaces.enableGroundOffset ? 
+            `✅ Attivato (${verticalSpaces.groundOffsetValue || 95}mm)` : 
+            '❌ Disattivato';
+        
+        const ceilingStatus = verticalSpaces.enableCeilingSpace ? 
+            `✅ Attivato (${verticalSpaces.ceilingSpaceValue || 100}mm)` : 
+            '❌ Disattivato';
+        
+        verticalHTML = `
+            <ul class="info-list">
+                <li><strong>Spazio da Terra:</strong> ${groundStatus}</li>
+                <li><strong>Spazio Soffitto:</strong> ${ceilingStatus}</li>
+            </ul>
+        `;
+    } else {
+        // No data saved (old project or default state) - show default (disabled)
+        verticalHTML = `
+            <ul class="info-list">
+                <li><strong>Spazio da Terra:</strong> ❌ Disattivato (default)</li>
+                <li><strong>Spazio Soffitto:</strong> ❌ Disattivato (default)</li>
             </ul>
         `;
     }
@@ -5572,6 +5688,31 @@ function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralet
                     <div class="info-section">
                         <h4><i class="fas fa-grip-lines"></i> Configurazione Moraletti</h4>
                         ${moralettiHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-layer-group"></i> Step 3: Materiale</h4>
+                        ${materialHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-ruler-horizontal"></i> Step 3: Guide</h4>
+                        ${guideHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-arrows-alt-v"></i> Step 3: Posizione Parete</h4>
+                        ${wallPosHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-hammer"></i> Step 4: Metodo Costruzione</h4>
+                        ${constructionHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-sort-amount-up"></i> Step 4: Spazi Verticali</h4>
+                        ${verticalHTML}
                     </div>
                 </div>
                 
@@ -6447,7 +6588,7 @@ function setupVerticalSpacesSync() {
         if (savedPreference !== null) {
             enableGroundOffsetCheckbox.checked = savedPreference === 'true';
         } else {
-            enableGroundOffsetCheckbox.checked = true; // Default: attivo
+            enableGroundOffsetCheckbox.checked = false; // Default: disattivato
         }
         
         // Applica stile iniziale
@@ -6563,7 +6704,7 @@ function getVerticalSpacesConfig() {
     const ceilingSpaceInput = document.getElementById('ceilingSpaceValue');
     
     const config = {
-        enableGroundOffset: enableGroundOffsetCheckbox ? enableGroundOffsetCheckbox.checked : true,
+        enableGroundOffset: enableGroundOffsetCheckbox ? enableGroundOffsetCheckbox.checked : false,
         groundOffsetValue: groundOffsetValueElem ? parseInt(groundOffsetValueElem.textContent) : 95,
         enableCeilingSpace: enableCeilingSpaceCheckbox ? enableCeilingSpaceCheckbox.checked : false,
         ceilingSpaceValue: ceilingSpaceInput ? parseInt(ceilingSpaceInput.value) : 100
@@ -6571,6 +6712,56 @@ function getVerticalSpacesConfig() {
     
     console.log('📏 Configurazione Spazi Verticali:', config);
     return config;
+}
+
+// Get Step 3: Material Configuration
+function getMaterialConfig() {
+    const materialType = document.getElementById('materialType');
+    const thickness = document.getElementById('materialThickness');
+    
+    if (!materialType) return null;
+    
+    return {
+        material_type: materialType.value || 'melamine',
+        thickness: thickness ? parseFloat(thickness.value) : 18
+    };
+}
+
+// Get Step 3: Guide Specification
+function getGuideSpec() {
+    const guideType = document.querySelector('input[name="guideType"]:checked');
+    const guideDepth = document.getElementById('guideDepth');
+    
+    return {
+        guide_type: guideType ? guideType.value + 'mm' : '75mm',
+        guide_depth: guideDepth ? parseFloat(guideDepth.value) : 25
+    };
+}
+
+// Get Step 3: Wall Position
+function getWallPosition() {
+    const wallType = document.querySelector('input[name="wallType"]:checked');
+    const attachTop = document.getElementById('attachTop');
+    const attachBottom = document.getElementById('attachBottom');
+    const attachLeft = document.getElementById('attachLeft');
+    const attachRight = document.getElementById('attachRight');
+    
+    return {
+        wall_type: wallType ? wallType.value : 'new',
+        attach_top: attachTop ? attachTop.checked : false,
+        attach_bottom: attachBottom ? attachBottom.checked : false,
+        attach_left: attachLeft ? attachLeft.checked : false,
+        attach_right: attachRight ? attachRight.checked : false
+    };
+}
+
+// Get Step 4: Construction Method
+function getConstructionMethod() {
+    const constructionTypeRadio = document.querySelector('input[name="constructionType"]:checked');
+    
+    return {
+        construction_type: constructionTypeRadio ? constructionTypeRadio.value : 'standard'
+    };
 }
 
 // Get current moraletti configuration
