@@ -816,7 +816,28 @@ def pack_wall(polygon: Polygon,
                 print(f"   📊 Copertura media: {result['total_coverage']['average_percent']:.1f}%")
                 print(f"   📊 Sfalsamento medio: {result['total_stagger']['average_percent']:.1f}%")
                 
-                # 🔧 POST-PROCESSING: Applica taglio geometrico come Bidirectional
+                # � CONVERSIONE TIPI: Converti 'large'/'medium'/'small' → 'std_1239x495' format
+                print(f"\n🔄 Conversione tipi blocchi Small Algorithm → formato standard...")
+                for block in placed_all:
+                    if 'type' in block and block['type'] in ['large', 'medium', 'small']:
+                        # Mappa tipo Small Algorithm a formato standard
+                        if block['type'] == 'large':
+                            width = block_widths[0]  # 1239
+                        elif block['type'] == 'medium':
+                            width = block_widths[1]  # 826
+                        elif block['type'] == 'small':
+                            width = block_widths[2]  # 413
+                        else:
+                            width = block.get('width', block_widths[0])
+                        
+                        height = block.get('height', block_height)
+                        block['type'] = f"std_{int(width)}x{int(height)}"
+                        block['width'] = width  # Assicura consistenza
+                        block['height'] = height
+                
+                print(f"   ✅ Tipi convertiti: large/medium/small → std_XXXxYYY")
+                
+                # �🔧 POST-PROCESSING: Applica taglio geometrico come Bidirectional
                 print(f"\n🔪 POST-PROCESSING SMALL ALGORITHM: Taglio blocchi per adattamento geometria...")
                 print(f"   Prima del taglio: {len(placed_all)} standard, {len(custom_all)} custom")
                 
