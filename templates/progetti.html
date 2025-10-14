@@ -12,26 +12,8 @@
     </header>
 
     <div class="progetti-grid" id="progetti-grid">
-        <div class="progetto-card">
-            <div class="progetto-header">
-                <h3>Progetto Demo</h3>
-                <div class="progetto-actions">
-                    <button class="btn-icon" title="Modifica">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn-icon" title="Elimina">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="progetto-info">
-                <p><i class="fas fa-calendar"></i> Creato: 01/01/2025</p>
-                <p><i class="fas fa-file"></i> File: demo.dwg</p>
-                <p><i class="fas fa-user"></i> Proprietario: <span data-user-name>Admin</span></p>
-            </div>
-        </div>
-        
-        <!-- Altri progetti verranno caricati dinamicamente -->
+        <!-- Progetti verranno caricati dinamicamente via JavaScript -->
+        <p class="no-projects">Caricamento progetti...</p>
     </div>
 </div>
 {% endblock %}
@@ -39,15 +21,173 @@
 {% block scripts %}
 <script>
     function nuovoProgetto() {
-        // Questa funzione sarà implementata per creare un nuovo progetto
-        alert('Funzionalità in sviluppo');
+        window.location.href = '/';
     }
     
     // Carica progetti dell'utente
     document.addEventListener('DOMContentLoaded', function() {
         console.log('📁 Caricamento pagina progetti per utente autenticato');
-        // Qui si potrebbe fare una chiamata API per caricare i progetti dell'utente
+        loadUserProjects();
     });
+    
+    async function loadUserProjects() {
+        try {
+            const token = sessionStorage.getItem('access_token');
+            if (!token) {
+                console.warn('⚠️ Utente non autenticato, redirect a login');
+                window.location.href = '/login';
+                return;
+            }
+            
+            const response = await fetch('/api/v1/saved-projects/list', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Progetti caricati:', data);
+            
+            if (data.success && data.projects) {
+                renderProjects(data.projects);
+            }
+            
+        } catch (error) {
+            console.error('❌ Errore caricamento progetti:', error);
+            showError('Errore nel caricamento dei progetti');
+        }
+    }
+    
+    function renderProjects(projects) {
+        const grid = document.getElementById('progetti-grid');
+        
+        if (!projects || projects.length === 0) {
+            grid.innerHTML = '<p class="no-projects">Nessun progetto salvato. Crea il tuo primo progetto!</p>';
+            return;
+        }
+        
+        grid.innerHTML = '';
+        
+        projects.forEach(project => {
+            const card = createProjectCard(project);
+            grid.appendChild(card);
+        });
+    }
+    
+    function createProjectCard(project) {
+        const card = document.createElement('div');
+        card.className = 'progetto-card';
+        
+        // Determina colore badge algoritmo
+        const algorithmBadgeClass = project.algorithm_type === 'small' ? 'algorithm-badge-small' : 'algorithm-badge-bidirectional';
+        const algorithmLabel = project.algorithm_type === 'small' ? 'Small' : 'Bidirectional';
+        const algorithmIcon = project.algorithm_type === 'small' ? '🔹' : '🔷';
+        
+        // Formatta data
+        const createdDate = new Date(project.created_at).toLocaleDateString('it-IT');
+        
+        card.innerHTML = `
+            <div class="progetto-header">
+                <h3>${escapeHtml(project.name)}</h3>
+                <div class="progetto-actions">
+                    <button class="btn-icon" title="Carica" onclick="loadProject(${project.id})">
+                        <i class="fas fa-folder-open"></i>
+                    </button>
+                    <button class="btn-icon" title="Elimina" onclick="deleteProject(${project.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="progetto-info">
+                <p><i class="fas fa-calendar"></i> Creato: ${createdDate}</p>
+                <p><i class="fas fa-file"></i> File: ${escapeHtml(project.filename)}</p>
+                <p><i class="fas fa-cog"></i> Profilo: <span class="profile-badge">${escapeHtml(project.profile_name)}</span></p>
+                <p><i class="fas fa-brain"></i> Algoritmo: <span class="algorithm-badge ${algorithmBadgeClass}">${algorithmIcon} ${algorithmLabel}</span></p>
+                <p><i class="fas fa-ruler-combined"></i> Dimensioni: ${project.wall_dimensions || 'N/A'}</p>
+                <p><i class="fas fa-boxes"></i> Blocchi: ${project.total_blocks || 'N/A'}</p>
+                <p><i class="fas fa-chart-line"></i> Efficienza: ${project.efficiency || 'N/A'}</p>
+            </div>
+        `;
+        
+        return card;
+    }
+    
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    async function loadProject(projectId) {
+        try {
+            console.log('� Caricamento progetto:', projectId);
+            const token = sessionStorage.getItem('access_token');
+            
+            const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Errore caricamento progetto');
+            
+            const data = await response.json();
+            console.log('✅ Progetto caricato:', data);
+            
+            // Reindirizza a homepage con progetto caricato
+            sessionStorage.setItem('loadProjectId', projectId);
+            window.location.href = '/';
+            
+        } catch (error) {
+            console.error('❌ Errore:', error);
+            alert('Errore nel caricamento del progetto');
+        }
+    }
+    
+    async function deleteProject(projectId) {
+        if (!confirm('Sei sicuro di voler eliminare questo progetto?')) {
+            return;
+        }
+        
+        try {
+            const token = sessionStorage.getItem('access_token');
+            
+            const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Errore eliminazione progetto');
+            
+            console.log('✅ Progetto eliminato:', projectId);
+            alert('Progetto eliminato con successo');
+            
+            // Ricarica lista
+            loadUserProjects();
+            
+        } catch (error) {
+            console.error('❌ Errore:', error);
+            alert('Errore nell\'eliminazione del progetto');
+        }
+    }
+    
+    function showError(message) {
+        const grid = document.getElementById('progetti-grid');
+        grid.innerHTML = `<p class="error-message">${message}</p>`;
+    }
 </script>
 
 <style>
@@ -163,6 +303,48 @@
     
     .btn-primary:hover {
         background: #1e7e34;
+    }
+    
+    .profile-badge {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        background: #e3f2fd;
+        color: #1976d2;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .algorithm-badge {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .algorithm-badge-small {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    
+    .algorithm-badge-bidirectional {
+        background: #fff3e0;
+        color: #e65100;
+    }
+    
+    .no-projects {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+    
+    .error-message {
+        text-align: center;
+        padding: 2rem;
+        color: #dc3545;
+        font-weight: 500;
     }
 </style>
 {% endblock %}

@@ -1,0 +1,287 @@
+/* Project Info Modal Styles */
+
+/* Project action buttons - unified styling */
+.download-file-btn,
+.reuse-btn,
+.info-btn,
+.delete-project-btn {
+    background: transparent;
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.download-file-btn {
+    color: #28a745;
+}
+
+.download-file-btn:hover {
+    background: #e8f5ea;
+    color: #1e7e34;
+    border-color: #28a745;
+}
+
+.reuse-btn {
+    color: #007bff;
+}
+
+.reuse-btn:hover {
+    background: #e7f3ff;
+    color: #0056b3;
+    border-color: #007bff;
+}
+
+/* Info button styling */
+.info-btn {
+    color: #17a2b8;
+}
+
+.info-btn:hover {
+    background: #e8f7f9;
+    color: #138496;
+    border-color: #17a2b8;
+}
+
+.delete-project-btn {
+    color: #dc3545;
+}
+
+.delete-project-btn:hover {
+    background: #f8e8ea;
+    color: #bd2130;
+    border-color: #dc3545;
+}
+
+.info-btn i {
+    font-size: 1rem;
+}
+
+/* Modal overlay */
+.info-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal content */
+.info-modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Modal header */
+.info-modal-header {
+    padding: 1.5rem;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    border-radius: 12px 12px 0 0;
+}
+
+.info-modal-header h3 {
+    margin: 0;
+    color: white;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-modal-header i {
+    font-size: 1.5rem;
+}
+
+.info-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.info-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal body */
+.info-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.project-info-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.project-info-title i {
+    color: #17a2b8;
+}
+
+/* Info sections */
+.info-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #17a2b8;
+}
+
+.info-section:last-child {
+    margin-bottom: 0;
+}
+
+.info-section h4 {
+    margin: 0 0 1rem 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.info-section h4 i {
+    color: #17a2b8;
+}
+
+.info-section p {
+    margin: 0;
+    color: #495057;
+    font-size: 1rem;
+}
+
+/* Info list */
+.info-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.info-list li {
+    padding: 0.5rem 0;
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+}
+
+.info-list li:last-child {
+    border-bottom: none;
+}
+
+.info-list strong {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* Not available message */
+.info-not-available {
+    color: #6c757d;
+    font-style: italic;
+    margin: 0;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+/* Modal footer */
+.info-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.modal-btn-primary {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.modal-btn-primary:hover {
+    background: #138496;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .info-modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .info-modal-header h3 {
+        font-size: 1.2rem;
+    }
+    
+    .info-section {
+        padding: 0.75rem;
+    }
+    
+    .info-list li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+}

@@ -2217,6 +2217,21 @@ class WallPackingApp {
         
         console.log('📋 PROFILO FINALE DA SALVARE:', profileName);
         
+        // Get algorithm type
+        const algorithmType = window.currentAlgorithmType || 'bidirectional';
+        
+        // Get moraletti configuration (dynamic from UI or saved config)
+        const moralettiConfig = getMoralettiConfigForBackend ? getMoralettiConfigForBackend() : null;
+        
+        // Get block configuration from current settings
+        const blockConfig = {
+            widths: config.blockWidths || [1239, 826, 413],
+            height: config.blockHeight || 495
+        };
+        
+        console.log('📦 Block Config per salvataggio:', blockConfig);
+        console.log('📍 Moraletti Config per salvataggio:', moralettiConfig);
+        
         // NEW: Collect extended configuration parameters
         const extendedConfig = {
             // Material configuration (try app instance first, then session data)
@@ -2236,6 +2251,15 @@ class WallPackingApp {
             
             // Moretti settings
             moretti_settings: this.currentMorettiSettings || data.session?.moretti_settings || {},
+            
+            // Algorithm type (small/bidirectional)
+            algorithm_type: algorithmType,
+            
+            // Moraletti configuration (DYNAMIC from UI)
+            moraletti_config: moralettiConfig,
+            
+            // Block configuration (DYNAMIC from current profile)
+            block_config: blockConfig,
             
             // Store session data references for debugging
             session_stored: {
@@ -4833,6 +4857,12 @@ function renderPastProjects(projects) {
             // Safely get project name
             const projectName = project.name || project.filename || `Progetto ${project.id}`;
             
+            // Get algorithm type with icon and color
+            const algorithmType = project.algorithm_type || 'bidirectional';
+            const algorithmLabel = algorithmType === 'small' ? 'Small' : 'Bidirectional';
+            const algorithmIcon = algorithmType === 'small' ? '🔹' : '🔷';
+            const algorithmColor = algorithmType === 'small' ? 'color: #2e7d32;' : 'color: #e65100;';
+            
             return `
                 <div class="project-item" data-project-id="${project.id}">
                     <div class="project-info">
@@ -4853,6 +4883,9 @@ function renderPastProjects(projects) {
                                 <i class="fas fa-cogs"></i>
                                 ${project.profile_name || 'Standard'}
                             </span>
+                            <span title="Algoritmo utilizzato" style="${algorithmColor} font-weight: 500;">
+                                ${algorithmIcon} ${algorithmLabel}
+                            </span>
                             <span title="Numero blocchi">
                                 <i class="fas fa-cubes"></i>
                                 ${project.total_blocks || 0} blocchi
@@ -4867,6 +4900,9 @@ function renderPastProjects(projects) {
                         </button>
                         <button class="reuse-btn" onclick="reuseProject(${project.id}, event); return false;" title="Riusa questo progetto">
                             <i class="fas fa-redo"></i><span> Riusa</span>
+                        </button>
+                        <button class="info-btn" onclick="showProjectInfo(${project.id}, event); return false;" title="Visualizza dettagli configurazione">
+                            <i class="fas fa-info-circle"></i><span> Info</span>
                         </button>
                         <button class="delete-project-btn" onclick="deleteProject(${project.id}, event); return false;" title="Elimina progetto">
                             <i class="fas fa-trash"></i><span> Elimina</span>
@@ -5400,6 +5436,161 @@ async function confirmDeleteProject(projectId) {
         if (window.wallPackingApp) {
             window.wallPackingApp.showToast(`Errore: ${error.message}`, 'error');
         }
+    }
+}
+
+// Show Project Info Modal
+async function showProjectInfo(projectId, event) {
+    // Prevent event propagation
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
+    console.log('📊 Apertura info progetto:', projectId);
+    
+    const token = sessionStorage.getItem('access_token');
+    if (!token) {
+        console.error('❌ Nessun token trovato');
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Sessione scaduta. Effettua il login.', 'warning');
+        }
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        // Fetch project details including extended_config
+        const response = await fetch(`/api/v1/saved-projects/${projectId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Errore nel recupero dati progetto');
+        }
+        
+        const project = data.project;
+        console.log('✅ Dati progetto caricati:', project);
+        
+        // Extract configuration data
+        const extendedConfig = project.extended_config || {};
+        const algorithmType = extendedConfig.algorithm_type || 'bidirectional';
+        const moralettiConfig = extendedConfig.moraletti_config || null;
+        const blockConfig = extendedConfig.block_config || project.packing_config || null;
+        
+        // Render modal
+        renderProjectInfoModal(project.name, algorithmType, blockConfig, moralettiConfig);
+        
+    } catch (error) {
+        console.error('❌ Errore caricamento info progetto:', error);
+        if (window.wallPackingApp) {
+            window.wallPackingApp.showToast('Errore nel caricamento delle informazioni', 'error');
+        }
+    }
+}
+
+function renderProjectInfoModal(projectName, algorithmType, blockConfig, moralettiConfig) {
+    // Remove existing modal if present
+    const existingModal = document.getElementById('projectInfoModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Algorithm label and icon
+    const algorithmLabel = algorithmType === 'small' ? 'Small Algorithm' : 'Bidirectional Algorithm';
+    const algorithmIcon = algorithmType === 'small' ? '🔹' : '🔷';
+    const algorithmColor = algorithmType === 'small' ? '#2e7d32' : '#e65100';
+    
+    // Block configuration HTML
+    let blockHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (blockConfig) {
+        const widths = blockConfig.widths || blockConfig.block_widths || [null, null, null];
+        const height = blockConfig.height || blockConfig.block_height || null;
+        
+        blockHTML = `
+            <ul class="info-list">
+                <li><strong>Large:</strong> ${widths[0] ? widths[0] + 'mm' : 'N/A'}</li>
+                <li><strong>Medium:</strong> ${widths[1] ? widths[1] + 'mm' : 'N/A'}</li>
+                <li><strong>Small:</strong> ${widths[2] ? widths[2] + 'mm' : 'N/A'}</li>
+                <li><strong>Altezza:</strong> ${height ? height + 'mm' : 'N/A'}</li>
+            </ul>
+        `;
+    }
+    
+    // Moraletti configuration HTML (always shown)
+    let moralettiHTML = '<p class="info-not-available">Dati non disponibili</p>';
+    if (moralettiConfig) {
+        moralettiHTML = `
+            <ul class="info-list">
+                <li><strong>Spacing:</strong> ${moralettiConfig.spacing_mm || 'N/A'} mm</li>
+                <li><strong>Count Large:</strong> ${moralettiConfig.max_moraletti_large ?? 'N/A'}</li>
+                <li><strong>Count Medium:</strong> ${moralettiConfig.max_moraletti_medium ?? 'N/A'}</li>
+                <li><strong>Count Small:</strong> ${moralettiConfig.max_moraletti_small ?? 'N/A'}</li>
+                <li><strong>Thickness:</strong> ${moralettiConfig.thickness_mm || 'N/A'} mm</li>
+                <li><strong>Height:</strong> ${moralettiConfig.height_mm || 'N/A'} mm</li>
+                <li><strong>Height from Ground:</strong> ${moralettiConfig.height_from_ground_mm || 'N/A'} mm</li>
+            </ul>
+        `;
+    }
+    
+    const modalHTML = `
+        <div id="projectInfoModal" class="info-modal-overlay" onclick="closeProjectInfoModal()">
+            <div class="info-modal-content" onclick="event.stopPropagation()">
+                <div class="info-modal-header">
+                    <h3><i class="fas fa-info-circle"></i> Dettagli Configurazione</h3>
+                    <button class="info-modal-close" onclick="closeProjectInfoModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="info-modal-body">
+                    <div class="project-info-title">
+                        <i class="fas fa-file-alt"></i> ${projectName || 'Progetto'}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-brain"></i> Algoritmo</h4>
+                        <p style="color: ${algorithmColor}; font-weight: 600;">
+                            ${algorithmIcon} ${algorithmLabel}
+                        </p>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-cubes"></i> Configurazione Blocchi</h4>
+                        ${blockHTML}
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4><i class="fas fa-grip-lines"></i> Configurazione Moraletti</h4>
+                        ${moralettiHTML}
+                    </div>
+                </div>
+                
+                <div class="info-modal-footer">
+                    <button class="modal-btn-primary" onclick="closeProjectInfoModal()">
+                        Chiudi
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeProjectInfoModal() {
+    const modal = document.getElementById('projectInfoModal');
+    if (modal) {
+        modal.remove();
     }
 }
 

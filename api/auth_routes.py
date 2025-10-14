@@ -511,11 +511,21 @@ async def get_saved_projects(
             
             projects_list = []
             for project in projects:
+                # Parse extended_config per ottenere algorithm_type
+                algorithm_type = 'bidirectional'  # Default
+                if project.extended_config:
+                    try:
+                        extended_data = json.loads(project.extended_config)
+                        algorithm_type = extended_data.get('algorithm_type', 'bidirectional')
+                    except:
+                        pass  # Usa default se parsing fallisce
+                
                 project_data = {
                     "id": project.id,
                     "name": project.project_name,
                     "filename": project.original_filename,
                     "profile_name": project.profile_name or "Sistema Standard",  # NEW: Nome profilo
+                    "algorithm_type": algorithm_type,  # NEW: Tipo algoritmo usato
                     "wall_dimensions": project.wall_dimensions,
                     "total_blocks": project.total_blocks,
                     "efficiency": project.efficiency_percentage,
