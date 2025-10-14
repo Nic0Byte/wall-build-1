@@ -667,6 +667,22 @@ class WallPackingApp {
             console.log('🔺🔺🔺 SENDING vertical_spaces:', verticalSpacesConfig);
             formData.append('vertical_spaces', JSON.stringify(verticalSpacesConfig));
             
+            // 🔥 NUOVO: Aggiungi algorithm_type dal profilo attivo
+            const algorithmType = window.currentAlgorithmType || 'bidirectional'; // Default bidirectional
+            console.log(`🧠 SENDING algorithm_type: ${algorithmType}`);
+            formData.append('algorithm_type', algorithmType);
+            
+            // 🔥 NUOVO: Aggiungi moraletti_config se algorithm_type è 'small'
+            if (algorithmType === 'small') {
+                const moralettiConfig = getMoralettiConfigForBackend();
+                if (moralettiConfig) {
+                    console.log('📍 SENDING moraletti_config:', moralettiConfig);
+                    formData.append('moraletti_config', JSON.stringify(moralettiConfig));
+                } else {
+                    console.warn('⚠️ Algorithm Small selezionato ma moraletti_config non disponibile');
+                }
+            }
+            
             // CHIAMA ENDPOINT OTTIMIZZATO
             const response = await fetch('/api/enhanced-pack-from-preview', {
                 method: 'POST',

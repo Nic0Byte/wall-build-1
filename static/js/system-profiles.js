@@ -91,13 +91,17 @@ function updateProfileDisplay(profileId) {
         specsElement.style.display = 'flex';
     }
     
-    // NUOVO: Visualizza algoritmo
+    // NUOVO: Visualizza algoritmo e SALVA GLOBALMENTE per il packing
     if (algorithmElement) {
         const algorithmType = profile.algorithm_type || 'small';
         const algorithmIcon = algorithmType === 'big' ? '🏭' : '🏠';
         const algorithmName = algorithmType === 'big' ? 
             'BIG - Industriale (sfalsato)' : 
             'SMALL - Residenziale (allineato)';
+        
+        // 🔥 NUOVO: Salva algorithm_type globalmente per il packing
+        window.currentAlgorithmType = algorithmType;
+        console.log(`🧠 Algorithm type del profilo attivo: ${algorithmType}`);
         
         algorithmElement.textContent = `${algorithmIcon} ${algorithmName}`;
         algorithmElement.className = `algorithm-badge-inline ${algorithmType}`;
@@ -209,10 +213,16 @@ async function activateProfile(profileId) {
         
         console.log('📋 Pre-caricamento dati profilo:', data.profile_name);
         
-        // Update current profile name in app instance
+        // Update current profile name and algorithm_type in app instance
         if (window.wallPackingApp) {
             window.wallPackingApp.currentProfileName = data.profile_name;
             console.log('💾 Profile name aggiornato in app instance:', data.profile_name);
+        }
+        
+        // 🔥 NUOVO: Salva algorithm_type del profilo caricato
+        if (data.algorithm_type) {
+            window.currentAlgorithmType = data.algorithm_type;
+            console.log(`🧠 Algorithm type del profilo caricato: ${data.algorithm_type}`);
         }
         
         // 1. Chiudi tutti i pannelli prima

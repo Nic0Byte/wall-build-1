@@ -226,11 +226,14 @@ async def enhanced_pack_from_preview(
     block_dimensions: str = Form("{}"),
     material_config: str = Form("{}"),
     vertical_spaces: Optional[str] = Form(None),
+    algorithm_type: str = Form("bidirectional"),  # 🔥 NUOVO: algoritmo da usare
+    moraletti_config: Optional[str] = Form(None),  # 🔥 NUOVO: configurazione moraletti per Small
     current_user: User = Depends(get_current_active_user)
 ):
     """
     NUOVO: Elaborazione ottimizzata che riutilizza i dati già convertiti dal preview.
     EVITA la doppia conversione DWG/SVG.
+    🔥 Supporta algorithm_type 'bidirectional' o 'small' e moraletti_config per Small Algorithm
     """
     # Import qui per evitare circular imports
     from main import (
@@ -359,7 +362,20 @@ async def enhanced_pack_from_preview(
         else:
             print("🔄 NUOVO PACKING: Parametri diversi dal preview, ricalcolo necessario")
             print(f"🔺🔺🔺 RICEVUTO vertical_spaces dal frontend: {vertical_spaces}")
-            # Perform standard packing SUI DATI GIÀ CONVERTITI
+            
+            # 🔥 NUOVO: Parse moraletti_config se fornito
+            moraletti_dict = None
+            if moraletti_config:
+                try:
+                    moraletti_dict = json.loads(moraletti_config)
+                    print(f"📍 MORALETTI CONFIG ricevuto: {moraletti_dict}")
+                except json.JSONDecodeError:
+                    print(f"⚠️ Errore parsing moraletti_config")
+            
+            # 🔥 NUOVO: Log algorithm_type
+            print(f"🧠 ALGORITHM TYPE ricevuto: {algorithm_type}")
+            
+            # Perform packing SUI DATI GIÀ CONVERTITI
             placed, custom = pack_wall(
                 wall_exterior,
                 widths_list, 
@@ -367,7 +383,9 @@ async def enhanced_pack_from_preview(
                 row_offset=row_offset,
                 apertures=apertures,
                 starting_direction=starting_direction,
-                vertical_config=vertical_config
+                vertical_config=vertical_config,
+                algorithm_type=algorithm_type,  # 🔥 NUOVO: Pass algorithm type
+                moraletti_config=moraletti_dict  # 🔥 NUOVO: Pass moraletti config
             )
             summary = summarize_blocks(placed)
         

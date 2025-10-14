@@ -601,9 +601,11 @@ def pack_wall(polygon: Polygon,
               apertures: Optional[List[Polygon]] = None,
               enable_debug: bool = False,
               starting_direction: str = 'left',
-              vertical_config: Optional[Dict] = None) -> Tuple[List[Dict], List[Dict]]:
+              vertical_config: Optional[Dict] = None,
+              algorithm_type: str = 'bidirectional',
+              moraletti_config: Optional[Dict] = None) -> Tuple[List[Dict], List[Dict]]:
     """
-    PACKER PRINCIPALE CON ALGORITMO DIREZIONALE UNIFORME + SPAZI VERTICALI
+    PACKER PRINCIPALE CON ALGORITMO DIREZIONALE UNIFORME + SPAZI VERTICALI + SMALL ALGORITHM
     
     Args:
         starting_direction: 'left' = tutte le righe da sinistra-destra
@@ -613,6 +615,18 @@ def pack_wall(polygon: Polygon,
             'groundOffsetValue': int (mm),
             'enableCeilingSpace': bool,
             'ceilingSpaceValue': int (mm)
+        }
+        algorithm_type: 'bidirectional' (default) o 'small' (con moraletti)
+        moraletti_config: Configurazione moraletti per algoritmo Small {
+            'block_large_width': int,
+            'block_medium_width': int,
+            'block_small_width': int,
+            'moraletti_spacing': int,
+            'moraletti_thickness': int,
+            'moraletti_count_large': int,
+            'moraletti_count_medium': int,
+            'moraletti_count_small': int,
+            ...
         }
     """
     
@@ -642,7 +656,194 @@ def pack_wall(polygon: Polygon,
         print(f"Warning: starting_direction '{starting_direction}' non valida, uso 'left' di default")
         starting_direction = 'left'
     
-    print(f"NUOVO ALGORITMO DIREZIONALE UNIFORME:")
+    # ========== HELPER: Taglio geometrico (usato da Small Algorithm) ==========
+    def _apply_geometric_cutting(polygon, apertures, placed_blocks, custom_blocks, block_widths, block_height):
+        """
+        Applica post-processing geometrico ai blocchi:
+        1. Converti custom Small Algorithm → formato con geometry
+        2. Merge blocchi consecutivi
+        3. Taglio per adattamento a geometria parete/aperture
+        
+        Riutilizza le funzioni esistenti del bidirectional.
+        """
+        from shapely.geometry import Polygon as ShapelyPolygon
+        from shapely.geometry import mapping
+        
+        # FASE 0: Converti custom Small Algorithm (solo x,y,width,height) → formato con geometry
+        converted_customs = []
+        for custom in custom_blocks:
+            if 'geometry' not in custom and 'x' in custom and 'y' in custom:
+                # Custom dello Small Algorithm senza geometry
+                x = custom['x']
+                y = custom['y']
+                width = custom['width']
+                height = custom.get('height', block_height)
+                
+                # Crea poligono rettangolare
+                poly = ShapelyPolygon([
+                    (x, y),
+                    (x + width, y),
+                    (x + width, y + height),
+                    (x, y + height),
+                    (x, y)
+                ])
+                
+                # Converti usando _mk_custom
+                converted = _mk_custom(poly, block_widths)
+                converted_customs.append(converted)
+            else:
+                # Custom già con geometry (da bidirectional o già convertito)
+                converted_customs.append(custom)
+        
+        # FASE 1: Merge blocchi consecutivi
+        merged_placed, merged_custom = merge_small_blocks_into_large_customs(
+            placed_blocks=placed_blocks,
+            custom_blocks=converted_customs,
+            block_widths=block_widths,
+            row_height=block_height,
+            tolerance=5.0
+        )
+        
+        # FASE 2: Clip sia standard che custom alla geometria
+        final_placed, final_custom = clip_all_blocks_to_wall_geometry(
+            placed_blocks=merged_placed,
+            custom_blocks=merged_custom,
+            wall_polygon=polygon,
+            block_widths=block_widths,
+            apertures=apertures
+        )
+        
+        return final_placed, final_custom
+    
+    # ========== ALGORITMO SMALL CON MORALETTI ==========
+    if algorithm_type == 'small':
+        print(f"🎯 ALGORITMO SMALL CON MORALETTI ATTIVATO")
+        
+        # Verifica che moraletti_config sia fornita
+        if not moraletti_config:
+            print(f"⚠️ WARNING: algorithm_type='small' ma moraletti_config non fornita!")
+            print(f"   Fallback su algoritmo bidirectional")
+            algorithm_type = 'bidirectional'
+        else:
+            # Importa e usa Small Algorithm
+            try:
+                from utils.moraletti_alignment import DynamicMoralettiConfiguration
+                from core.packing_algorithms.small_algorithm import pack_wall_with_small_algorithm
+                
+                # MAPPATURA: Frontend → Backend
+                # Frontend invia: {spacing_mm, max_moraletti_large, max_moraletti_medium, max_moraletti_small}
+                # Backend si aspetta: {block_*_width/height, moraletti_spacing, moraletti_count_*, moraletti_thickness/height/height_from_ground}
+                
+                frontend_config = moraletti_config
+                backend_config = {
+                    # Dimensioni blocchi (prese da block_widths/block_height)
+                    'block_large_width': block_widths[0],      # 1239mm
+                    'block_medium_width': block_widths[1],     # 826mm
+                    'block_small_width': block_widths[2],      # 413mm
+                    'block_large_height': block_height,        # 495mm
+                    'block_medium_height': block_height,       # 495mm
+                    'block_small_height': block_height,        # 495mm
+                    
+                    # Configurazione moraletti dal frontend
+                    'moraletti_spacing': frontend_config.get('spacing_mm', 413),
+                    'moraletti_count_large': frontend_config.get('max_moraletti_large', 3),
+                    'moraletti_count_medium': frontend_config.get('max_moraletti_medium', 2),
+                    'moraletti_count_small': frontend_config.get('max_moraletti_small', 1),
+                    
+                    # Dimensioni moraletti (valori standard)
+                    'moraletti_thickness': 18.0,
+                    'moraletti_height': 220.0,
+                    'moraletti_height_from_ground': 95.0
+                }
+                
+                print(f"   📦 Configurazione moraletti:")
+                print(f"      Blocchi: {backend_config['block_large_width']}mm / {backend_config['block_medium_width']}mm / {backend_config['block_small_width']}mm")
+                print(f"      Spacing: {backend_config['moraletti_spacing']}mm")
+                print(f"      Counts: {backend_config['moraletti_count_large']} / {backend_config['moraletti_count_medium']} / {backend_config['moraletti_count_small']}")
+                
+                # Crea configurazione moraletti con dati mappati
+                moraletti_cfg = DynamicMoralettiConfiguration(backend_config)
+                
+                # Calcola dimensioni parete
+                minx, miny, maxx, maxy = polygon.bounds
+                wall_width = maxx - minx
+                wall_height = maxy - miny
+                
+                # Applica spazi verticali se configurati
+                ground_offset = 0
+                if vertical_config and vertical_config.get('enableGroundOffset', False):
+                    ground_offset = vertical_config.get('groundOffsetValue', 0)
+                    print(f"   🔺 Ground Offset: {ground_offset}mm")
+                
+                ceiling_space = 0
+                if vertical_config and vertical_config.get('enableCeilingSpace', False):
+                    ceiling_space = vertical_config.get('ceilingSpaceValue', 0)
+                    print(f"   🔻 Ceiling Space: {ceiling_space}mm")
+                
+                wall_height_adjusted = wall_height - ground_offset - ceiling_space
+                
+                print(f"   📏 Parete: {wall_width:.0f}mm × {wall_height_adjusted:.0f}mm")
+                print(f"   🧱 Altezza blocco: {block_height}mm")
+                
+                # Esegui Small Algorithm
+                result = pack_wall_with_small_algorithm(
+                    wall_width=wall_width,
+                    wall_height=wall_height_adjusted,
+                    block_height=block_height,
+                    moraletti_config=moraletti_cfg,
+                    enable_debug=enable_debug
+                )
+                
+                # Converti risultati nel formato atteso
+                # Aggiungi offset Y per ground_offset
+                placed_all = []
+                for block in result['all_blocks']:
+                    block_copy = block.copy()
+                    block_copy['y'] = block['y'] + miny + ground_offset  # Offset assoluto
+                    block_copy['x'] = block['x'] + minx  # Offset X
+                    placed_all.append(block_copy)
+                
+                custom_all = []
+                for custom in result['all_custom']:
+                    custom_copy = custom.copy()
+                    custom_copy['y'] = custom['y'] + miny + ground_offset
+                    custom_copy['x'] = custom['x'] + minx
+                    custom_all.append(custom_copy)
+                
+                print(f"\n✅ Small Algorithm completato!")
+                print(f"   📊 Blocchi standard: {len(placed_all)}")
+                print(f"   📊 Blocchi custom: {len(custom_all)}")
+                print(f"   📊 Copertura media: {result['total_coverage']['average_percent']:.1f}%")
+                print(f"   📊 Sfalsamento medio: {result['total_stagger']['average_percent']:.1f}%")
+                
+                # 🔧 POST-PROCESSING: Applica taglio geometrico come Bidirectional
+                print(f"\n🔪 POST-PROCESSING SMALL ALGORITHM: Taglio blocchi per adattamento geometria...")
+                print(f"   Prima del taglio: {len(placed_all)} standard, {len(custom_all)} custom")
+                
+                # Applica stesso post-processing del bidirectional
+                placed_all, custom_all = _apply_geometric_cutting(
+                    polygon=polygon,
+                    apertures=apertures,
+                    placed_blocks=placed_all,
+                    custom_blocks=custom_all,
+                    block_widths=block_widths,
+                    block_height=block_height
+                )
+                
+                print(f"   Dopo il taglio: {len(placed_all)} standard, {len(custom_all)} custom")
+                print(f"   ✅ Taglio completato: blocchi adattati a parete/aperture\n")
+                
+                return placed_all, custom_all
+                
+            except Exception as e:
+                print(f"❌ ERRORE Small Algorithm: {e}")
+                import traceback
+                traceback.print_exc()
+                print(f"   Fallback su algoritmo bidirectional")
+                algorithm_type = 'bidirectional'
+    # ===================================================
+    
+    print(f"ALGORITMO: {algorithm_type.upper()}")
     print(f"   Polygon bounds: {polygon.bounds}")
     print(f"   Polygon area: {polygon.area}")
     print(f"   Polygon valid: {polygon.is_valid}")
