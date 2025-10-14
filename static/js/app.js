@@ -6169,6 +6169,191 @@ function saveMoralettiConfiguration() {
             }
         }, 1000);
     }
+    
+    // Sincronizza il valore con la card Spazi Verticali
+    updateVerticalSpacesDisplay();
+}
+
+// Sincronizza il valore dei piedini moraletti con la card Spazi Verticali
+function updateVerticalSpacesDisplay() {
+    const heightFromGround = parseInt(document.getElementById('moralettiHeightFromGround')?.value) || 95;
+    const groundOffsetValueElem = document.getElementById('groundOffsetValue');
+    
+    if (groundOffsetValueElem) {
+        groundOffsetValueElem.textContent = heightFromGround;
+        console.log('📏 Spazi Verticali aggiornato: Altezza da terra =', heightFromGround, 'mm');
+    }
+}
+
+// Configura la sincronizzazione automatica della card Spazi Verticali
+function setupVerticalSpacesSync() {
+    const heightFromGroundInput = document.getElementById('moralettiHeightFromGround');
+    const enableGroundOffsetCheckbox = document.getElementById('enableGroundOffset');
+    const enableCeilingSpaceCheckbox = document.getElementById('enableCeilingSpace');
+    const ceilingSpaceInput = document.getElementById('ceilingSpaceValue');
+    const ceilingSpaceInputGroup = document.getElementById('ceilingSpaceInputGroup');
+    
+    // ===== PIEDINI MORALETTI =====
+    
+    // Listener per l'input dell'altezza da terra dei moraletti
+    if (heightFromGroundInput) {
+        heightFromGroundInput.addEventListener('input', function() {
+            updateVerticalSpacesDisplay();
+        });
+        
+        // Inizializza il valore al caricamento
+        updateVerticalSpacesDisplay();
+    }
+    
+    // Listener per il checkbox "Spazio da Terra"
+    if (enableGroundOffsetCheckbox) {
+        enableGroundOffsetCheckbox.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            const groundOffsetContent = document.getElementById('groundOffsetContent');
+            
+            if (groundOffsetContent) {
+                if (isEnabled) {
+                    groundOffsetContent.classList.remove('disabled');
+                } else {
+                    groundOffsetContent.classList.add('disabled');
+                }
+            }
+            
+            console.log('📏 Spazio da terra:', isEnabled ? 'ATTIVATO' : 'DISATTIVATO');
+            
+            // Salva la preferenza
+            localStorage.setItem('enableGroundOffset', isEnabled);
+        });
+        
+        // Carica preferenza salvata
+        const savedPreference = localStorage.getItem('enableGroundOffset');
+        if (savedPreference !== null) {
+            enableGroundOffsetCheckbox.checked = savedPreference === 'true';
+        } else {
+            enableGroundOffsetCheckbox.checked = true; // Default: attivo
+        }
+        
+        // Applica stile iniziale
+        const groundOffsetContent = document.getElementById('groundOffsetContent');
+        if (groundOffsetContent) {
+            if (enableGroundOffsetCheckbox.checked) {
+                groundOffsetContent.classList.remove('disabled');
+            } else {
+                groundOffsetContent.classList.add('disabled');
+            }
+        }
+    }
+    
+    // ===== SPAZIO SOFFITTO =====
+    
+    // Listener per il checkbox "Lascia spazio dal soffitto"
+    if (enableCeilingSpaceCheckbox && ceilingSpaceInputGroup) {
+        enableCeilingSpaceCheckbox.addEventListener('change', function() {
+            const isEnabled = this.checked;
+            
+            // Abilita/disabilita il gruppo di input
+            if (isEnabled) {
+                ceilingSpaceInputGroup.classList.remove('disabled');
+                ceilingSpaceInputGroup.style.opacity = '1';
+                if (ceilingSpaceInput) {
+                    ceilingSpaceInput.disabled = false;
+                }
+            } else {
+                ceilingSpaceInputGroup.classList.add('disabled');
+                ceilingSpaceInputGroup.style.opacity = '0.5';
+                if (ceilingSpaceInput) {
+                    ceilingSpaceInput.disabled = true;
+                }
+            }
+            
+            console.log('🔽 Spazio soffitto:', isEnabled ? 'ATTIVATO' : 'DISATTIVATO');
+            
+            // Salva la preferenza
+            localStorage.setItem('enableCeilingSpace', isEnabled);
+            if (isEnabled && ceilingSpaceInput) {
+                localStorage.setItem('ceilingSpaceValue', ceilingSpaceInput.value);
+            }
+        });
+        
+        // Carica preferenza salvata per checkbox
+        const savedCeilingEnabled = localStorage.getItem('enableCeilingSpace');
+        if (savedCeilingEnabled !== null) {
+            enableCeilingSpaceCheckbox.checked = savedCeilingEnabled === 'true';
+        } else {
+            enableCeilingSpaceCheckbox.checked = false; // Default: disattivo
+        }
+        
+        // Carica valore salvato per input
+        const savedCeilingValue = localStorage.getItem('ceilingSpaceValue');
+        if (savedCeilingValue && ceilingSpaceInput) {
+            ceilingSpaceInput.value = savedCeilingValue;
+        }
+        
+        // Applica stile iniziale
+        const isEnabled = enableCeilingSpaceCheckbox.checked;
+        if (isEnabled) {
+            ceilingSpaceInputGroup.classList.remove('disabled');
+            ceilingSpaceInputGroup.style.opacity = '1';
+            if (ceilingSpaceInput) {
+                ceilingSpaceInput.disabled = false;
+            }
+        } else {
+            ceilingSpaceInputGroup.classList.add('disabled');
+            ceilingSpaceInputGroup.style.opacity = '0.5';
+            if (ceilingSpaceInput) {
+                ceilingSpaceInput.disabled = true;
+            }
+        }
+    }
+    
+    // Listener per l'input del valore spazio soffitto
+    if (ceilingSpaceInput) {
+        ceilingSpaceInput.addEventListener('input', function() {
+            // Validazione range
+            let value = parseInt(this.value);
+            if (value < 0) {
+                this.value = 0;
+                value = 0;
+            } else if (value > 500) {
+                this.value = 500;
+                value = 500;
+            }
+            
+            // Salva il valore
+            if (enableCeilingSpaceCheckbox && enableCeilingSpaceCheckbox.checked) {
+                localStorage.setItem('ceilingSpaceValue', value);
+                console.log('🔽 Spazio soffitto aggiornato:', value, 'mm');
+            }
+        });
+        
+        ceilingSpaceInput.addEventListener('blur', function() {
+            // Assicura che ci sia sempre un valore valido
+            if (this.value === '' || isNaN(parseInt(this.value))) {
+                this.value = 100; // Default
+                localStorage.setItem('ceilingSpaceValue', '100');
+            }
+        });
+    }
+    
+    console.log('✅ Sincronizzazione Spazi Verticali configurata (Piedini + Soffitto)');
+}
+
+// Ottieni la configurazione completa degli spazi verticali
+function getVerticalSpacesConfig() {
+    const enableGroundOffsetCheckbox = document.getElementById('enableGroundOffset');
+    const groundOffsetValueElem = document.getElementById('groundOffsetValue');
+    const enableCeilingSpaceCheckbox = document.getElementById('enableCeilingSpace');
+    const ceilingSpaceInput = document.getElementById('ceilingSpaceValue');
+    
+    const config = {
+        enableGroundOffset: enableGroundOffsetCheckbox ? enableGroundOffsetCheckbox.checked : true,
+        groundOffsetValue: groundOffsetValueElem ? parseInt(groundOffsetValueElem.textContent) : 95,
+        enableCeilingSpace: enableCeilingSpaceCheckbox ? enableCeilingSpaceCheckbox.checked : false,
+        ceilingSpaceValue: ceilingSpaceInput ? parseInt(ceilingSpaceInput.value) : 100
+    };
+    
+    console.log('📏 Configurazione Spazi Verticali:', config);
+    return config;
 }
 
 // Get current moraletti configuration
@@ -6669,6 +6854,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize materials system
     updateMaterialSelector();
     setupMaterialChangeHandler();
+    
+    // Setup vertical spaces card synchronization
+    setupVerticalSpacesSync();
 });
 
 // ==== HEIGHT SYNCHRONIZATION ====

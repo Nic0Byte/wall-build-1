@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parete TAKTAK® - Sistema Professionale</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=3.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=4.1">
     <link rel="stylesheet" href="/static/css/moraletti-styles.css?v=3.0">
     <link rel="stylesheet" href="/static/css/materials-config.css?v=3.0">
     <link rel="stylesheet" href="/static/css/system-profiles.css?v=1.0">
@@ -494,7 +494,85 @@
                         </div>
                         
                         <div class="config-grid step4-layout">
-                            <!-- Active Block Configuration Display (spans full width) -->
+                            <!-- 1. Nome Progetto card (FIRST - full width) -->
+                            <div class="config-card config-card-full">
+                                <label for="projectName">
+                                    <i class="fas fa-project-diagram"></i>
+                                    Nome Progetto
+                                </label>
+                                <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
+                                
+                                <!-- ===== NUOVO: Badge Snapshot Sistema ===== -->
+                                <div id="snapshotBadge" class="snapshot-badge" style="display: none;">
+                                    <i class="fas fa-history"></i>
+                                    <span id="snapshotBadgeText">Configurazione snapshot del XX/XX/XXXX</span>
+                                    <i class="fas fa-info-circle snapshot-info-icon" title="Questo progetto usa una configurazione di sistema salvata al momento della creazione"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- 2. Spazi Verticali Card (SECOND - full width) -->
+                            <div class="config-card vertical-spaces-card config-card-full">
+                                <label class="section-label">
+                                    <i class="fas fa-arrows-alt-v"></i>
+                                    Spazi Verticali
+                                </label>
+                                
+                                <div class="vertical-spaces-container">
+                                    <!-- Card 1: Piedini Moraletti -->
+                                    <div class="vertical-space-mini-card">
+                                        <div class="mini-card-header">
+                                            <label class="checkbox-label-inline">
+                                                <input type="checkbox" id="enableGroundOffset" checked>
+                                                <span class="checkbox-text">
+                                                    <i class="fas fa-level-up-alt"></i>
+                                                    Spazio da Terra
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div class="mini-card-content" id="groundOffsetContent">
+                                            <div class="config-row">
+                                                <span class="config-label">Altezza da terra:</span>
+                                                <div class="config-value">
+                                                    <span class="value-number" id="groundOffsetValue">95</span>
+                                                    <span class="value-unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="config-note">
+                                                <i class="fas fa-sync-alt"></i>
+                                                Sincronizzato con moraletti
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Card 2: Spazio Soffitto -->
+                                    <div class="vertical-space-mini-card">
+                                        <div class="mini-card-header">
+                                            <label class="checkbox-label-inline">
+                                                <input type="checkbox" id="enableCeilingSpace">
+                                                <span class="checkbox-text">
+                                                    <i class="fas fa-level-down-alt"></i>
+                                                    Spazio Soffitto
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div class="mini-card-content" id="ceilingSpaceInputGroup">
+                                            <div class="config-row">
+                                                <span class="config-label">Spazio:</span>
+                                                <div class="config-input">
+                                                    <input type="number" id="ceilingSpaceValue" value="100" min="0" max="500" step="10" class="space-input-field">
+                                                    <span class="value-unit">mm</span>
+                                                </div>
+                                            </div>
+                                            <div class="config-note">
+                                                <i class="fas fa-arrow-down"></i>
+                                                Riduce altezza ultima fila
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 3. Active Block Configuration Display (THIRD - full width) -->
                             <div class="config-card active-blocks-card config-card-full">
                                 <label>
                                     <i class="fas fa-cubes"></i>
@@ -529,22 +607,6 @@
                                 <div class="blocks-usage-info">
                                     <small id="blocksUsageInfo"><i class="fas fa-info-circle"></i> Questi blocchi verranno utilizzati per il packing della parete</small>
                                     <small id="blocksLockInfo" style="display: none;"><i class="fas fa-lock"></i> Le dimensioni dei blocchi non possono essere modificate dopo aver caricato un file. Per cambiarle, inizia un nuovo progetto.</small>
-                                </div>
-                            </div>
-                            
-                            <!-- Nome Progetto card (now full width) -->
-                            <div class="config-card config-card-full">
-                                <label for="projectName">
-                                    <i class="fas fa-project-diagram"></i>
-                                    Nome Progetto
-                                </label>
-                                <input type="text" id="projectName" value="Progetto Parete" placeholder="Inserisci nome progetto">
-                                
-                                <!-- ===== NUOVO: Badge Snapshot Sistema ===== -->
-                                <div id="snapshotBadge" class="snapshot-badge" style="display: none;">
-                                    <i class="fas fa-history"></i>
-                                    <span id="snapshotBadgeText">Configurazione snapshot del XX/XX/XXXX</span>
-                                    <i class="fas fa-info-circle snapshot-info-icon" title="Questo progetto usa una configurazione di sistema salvata al momento della creazione"></i>
                                 </div>
                             </div>
                         </div>

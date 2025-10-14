@@ -587,6 +587,388 @@ body {
     font-weight: 500;
 }
 
+/* ===== Vertical Spaces Card - DESIGN 2 MINI-CARD ===== */
+.vertical-spaces-card {
+    grid-column: 1 / -1;
+}
+
+.section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 16px;
+}
+
+.section-label i {
+    color: var(--brand-secondary);
+    font-size: 16px;
+}
+
+.vertical-spaces-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Mini Card Stile */
+.vertical-space-mini-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.vertical-space-mini-card:hover {
+    border-color: var(--brand-secondary);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+}
+
+/* Header della Mini Card */
+.mini-card-header {
+    background: white;
+    padding: 14px 16px;
+    border-bottom: 2px solid var(--gray-100);
+}
+
+/* Content della Mini Card */
+.mini-card-content {
+    padding: 16px;
+}
+
+.mini-card-content.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Config Row */
+.config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.config-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.config-value {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.config-value .value-number {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--brand-secondary);
+}
+
+.config-value .value-unit {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-500);
+}
+
+/* Config Input */
+.config-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-input .space-input-field {
+    width: 80px;
+    padding: 8px 12px;
+    border: 2px solid var(--gray-300);
+    border-radius: 8px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--brand-warning);
+    text-align: center;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.config-input .space-input-field:focus {
+    outline: none;
+    border-color: var(--brand-warning);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.config-input .value-unit {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-500);
+}
+
+/* Config Note */
+.config-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(59, 130, 246, 0.05);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.config-note i {
+    font-size: 11px;
+    color: var(--brand-secondary);
+}
+
+/* Checkbox dentro Mini Card */
+.vertical-space-mini-card .checkbox-label-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin: 0;
+    user-select: none;
+}
+
+.vertical-space-mini-card .checkbox-label-inline input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--brand-secondary);
+    flex-shrink: 0;
+}
+
+.vertical-space-mini-card .checkbox-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--gray-800);
+}
+
+.vertical-space-mini-card .checkbox-text i {
+    font-size: 15px;
+    color: var(--brand-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .vertical-spaces-container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+.checkbox-label-inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin: 0;
+    user-select: none;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.checkbox-label-inline input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--brand-secondary);
+    flex-shrink: 0;
+}
+
+.checkbox-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--gray-800);
+    white-space: nowrap;
+}
+
+.checkbox-text i {
+    font-size: 15px;
+    color: var(--brand-secondary);
+    flex-shrink: 0;
+}
+
+/* Value Display Inline (Piedini) - NUOVO DESIGN */
+.space-value-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.space-value-inline .value-label {
+    font-size: 14px;
+    color: var(--gray-600);
+    font-weight: 400;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.space-value-inline .value-number {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--brand-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.space-value-inline .value-unit {
+    font-size: 14px;
+    color: var(--gray-600);
+    font-weight: 400;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.space-value-inline .value-note-inline {
+    font-size: 11px;
+    color: var(--gray-400);
+    font-style: italic;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Input Inline (Soffitto) - NUOVO DESIGN */
+.space-input-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.space-input-inline.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.space-input-inline .input-label {
+    font-size: 14px;
+    color: var(--gray-600);
+    font-weight: 400;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.space-input-field {
+    width: 70px;
+    padding: 4px 8px;
+    border: 2px solid var(--gray-300);
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--brand-warning);
+    text-align: center;
+    background: white;
+    transition: all 0.2s ease;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.space-input-field:focus {
+    outline: none;
+    border-color: var(--brand-warning);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    background: white;
+}
+
+.space-input-inline .input-unit {
+    font-size: 14px;
+    color: var(--gray-600);
+    font-weight: 400;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.space-input-inline .input-note-inline {
+    font-size: 11px;
+    color: var(--gray-400);
+    font-style: italic;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.vertical-spaces-info {
+    padding: 8px 12px;
+    background: rgba(16, 185, 129, 0.03);
+    border-radius: 6px;
+    border-left: 2px solid var(--brand-accent);
+    display: none; /* Nascondi info box per layout ultra-compatto */
+}
+
+.vertical-spaces-info i {
+    color: var(--brand-accent);
+    font-size: 13px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.vertical-spaces-info span {
+    color: var(--gray-700);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.vertical-spaces-info strong {
+    color: var(--gray-900);
+    font-weight: 700;
+}
+
+/* Responsive - Vertical Spaces */
+@media (max-width: 768px) {
+    .vertical-space-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px;
+    }
+    
+    .space-value-inline,
+    .space-input-inline {
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .checkbox-text {
+        font-size: 13px;
+    }
+    
+    .space-value-inline .value-number {
+        font-size: 16px;
+    }
+    
+    .space-input-field {
+        width: 70px;
+    }
+    
+    .value-note-inline,
+    .input-note-inline {
+        display: none;
+    }
+}
+
 /* ===== Responsive for Active Blocks ===== */
 @media (max-width: 768px) {
     .active-blocks-preview {
