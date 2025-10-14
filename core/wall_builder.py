@@ -735,31 +735,40 @@ def pack_wall(polygon: Polygon,
                 # Backend si aspetta: {block_*_width/height, moraletti_spacing, moraletti_count_*, moraletti_thickness/height/height_from_ground}
                 
                 frontend_config = moraletti_config
+                
+                # Default dinamici
+                default_spacing = block_widths[2]  # Blocco più piccolo
+                default_thickness = 58  # Standard
+                default_height = block_height  # Altezza blocco
+                default_height_from_ground = 95  # Piedini standard
+                
                 backend_config = {
                     # Dimensioni blocchi (prese da block_widths/block_height)
-                    'block_large_width': block_widths[0],      # 1239mm
-                    'block_medium_width': block_widths[1],     # 826mm
-                    'block_small_width': block_widths[2],      # 413mm
-                    'block_large_height': block_height,        # 495mm
-                    'block_medium_height': block_height,       # 495mm
-                    'block_small_height': block_height,        # 495mm
+                    'block_large_width': block_widths[0],
+                    'block_medium_width': block_widths[1],
+                    'block_small_width': block_widths[2],
+                    'block_large_height': block_height,
+                    'block_medium_height': block_height,
+                    'block_small_height': block_height,
                     
-                    # Configurazione moraletti dal frontend
-                    'moraletti_spacing': frontend_config.get('spacing_mm', 413),
+                    # Configurazione moraletti dal frontend (con default dinamici)
+                    'moraletti_spacing': frontend_config.get('spacing_mm', default_spacing),
                     'moraletti_count_large': frontend_config.get('max_moraletti_large', 3),
                     'moraletti_count_medium': frontend_config.get('max_moraletti_medium', 2),
                     'moraletti_count_small': frontend_config.get('max_moraletti_small', 1),
                     
-                    # Dimensioni moraletti (valori standard)
-                    'moraletti_thickness': 18.0,
-                    'moraletti_height': 220.0,
-                    'moraletti_height_from_ground': 95.0
+                    # Dimensioni moraletti dal frontend (con default)
+                    'moraletti_thickness': frontend_config.get('thickness_mm', default_thickness),
+                    'moraletti_height': frontend_config.get('height_mm', default_height),
+                    'moraletti_height_from_ground': frontend_config.get('height_from_ground_mm', default_height_from_ground)
                 }
                 
                 print(f"   📦 Configurazione moraletti:")
                 print(f"      Blocchi: {backend_config['block_large_width']}mm / {backend_config['block_medium_width']}mm / {backend_config['block_small_width']}mm")
                 print(f"      Spacing: {backend_config['moraletti_spacing']}mm")
                 print(f"      Counts: {backend_config['moraletti_count_large']} / {backend_config['moraletti_count_medium']} / {backend_config['moraletti_count_small']}")
+                print(f"      Dimensioni moraletto: {backend_config['moraletti_thickness']}mm × {backend_config['moraletti_height']}mm")
+                print(f"      Altezza da terra: {backend_config['moraletti_height_from_ground']}mm")
                 
                 # Crea configurazione moraletti con dati mappati
                 moraletti_cfg = DynamicMoralettiConfiguration(backend_config)
