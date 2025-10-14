@@ -371,6 +371,7 @@ def create_system_profile(
     block_config: str,  # JSON string
     moraletti_config: str,  # JSON string
     description: str = None,
+    algorithm_type: str = 'small',
     is_default: bool = False
 ) -> 'SystemProfile':
     """Crea un nuovo profilo sistema."""
@@ -393,6 +394,7 @@ def create_system_profile(
             description=description,
             block_config=block_config,
             moraletti_config=moraletti_config,
+            algorithm_type=algorithm_type,
             is_default=is_default,
             is_active=True,
             created_at=datetime.now()
@@ -412,6 +414,7 @@ def update_system_profile(
     description: str = None,
     block_config: str = None,
     moraletti_config: str = None,
+    algorithm_type: str = None,
     is_default: bool = None
 ) -> Optional['SystemProfile']:
     """Aggiorna un profilo sistema esistente."""
@@ -447,6 +450,8 @@ def update_system_profile(
             profile.block_config = block_config
         if moraletti_config is not None:
             profile.moraletti_config = moraletti_config
+        if algorithm_type is not None:
+            profile.algorithm_type = algorithm_type
         if is_default is not None:
             profile.is_default = is_default
         

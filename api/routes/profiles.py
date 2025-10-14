@@ -47,6 +47,7 @@ class ProfileCreate(BaseModel):
     description: Optional[str] = Field(None, description="Descrizione opzionale")
     block_config: BlockConfig
     moraletti_config: MoralettiConfig
+    algorithm_type: str = Field('small', description="Tipo algoritmo: 'big' (industriale) o 'small' (residenziale)")
     is_default: bool = Field(False, description="Imposta come profilo predefinito")
 
 class ProfileUpdate(BaseModel):
@@ -55,6 +56,7 @@ class ProfileUpdate(BaseModel):
     description: Optional[str] = None
     block_config: Optional[BlockConfig] = None
     moraletti_config: Optional[MoralettiConfig] = None
+    algorithm_type: Optional[str] = Field(None, description="Tipo algoritmo: 'big' o 'small'")
     is_default: Optional[bool] = None
 
 class ProfileResponse(BaseModel):
@@ -64,6 +66,7 @@ class ProfileResponse(BaseModel):
     description: Optional[str]
     block_config: BlockConfig
     moraletti_config: MoralettiConfig
+    algorithm_type: str
     is_default: bool
     is_active: bool
     created_at: str
@@ -78,10 +81,20 @@ class ActivateProfileResponse(BaseModel):
     profile_name: str
     block_config: BlockConfig
     moraletti_config: MoralettiConfig
+    algorithm_type: str
+    algorithm_description: str
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Helper Functions
 # ────────────────────────────────────────────────────────────────────────────────
+
+def _get_algorithm_description(algorithm_type: str) -> str:
+    """Restituisce la descrizione dell'algoritmo."""
+    descriptions = {
+        'big': 'Costruzione Industriale - sfalsamento blocchi',
+        'small': 'Costruzione Residenziale - senza sfalsamento blocchi'
+    }
+    return descriptions.get(algorithm_type, 'Algoritmo sconosciuto')
 
 def _serialize_profile(profile) -> ProfileResponse:
     """Converte un profilo DB in risposta API."""
@@ -91,6 +104,7 @@ def _serialize_profile(profile) -> ProfileResponse:
         description=profile.description,
         block_config=json.loads(profile.block_config),
         moraletti_config=json.loads(profile.moraletti_config),
+        algorithm_type=getattr(profile, 'algorithm_type', 'small'),  # Default per retro-compatibilità
         is_default=profile.is_default,
         is_active=profile.is_active,
         created_at=profile.created_at.isoformat(),
@@ -155,6 +169,7 @@ async def create_profile(
             description=profile_data.description,
             block_config=json.dumps(profile_data.block_config.dict()),
             moraletti_config=json.dumps(profile_data.moraletti_config.dict()),
+            algorithm_type=profile_data.algorithm_type,
             is_default=profile_data.is_default
         )
         
@@ -191,6 +206,8 @@ async def update_profile(
         update_data['block_config'] = json.dumps(profile_data.block_config.dict())
     if profile_data.moraletti_config is not None:
         update_data['moraletti_config'] = json.dumps(profile_data.moraletti_config.dict())
+    if profile_data.algorithm_type is not None:
+        update_data['algorithm_type'] = profile_data.algorithm_type
     if profile_data.is_default is not None:
         update_data['is_default'] = profile_data.is_default
     
@@ -249,7 +266,7 @@ async def activate_profile(
 ):
     """
     Attiva un profilo: restituisce le sue configurazioni
-    per essere applicate al frontend (blocchi + moraletti).
+    per essere applicate al frontend (blocchi + moraletti + algoritmo).
     """
     profile = get_profile_by_id(profile_id, current_user.id)
     
@@ -259,9 +276,13 @@ async def activate_profile(
             detail="Profilo non trovato"
         )
     
+    algorithm_type = getattr(profile, 'algorithm_type', 'small')
+    
     return ActivateProfileResponse(
         profile_id=profile.id,
         profile_name=profile.name,
         block_config=json.loads(profile.block_config),
-        moraletti_config=json.loads(profile.moraletti_config)
+        moraletti_config=json.loads(profile.moraletti_config),
+        algorithm_type=algorithm_type,
+        algorithm_description=_get_algorithm_description(algorithm_type)
     )

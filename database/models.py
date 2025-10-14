@@ -119,6 +119,10 @@ class SystemProfile(Base):
     # Formato: {"thickness": 58, "height": 495, "heightFromGround": 95, 
     #           "spacing": 420, "countLarge": 3, "countMedium": 2, "countSmall": 1}
     
+    # Algoritmo di packing
+    algorithm_type = Column(String(20), default='small', nullable=False)
+    # Valori: 'big' (industriale con sfalsamento) o 'small' (residenziale senza sfalsamento)
+    
     # Flags
     is_default = Column(Boolean, default=False, nullable=False)  # Profilo predefinito per l'utente
     is_active = Column(Boolean, default=True, nullable=False)    # Profilo attivo/disattivato

@@ -71,6 +71,7 @@ function updateProfileDisplay(profileId) {
     const descElement = document.getElementById('displayedProfileDesc');
     const specsElement = document.getElementById('displayedProfileSpecs');
     const blocksCountElement = document.getElementById('displayedBlocksCount');
+    const algorithmElement = document.getElementById('displayedAlgorithmType');
     const summarySystemElement = document.getElementById('summarySystem');
     
     if (nameElement) {
@@ -88,6 +89,18 @@ function updateProfileDisplay(profileId) {
         
         blocksCountElement.textContent = `${blockCount} blocchi configurati`;
         specsElement.style.display = 'flex';
+    }
+    
+    // NUOVO: Visualizza algoritmo
+    if (algorithmElement) {
+        const algorithmType = profile.algorithm_type || 'small';
+        const algorithmIcon = algorithmType === 'big' ? '🏭' : '🏠';
+        const algorithmName = algorithmType === 'big' ? 
+            'BIG - Industriale (sfalsato)' : 
+            'SMALL - Residenziale (allineato)';
+        
+        algorithmElement.textContent = `${algorithmIcon} ${algorithmName}`;
+        algorithmElement.className = `algorithm-badge-inline ${algorithmType}`;
     }
     
     // Aggiorna anche il riepilogo parametri
@@ -454,6 +467,9 @@ function renderProfilesList() {
     container.innerHTML = systemProfiles.map(profile => {
         const blockConfig = profile.block_config;
         const moralettiConfig = profile.moraletti_config;
+        const algorithmType = profile.algorithm_type || 'small';
+        const algorithmIcon = algorithmType === 'big' ? '🏭' : '🏠';
+        const algorithmName = algorithmType === 'big' ? 'Industriale (sfalsato)' : 'Residenziale (allineato)';
         
         return `
             <div class="profile-card" data-profile-id="${profile.id}">
@@ -472,6 +488,10 @@ function renderProfilesList() {
                     </div>
                 </div>
                 <div class="profile-details">
+                    <div class="detail-section">
+                        <strong>🧠 Algoritmo:</strong>
+                        <div class="algorithm-badge ${algorithmType}">${algorithmIcon} ${algorithmName}</div>
+                    </div>
                     <div class="detail-section">
                         <strong>📦 Blocchi:</strong>
                         <span>${blockConfig.widths[0]}×${blockConfig.heights[0]}mm, ${blockConfig.widths[1]}×${blockConfig.heights[1]}mm, ${blockConfig.widths[2]}×${blockConfig.heights[2]}mm</span>
@@ -546,6 +566,9 @@ function populateModalWithProfile(profile) {
     document.getElementById('modalMoralettiCountMedium').value = moralettiConfig.countMedium;
     document.getElementById('modalMoralettiCountSmall').value = moralettiConfig.countSmall;
     
+    // Algoritmo
+    document.getElementById('modalAlgorithmType').value = profile.algorithm_type || 'small';
+    
     // Default
     document.getElementById('modalIsDefault').checked = profile.is_default;
 }
@@ -571,6 +594,9 @@ function resetModalFields() {
     document.getElementById('modalMoralettiCountLarge').value = 3;
     document.getElementById('modalMoralettiCountMedium').value = 2;
     document.getElementById('modalMoralettiCountSmall').value = 1;
+    
+    // Algoritmo (default SMALL)
+    document.getElementById('modalAlgorithmType').value = 'small';
     
     // Default
     document.getElementById('modalIsDefault').checked = false;
@@ -609,6 +635,7 @@ async function saveProfile() {
             countMedium: parseInt(document.getElementById('modalMoralettiCountMedium').value),
             countSmall: parseInt(document.getElementById('modalMoralettiCountSmall').value)
         },
+        algorithm_type: document.getElementById('modalAlgorithmType').value,
         is_default: document.getElementById('modalIsDefault').checked
     };
     

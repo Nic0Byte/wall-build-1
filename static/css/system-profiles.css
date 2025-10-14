@@ -168,6 +168,7 @@
     margin-bottom: 15px;
     padding-bottom: 15px;
     border-bottom: 2px solid #f0f0f0;
+    min-height: 80px;
 }
 
 .profile-header h4 {
@@ -180,6 +181,9 @@
     margin: 5px 0 0 0;
     color: #666;
     font-size: 0.9em;
+    line-height: 1.4;
+    max-height: 2.8em;
+    overflow: hidden;
 }
 
 .profile-actions {
@@ -211,24 +215,37 @@
 .profile-details {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .detail-section {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }
 
 .detail-section strong {
     color: #667eea;
     font-size: 0.9em;
+    flex-shrink: 0;
+    min-width: 110px;
+    display: inline-block;
 }
 
-.detail-section span {
+.detail-section span,
+.detail-section .algorithm-badge {
     color: #555;
     font-size: 0.9em;
     line-height: 1.5;
+}
+
+.detail-section span {
+    flex: 1;
+}
+
+.detail-section .algorithm-badge {
+    flex: 0 0 auto;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
@@ -377,3 +394,84 @@
         padding: 10px 14px;
     }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Algorithm Badges */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.algorithm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.algorithm-badge.big {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1976d2;
+    border: 1px solid #90caf9;
+}
+
+.algorithm-badge.small {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    color: #7b1fa2;
+    border: 1px solid #ce93d8;
+}
+
+.algorithm-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.algorithm-badge-inline.big {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1976d2;
+    border: 2px solid #90caf9;
+}
+
+.algorithm-badge-inline.small {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    color: #7b1fa2;
+    border: 2px solid #ce93d8;
+}
+
+/* Indicatore algoritmo nelle card profilo */
+.algorithm-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.algorithm-indicator.big {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.algorithm-indicator.small {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+/* Migliora allineamento badge algoritmo */
+.detail-section .algorithm-badge {
+    margin: 0;
+    flex-shrink: 0;
+}
+
