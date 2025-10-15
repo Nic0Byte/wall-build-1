@@ -1473,12 +1473,22 @@ def clip_all_blocks_to_wall_geometry(
             if clipped_clean.geom_type == 'Polygon':
                 poly_sanitized = sanitize_polygon(clipped_clean)
                 if poly_sanitized.area > AREA_EPS:
-                    final_customs.append(_mk_custom(poly_sanitized, block_widths))
+                    custom_block = _mk_custom(poly_sanitized, block_widths)
+                    # 🔥 FIX: Verifica dimensioni minime (evita custom 0x0)
+                    if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                        final_customs.append(custom_block)
+                    else:
+                        print(f"      🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
             elif clipped_clean.geom_type == 'MultiPolygon':
                 for poly in clipped_clean.geoms:
                     poly_sanitized = sanitize_polygon(poly)
                     if poly_sanitized.area > AREA_EPS:
-                        final_customs.append(_mk_custom(poly_sanitized, block_widths))
+                        custom_block = _mk_custom(poly_sanitized, block_widths)
+                        # 🔥 FIX: Verifica dimensioni minime
+                        if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                            final_customs.append(custom_block)
+                        else:
+                            print(f"      🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
             else:
                 print(f"   ⚠️  Geometria non gestita: {clipped_clean.geom_type}")
                 final_placed.append(block)
@@ -1622,13 +1632,23 @@ def clip_customs_to_wall_geometry(
                 # Singolo poligono → crea custom
                 clipped_sanitized = sanitize_polygon(clipped)
                 if clipped_sanitized.area > AREA_EPS:
-                    clipped_customs.append(_mk_custom(clipped_sanitized, block_widths))
+                    custom_block = _mk_custom(clipped_sanitized, block_widths)
+                    # 🔥 FIX: Verifica dimensioni minime (evita custom 0x0)
+                    if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                        clipped_customs.append(custom_block)
+                    else:
+                        print(f"   🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
             elif clipped.geom_type == 'MultiPolygon':
                 # Multipli poligoni → crea un custom per ognuno
                 for poly in clipped.geoms:
                     poly_sanitized = sanitize_polygon(poly)
                     if poly_sanitized.area > AREA_EPS:
-                        clipped_customs.append(_mk_custom(poly_sanitized, block_widths))
+                        custom_block = _mk_custom(poly_sanitized, block_widths)
+                        # 🔥 FIX: Verifica dimensioni minime
+                        if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                            clipped_customs.append(custom_block)
+                        else:
+                            print(f"   🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
             elif clipped.geom_type == 'GeometryCollection':
                 # Collezione mista → estrai solo i poligoni
                 for geom in clipped.geoms:
@@ -1636,12 +1656,22 @@ def clip_customs_to_wall_geometry(
                         if geom.geom_type == 'Polygon':
                             geom_sanitized = sanitize_polygon(geom)
                             if geom_sanitized.area > AREA_EPS:
-                                clipped_customs.append(_mk_custom(geom_sanitized, block_widths))
+                                custom_block = _mk_custom(geom_sanitized, block_widths)
+                                # 🔥 FIX: Verifica dimensioni minime
+                                if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                                    clipped_customs.append(custom_block)
+                                else:
+                                    print(f"   🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
                         else:
                             for poly in geom.geoms:
                                 poly_sanitized = sanitize_polygon(poly)
                                 if poly_sanitized.area > AREA_EPS:
-                                    clipped_customs.append(_mk_custom(poly_sanitized, block_widths))
+                                    custom_block = _mk_custom(poly_sanitized, block_widths)
+                                    # 🔥 FIX: Verifica dimensioni minime
+                                    if custom_block.get('width', 0) > 1.0 and custom_block.get('height', 0) > 1.0:
+                                        clipped_customs.append(custom_block)
+                                    else:
+                                        print(f"   🚫 Filtered degenerate custom: {custom_block.get('width', 0):.1f}x{custom_block.get('height', 0):.1f}mm")
             else:
                 # Tipo geometrico non gestito
                 print(f"   ⚠️  Geometria non gestita: {clipped.geom_type}")
@@ -1700,6 +1730,11 @@ def validate_and_tag_customs(custom: List[Dict], block_height: int = 495, block_
     for c in custom:
         w = int(round(c["width"]))
         h = int(round(c["height"]))
+        
+        # 🔥 FIX: Filtra blocchi degenerati (dimensioni ≤ 1mm)
+        if w <= 1 or h <= 1:
+            print(f"🚫 Filtered degenerate custom in validation: {w}x{h}mm")
+            continue
         
         # Controlla se supera i limiti massimi (fuori specifica)
         if w >= max_standard_width + SCARTO_CUSTOM_MM or h > block_height + SCARTO_CUSTOM_MM:
