@@ -426,12 +426,14 @@ def pack_wall_with_small_algorithm(wall_width: float,
     
     packer = SmallAlgorithmPacker(moraletti_config)
     
-    # Calcola numero righe
-    num_rows = int(wall_height / block_height)
+    # Calcola numero righe COMPLETE e spazio residuo
+    complete_rows = int(wall_height / block_height)
+    remaining_space = wall_height - (complete_rows * block_height)
     
     if enable_debug:
         logger.info(f"🏗️ Small Algorithm: Packing wall {wall_width}x{wall_height}mm")
-        logger.info(f"   Righe: {num_rows}, Altezza blocco: {block_height}mm")
+        logger.info(f"   Righe complete: {complete_rows}, Spazio residuo: {remaining_space:.0f}mm")
+        logger.info(f"   Altezza blocco: {block_height}mm")
     
     all_blocks = []
     all_custom = []
@@ -439,8 +441,12 @@ def pack_wall_with_small_algorithm(wall_width: float,
     
     previous_row = None
     
-    for row_index in range(num_rows):
+    # FASE 1: Righe complete con altezza standard
+    for row_index in range(complete_rows):
         y = row_index * block_height
+        
+        if enable_debug:
+            logger.info(f"🔄 Riga {row_index+1}/{complete_rows}: y={y:.0f}mm")
         
         # Pack questa riga
         row_result = packer.pack_row(
@@ -464,6 +470,81 @@ def pack_wall_with_small_algorithm(wall_width: float,
         
         # Prepara per prossima riga
         previous_row = row_result['all_blocks']
+    
+    # FASE 2: Riga adattiva se spazio residuo sufficiente
+    if remaining_space >= 150:  # Minimo 150mm per riga adattiva
+        adaptive_height = min(remaining_space, block_height)
+        y_adaptive = complete_rows * block_height
+        
+        if enable_debug:
+            logger.info(f"🔄 Riga ADATTIVA {complete_rows+1}: y={y_adaptive:.0f}mm, altezza={adaptive_height:.0f}mm")
+        
+        # Pack riga adattiva (SENZA validazione moraletti - è l'ultima riga!)
+        # Usa algoritmo semplificato per riempire lo spazio
+        try:
+            # Genera combinazione semplice per riempire larghezza
+            adaptive_blocks = []
+            current_x = 0
+            remaining_width = wall_width
+            
+            # Usa blocchi standard finché possibile
+            for block_size in sorted([packer.config.block_sizes['large'], 
+                                     packer.config.block_sizes['medium'],
+                                     packer.config.block_sizes['small']], reverse=True):
+                while remaining_width >= block_size:
+                    adaptive_blocks.append({
+                        'x': current_x,
+                        'y': y_adaptive,
+                        'width': block_size,
+                        'height': adaptive_height,
+                        'type': 'large' if block_size == packer.config.block_sizes['large'] else 
+                                'medium' if block_size == packer.config.block_sizes['medium'] else 'small',
+                        'is_standard': True,
+                        'id': f'adaptive_{current_x}'
+                    })
+                    current_x += block_size
+                    remaining_width -= block_size
+            
+            # Custom per spazio residuo
+            adaptive_custom = []
+            if remaining_width > 1.0:
+                adaptive_custom.append({
+                    'x': current_x,
+                    'y': y_adaptive,
+                    'width': remaining_width,
+                    'height': adaptive_height,
+                    'type': 'custom',
+                    'is_standard': False,
+                    'id': f'adaptive_custom_{current_x}'
+                })
+            
+            # Aggiungi ai risultati
+            standard_adaptive = [b for b in adaptive_blocks if b['is_standard']]
+            all_blocks.extend(standard_adaptive)
+            all_custom.extend(adaptive_custom)
+            
+            rows_data.append({
+                'row_index': complete_rows,
+                'y': y_adaptive,
+                'blocks': adaptive_blocks + adaptive_custom,
+                'coverage': {'is_complete': True, 'coverage_percent': 100.0, 'note': 'Riga adattiva (ultima)'},
+                'stagger': {'score': 1.0, 'stagger_percent': 100.0, 'note': 'Riga adattiva'},
+                'stats': {
+                    'custom_count': len(adaptive_custom),
+                    'standard_count': len(standard_adaptive),
+                    'total_blocks': len(adaptive_blocks) + len(adaptive_custom),
+                    'is_adaptive': True
+                }
+            })
+            
+            if enable_debug:
+                logger.info(f"✅ Riga adattiva completata: {len(standard_adaptive)} standard, {len(adaptive_custom)} custom")
+        
+        except Exception as e:
+            logger.warning(f"⚠️ Errore riga adattiva: {e}")
+    else:
+        if enable_debug and remaining_space > 0:
+            logger.info(f"⚠️ Spazio residuo {remaining_space:.0f}mm insufficiente per riga adattiva (min 150mm)")
     
     # Statistiche totali
     total_custom_count = len(all_custom)
@@ -495,7 +576,10 @@ def pack_wall_with_small_algorithm(wall_width: float,
             'standard_blocks': total_standard_count,
             'custom_blocks': total_custom_count,
             'custom_percentage': (total_custom_count / total_blocks_count * 100) if total_blocks_count > 0 else 0,
-            'num_rows': num_rows
+            'num_rows': len(rows_data),  # ✅ CORRETTO: conta righe effettive (complete + adattiva)
+            'complete_rows': complete_rows,
+            'has_adaptive_row': remaining_space >= 150,
+            'remaining_space_mm': remaining_space
         }
     }
 
