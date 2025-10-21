@@ -5284,6 +5284,34 @@ async function showStep5FromSavedData(project) {
         // Mark as reused project
         window.wallPackingApp.isReusedProject = true;
         
+        // ⭐ STEP 0: Ripristina sessione per abilitare download PDF/JSON/DXF
+        try {
+            console.log('🔄 Ripristino sessione per export...');
+            const token = sessionStorage.getItem('access_token');
+            
+            const sessionResponse = await fetch(`/api/v1/saved-projects/${project.id}/restore-session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (sessionResponse.ok) {
+                const sessionData = await sessionResponse.json();
+                window.wallPackingApp.currentSessionId = sessionData.session_id;
+                console.log(`✅ Sessione ripristinata: ${sessionData.session_id}`);
+                console.log(`   - Blocchi: ${sessionData.data.blocks_count}`);
+                console.log(`   - Custom: ${sessionData.data.custom_count}`);
+                console.log(`   - Geometria: ${sessionData.data.has_geometry ? 'SÌ' : 'NO'}`);
+            } else {
+                console.warn('⚠️ Impossibile ripristinare sessione - download non disponibili');
+            }
+        } catch (sessionError) {
+            console.warn('⚠️ Errore ripristino sessione:', sessionError);
+            // Continua comunque - lo Step 5 funziona anche senza sessione
+        }
+        
         // 1. Mostra immagine preview
         const previewImage = document.getElementById('previewImage');
         const previewLoading = document.getElementById('previewLoading');

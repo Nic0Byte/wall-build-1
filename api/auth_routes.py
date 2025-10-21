@@ -453,10 +453,13 @@ async def save_project(
         # ===== NUOVO: Genera preview e recupera blocks_standard dalla sessione =====
         preview_base64 = None
         blocks_standard = None
+        wall_geometry = None
+        apertures_geometry = None
         
         if project_data.get("session_id"):
             try:
                 from main import SESSIONS, generate_preview_image
+                from shapely.geometry import mapping
                 
                 session_id = project_data["session_id"]
                 if session_id in SESSIONS:
@@ -470,9 +473,19 @@ async def save_project(
                         data = session["data"]
                         blocks_standard = data.get("blocks_standard", [])
                         
-                        # Genera preview usando geometria originale salvata
+                        # ⭐ NUOVO: Salva geometrie per session restore
                         wall_polygon = session.get("wall_polygon")
                         apertures = session.get("apertures", [])
+                        
+                        if wall_polygon:
+                            wall_geometry = mapping(wall_polygon)  # Converti a GeoJSON
+                            print(f"✅ Geometria parete salvata")
+                        
+                        if apertures:
+                            apertures_geometry = [mapping(ap) for ap in apertures]
+                            print(f"✅ Geometrie aperture salvate: {len(apertures_geometry)}")
+                        
+                        # Genera preview usando geometria originale salvata
                         placed = data.get("blocks_standard", [])
                         customs = data.get("blocks_custom", [])
                         config = data.get("config", {})
@@ -500,6 +513,18 @@ async def save_project(
                         # Standard session format
                         blocks_standard = session.get("placed", [])
                         
+                        # ⭐ NUOVO: Salva geometrie per session restore
+                        wall_polygon = session.get("wall_polygon")
+                        apertures = session.get("apertures", [])
+                        
+                        if wall_polygon:
+                            wall_geometry = mapping(wall_polygon)
+                            print(f"✅ Geometria parete salvata")
+                        
+                        if apertures:
+                            apertures_geometry = [mapping(ap) for ap in apertures]
+                            print(f"✅ Geometrie aperture salvate: {len(apertures_geometry)}")
+                        
                         preview_base64 = generate_preview_image(
                             session["wall_polygon"],
                             session["placed"],
@@ -517,7 +542,9 @@ async def save_project(
                 else:
                     print(f"⚠️ Session {session_id} non trovata in SESSIONS - skip preview")
             except Exception as e:
-                print(f"⚠️ Errore generazione preview/blocks: {e}")
+                print(f"⚠️ Errore generazione preview/blocks/geometrie: {e}")
+                import traceback
+                traceback.print_exc()
                 # Continua comunque il salvataggio senza preview
         
         with get_db_session() as db:
@@ -541,7 +568,10 @@ async def save_project(
                 json_path=project_data.get("json_path"),
                 # ===== NUOVO: Salva preview e blocks_standard =====
                 preview_image=preview_base64,
-                blocks_standard_json=json.dumps(blocks_standard) if blocks_standard else None
+                blocks_standard_json=json.dumps(blocks_standard) if blocks_standard else None,
+                # ⭐ NUOVO: Salva geometrie per session restore
+                wall_geometry_json=json.dumps(wall_geometry) if wall_geometry else None,
+                apertures_geometry_json=json.dumps(apertures_geometry) if apertures_geometry else None
             )
             
             db.add(saved_project)
@@ -726,6 +756,105 @@ async def get_saved_project(
         raise HTTPException(
             status_code=500,
             detail=f"Errore nel recupero progetto: {str(e)}"
+        )
+
+@router.post("/saved-projects/{project_id}/restore-session")
+async def restore_session_from_project(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Ricrea una sessione temporanea dai dati del progetto salvato.
+    Questo permette di usare gli endpoint di download esistenti (PDF, JSON, DXF).
+    """
+    try:
+        from database.models import SavedProject
+        from database.config import get_db_session
+        from main import SESSIONS
+        from shapely.geometry import shape
+        import json
+        import uuid
+        
+        with get_db_session() as db:
+            project = db.query(SavedProject)\
+                       .filter(SavedProject.id == project_id)\
+                       .filter(SavedProject.user_id == current_user.id)\
+                       .filter(SavedProject.is_active == True)\
+                       .first()
+            
+            if not project:
+                raise HTTPException(status_code=404, detail="Progetto non trovato")
+            
+            # Genera session_id temporaneo
+            session_id = f"restored_{uuid.uuid4().hex[:16]}"
+            
+            print(f"🔄 Ripristino sessione per progetto '{project.project_name}' → {session_id}")
+            
+            # Parse dati salvati
+            blocks_standard = json.loads(project.blocks_standard_json) if project.blocks_standard_json else []
+            results_summary = json.loads(project.results_summary) if project.results_summary else {}
+            packing_config = json.loads(project.packing_config) if project.packing_config else {}
+            extended_config = json.loads(project.extended_config) if project.extended_config else {}
+            
+            # ⭐ Ricostruisci geometrie da GeoJSON
+            wall_polygon = None
+            apertures = []
+            
+            if project.wall_geometry_json:
+                try:
+                    wall_geom = json.loads(project.wall_geometry_json)
+                    wall_polygon = shape(wall_geom)
+                    print(f"✅ Geometria parete ripristinata")
+                except Exception as e:
+                    print(f"⚠️ Errore ripristino geometria parete: {e}")
+            
+            if project.apertures_geometry_json:
+                try:
+                    apertures_geom = json.loads(project.apertures_geometry_json)
+                    apertures = [shape(ap) for ap in apertures_geom]
+                    print(f"✅ Geometrie aperture ripristinate: {len(apertures)}")
+                except Exception as e:
+                    print(f"⚠️ Errore ripristino aperture: {e}")
+            
+            # Ricostruisci sessione in memoria (formato enhanced)
+            SESSIONS[session_id] = {
+                "data": {
+                    "blocks_standard": blocks_standard,
+                    "blocks_custom": results_summary.get("blocks_custom", []),
+                    "summary": results_summary.get("summary", {}),
+                    "metrics": results_summary.get("metrics", {}),
+                    "config": packing_config,
+                    "apertures": [{"bounds": list(ap.bounds)} for ap in apertures] if apertures else []
+                },
+                "wall_polygon": wall_polygon,
+                "apertures": apertures,
+                "placed": blocks_standard,  # Alias per compatibilità
+                "customs": results_summary.get("blocks_custom", []),  # Alias per compatibilità
+                "config": packing_config,
+                "enhanced": True,
+                "restored_from_project": project_id,
+                "restored_at": datetime.now().isoformat()
+            }
+            
+            print(f"✅ Sessione ripristinata: {len(blocks_standard)} blocchi standard, {len(results_summary.get('blocks_custom', []))} custom")
+            
+            return {
+                "success": True,
+                "session_id": session_id,
+                "message": f"Sessione ripristinata per progetto '{project.project_name}'",
+                "data": {
+                    "blocks_count": len(blocks_standard),
+                    "custom_count": len(results_summary.get("blocks_custom", [])),
+                    "has_geometry": bool(wall_polygon)
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore ripristino sessione: {str(e)}"
         )
 
 @router.delete("/saved-projects/all")

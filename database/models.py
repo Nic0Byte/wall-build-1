@@ -91,6 +91,8 @@ class SavedProject(Base):
     # ===== NUOVO: Dati per ripristino diretto Step 5 =====
     preview_image = Column(Text, nullable=True)           # Preview Base64 (PNG)
     blocks_standard_json = Column(Text, nullable=True)    # Array blocchi standard con posizioni
+    wall_geometry_json = Column(Text, nullable=True)      # Geometria parete (GeoJSON) per export DXF
+    apertures_geometry_json = Column(Text, nullable=True) # Geometrie aperture (GeoJSON array)
     
     # Timestamping
     created_at = Column(DateTime, default=func.now(), nullable=False)
