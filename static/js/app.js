@@ -2223,10 +2223,13 @@ class WallPackingApp {
         // Get moraletti configuration (dynamic from UI or saved config)
         const moralettiConfig = getMoralettiConfigForBackend ? getMoralettiConfigForBackend() : null;
         
-        // Get block configuration from current settings
+        // Get block configuration from current settings (DYNAMIC with size_to_letter)
         const blockConfig = {
             widths: config.blockWidths || [1239, 826, 413],
-            height: config.blockHeight || 495
+            height: config.blockHeight || 495,
+            // ⭐ NUOVO: Salva size_to_letter dinamicamente dal backend
+            size_to_letter: data.config?.size_to_letter || data.config?.block_schema?.size_to_letter || null,
+            schema_type: data.config?.block_schema?.schema_type || 'standard'
         };
         
         console.log('📦 Block Config per salvataggio:', blockConfig);
@@ -4946,7 +4949,7 @@ function renderPastProjects(projects) {
     }
 }
 
-// Reuse Project - NEW LOGIC: Load and process automatically to go directly to results
+// Reuse Project - NEW LOGIC: Ripristino diretto Step 5 senza rielaborazione
 async function reuseProject(projectId, event) {
     // Prevent event propagation to avoid closing the panel
     if (event) {
@@ -4960,7 +4963,7 @@ async function reuseProject(projectId, event) {
         // Show loading state
         if (window.wallPackingApp) {
             window.wallPackingApp.showToast('Ripristino progetto...', 'info');
-            window.wallPackingApp.showLoading('Caricamento progetto salvato...', 'Ripristino file e rielaborazione automatica');
+            window.wallPackingApp.showLoading('Caricamento progetto salvato...', 'Ripristino dati e configurazioni salvate');
         }
         
         // Step 1: Get project data
@@ -4980,13 +4983,21 @@ async function reuseProject(projectId, event) {
         const project = data.project;
         
         console.log('📦 Progetto recuperato:', project.name);
+        console.log('🎨 Preview disponibile:', !!project.preview_image);
+        console.log('📊 Blocks standard disponibili:', project.blocks_standard?.length || 0);
         
         // Step 2: Restore all configurations first
         await restoreProjectConfigurations(project);
         
-        // Step 3: Load file and process automatically to go directly to results
-        console.log('🚀 Caricamento file e rielaborazione automatica...');
-        await loadAndProcessProjectFile(projectId, project);
+        // Step 3: ⭐ NUOVO - Ripristino diretto Step 5 se abbiamo preview e dati
+        if (project.preview_image && project.results_summary) {
+            console.log('✅ Ripristino diretto Step 5 con dati salvati');
+            await showStep5FromSavedData(project);
+        } else {
+            // Fallback: carica file e rielabora (per progetti legacy senza preview)
+            console.log('⚠️ Progetto legacy senza preview - rielaborazione necessaria');
+            await loadAndProcessProjectFile(projectId, project);
+        }
         
     } catch (error) {
         console.error('❌ Errore riutilizzo progetto:', error);
@@ -5258,6 +5269,122 @@ async function loadAndProcessProjectFile(projectId, project) {
             panel.style.display = 'none';
             icon.style.transform = 'rotate(0deg)';
         }
+    }
+}
+
+// ⭐ NUOVO: Ripristino diretto Step 5 con dati salvati (senza rielaborazione)
+async function showStep5FromSavedData(project) {
+    try {
+        console.log('🎯 Ripristino Step 5 da dati salvati...');
+        
+        if (!window.wallPackingApp) {
+            throw new Error('WallPackingApp non disponibile');
+        }
+        
+        // Mark as reused project
+        window.wallPackingApp.isReusedProject = true;
+        
+        // 1. Mostra immagine preview
+        const previewImage = document.getElementById('previewImage');
+        const previewLoading = document.getElementById('previewLoading');
+        
+        if (previewImage && project.preview_image) {
+            console.log('🖼️ Caricamento preview salvata...');
+            previewImage.src = project.preview_image;
+            previewImage.style.display = 'block';
+            if (previewLoading) previewLoading.style.display = 'none';
+            console.log('✅ Preview caricata');
+        }
+        
+        // 2. Prepara dati per showResults
+        const results_summary = project.results_summary || {};
+        const summary = results_summary.summary || {};
+        const blocks_custom = results_summary.blocks_custom || [];
+        const metrics = results_summary.metrics || {};
+        const blocks_standard = project.blocks_standard || [];
+        
+        console.log('📊 Dati caricati:');
+        console.log('  - Summary:', Object.keys(summary).length, 'tipi');
+        console.log('  - Blocks standard:', blocks_standard.length);
+        console.log('  - Blocks custom:', blocks_custom.length);
+        console.log('  - Metrics:', metrics);
+        
+        // 3. Popola header stats (carte in alto)
+        window.wallPackingApp.updateHeaderStats({
+            summary: summary,
+            blocks_custom: blocks_custom,
+            metrics: metrics
+        });
+        
+        // 4. Popola tabella blocchi standard
+        // Ricostruisci sessionConfig come si aspetta updateGroupedStandardTable
+        const blockConfig = project.extended_config?.block_config || {};
+        
+        // ⭐ USA size_to_letter SALVATO (dinamico) invece di hardcoded
+        const sizeToLetter = blockConfig.size_to_letter || {
+            '1239': 'A',  // Fallback solo se proprio non c'è (progetti molto vecchi)
+            '826': 'B',
+            '413': 'C'
+        };
+        
+        const sessionConfig = {
+            block_widths: blockConfig.widths || [1239, 826, 413],
+            block_height: blockConfig.height || 495,
+            block_schema: {
+                schema_type: blockConfig.schema_type || 'standard',
+                block_widths: blockConfig.widths || [1239, 826, 413],
+                block_height: blockConfig.height || 495,
+                size_to_letter: sizeToLetter  // ⭐ DINAMICO dal salvataggio
+            }
+        };
+        
+        console.log('🔧 Session config ricostruito per tabella:', sessionConfig);
+        console.log('🔤 Size to letter:', sizeToLetter);
+        
+        window.wallPackingApp.updateGroupedStandardTable(
+            summary,
+            blocks_standard,
+            sessionConfig
+        );
+        
+        // 5. Popola tabella blocchi custom
+        window.wallPackingApp.updateGroupedCustomTable(blocks_custom);
+        
+        // 6. Popola configurazione card
+        if (project.packing_config) {
+            window.wallPackingApp.updateConfigurationCard({
+                config: project.packing_config
+            });
+        }
+        
+        // 7. Popola metriche
+        window.wallPackingApp.updateMetrics(metrics);
+        
+        // 8. Vai a Step 5
+        window.wallPackingApp.hideLoading();
+        window.wallPackingApp.showMainSection('app');
+        window.wallPackingApp.showSection('results');
+        
+        // 9. Chiudi pannello progetti
+        const panel = document.getElementById('pastProjectsPanel');
+        const icon = document.getElementById('pastProjectsExpandIcon');
+        if (panel && icon) {
+            panel.style.display = 'none';
+            icon.style.transform = 'rotate(0deg)';
+        }
+        
+        // 10. Mostra messaggio successo
+        window.wallPackingApp.showToast(
+            `✅ Progetto "${project.name}" ripristinato istantaneamente!`,
+            'success',
+            6000
+        );
+        
+        console.log('✅ Step 5 ripristinato con successo');
+        
+    } catch (error) {
+        console.error('❌ Errore ripristino Step 5:', error);
+        throw error;
     }
 }
 

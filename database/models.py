@@ -88,6 +88,10 @@ class SavedProject(Base):
     pdf_path = Column(String(500), nullable=True) 
     json_path = Column(String(500), nullable=True)
     
+    # ===== NUOVO: Dati per ripristino diretto Step 5 =====
+    preview_image = Column(Text, nullable=True)           # Preview Base64 (PNG)
+    blocks_standard_json = Column(Text, nullable=True)    # Array blocchi standard con posizioni
+    
     # Timestamping
     created_at = Column(DateTime, default=func.now(), nullable=False)
     last_used = Column(DateTime, nullable=True)

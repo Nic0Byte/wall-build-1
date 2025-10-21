@@ -450,6 +450,76 @@ async def save_project(
         # Aggiungi snapshot al extended_config
         extended_config["system_snapshot"] = complete_snapshot
         
+        # ===== NUOVO: Genera preview e recupera blocks_standard dalla sessione =====
+        preview_base64 = None
+        blocks_standard = None
+        
+        if project_data.get("session_id"):
+            try:
+                from main import SESSIONS, generate_preview_image
+                
+                session_id = project_data["session_id"]
+                if session_id in SESSIONS:
+                    session = SESSIONS[session_id]
+                    
+                    print(f"🎨 Generazione preview per progetto '{project_data.get('name')}'...")
+                    
+                    # Recupera dati dalla sessione
+                    if "data" in session and session.get("enhanced", False):
+                        # Enhanced session format
+                        data = session["data"]
+                        blocks_standard = data.get("blocks_standard", [])
+                        
+                        # Genera preview usando geometria originale salvata
+                        wall_polygon = session.get("wall_polygon")
+                        apertures = session.get("apertures", [])
+                        placed = data.get("blocks_standard", [])
+                        customs = data.get("blocks_custom", [])
+                        config = data.get("config", {})
+                        color_theme = config.get("color_theme", {})
+                        
+                        # Informazioni enhanced
+                        enhanced_info = {
+                            "automatic_measurements": data.get("automatic_measurements", {}),
+                            "blocks_with_measurements": data.get("blocks_with_measurements", {}),
+                            "cutting_list": data.get("cutting_list", {}),
+                            "production_parameters": data.get("production_parameters", {}),
+                            "enhanced": True
+                        }
+                        
+                        preview_base64 = generate_preview_image(
+                            wall_polygon,
+                            placed,
+                            customs,
+                            apertures,
+                            color_theme,
+                            config,
+                            enhanced_info=enhanced_info
+                        )
+                    else:
+                        # Standard session format
+                        blocks_standard = session.get("placed", [])
+                        
+                        preview_base64 = generate_preview_image(
+                            session["wall_polygon"],
+                            session["placed"],
+                            session["customs"],
+                            session.get("apertures", []),
+                            session["config"].get("color_theme", {}),
+                            session["config"],
+                            enhanced_info={"enhanced": False}
+                        )
+                    
+                    if preview_base64:
+                        print(f"✅ Preview generata con successo (size: ~{len(preview_base64)//1024}KB)")
+                    if blocks_standard:
+                        print(f"✅ Blocks standard recuperati: {len(blocks_standard)} blocchi")
+                else:
+                    print(f"⚠️ Session {session_id} non trovata in SESSIONS - skip preview")
+            except Exception as e:
+                print(f"⚠️ Errore generazione preview/blocks: {e}")
+                # Continua comunque il salvataggio senza preview
+        
         with get_db_session() as db:
             # Crea nuovo progetto salvato
             saved_project = SavedProject(
@@ -468,7 +538,10 @@ async def save_project(
                 efficiency_percentage=project_data.get("efficiency"),
                 svg_path=project_data.get("svg_path"),
                 pdf_path=project_data.get("pdf_path"),
-                json_path=project_data.get("json_path")
+                json_path=project_data.get("json_path"),
+                # ===== NUOVO: Salva preview e blocks_standard =====
+                preview_image=preview_base64,
+                blocks_standard_json=json.dumps(blocks_standard) if blocks_standard else None
             )
             
             db.add(saved_project)
@@ -579,6 +652,23 @@ async def get_saved_project(
             # Recupera extended_config
             extended_config = json.loads(project.extended_config) if project.extended_config else {}
             
+            # ===== NUOVO: Parse blocks_standard =====
+            blocks_standard = []
+            if project.blocks_standard_json:
+                try:
+                    blocks_standard = json.loads(project.blocks_standard_json)
+                    print(f"✅ Blocks standard caricati: {len(blocks_standard)} blocchi")
+                except Exception as e:
+                    print(f"⚠️ Errore parsing blocks_standard: {e}")
+            
+            # ===== Parse results_summary (contiene anche blocks_custom) =====
+            results_summary = {}
+            if project.results_summary:
+                try:
+                    results_summary = json.loads(project.results_summary)
+                except Exception as e:
+                    print(f"⚠️ Errore parsing results_summary: {e}")
+            
             # ===== NUOVO: Verifica presenza snapshot =====
             has_snapshot = False
             snapshot_info = None
@@ -613,7 +703,7 @@ async def get_saved_project(
                     "block_dimensions": json.loads(project.block_dimensions) if project.block_dimensions else None,
                     "color_theme": json.loads(project.color_theme) if project.color_theme else None,
                     "packing_config": json.loads(project.packing_config) if project.packing_config else None,
-                    "results": json.loads(project.results_summary) if project.results_summary else None,
+                    "results_summary": results_summary,  # MODIFIED: Use parsed results
                     "extended_config": extended_config,
                     "wall_dimensions": project.wall_dimensions,
                     "total_blocks": project.total_blocks,
@@ -623,7 +713,10 @@ async def get_saved_project(
                     "json_path": project.json_path,
                     "created_at": project.created_at.isoformat(),
                     "last_used": project.last_used.isoformat(),
-                    "snapshot_info": snapshot_info  # NEW: Info sullo snapshot
+                    "snapshot_info": snapshot_info,  # NEW: Info sullo snapshot
+                    # ===== NUOVO: Dati per ripristino Step 5 =====
+                    "preview_image": project.preview_image,  # Base64 PNG
+                    "blocks_standard": blocks_standard       # Array blocchi con posizioni
                 }
             }
             
