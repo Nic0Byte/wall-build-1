@@ -33,12 +33,14 @@ except Exception:  # pragma: no cover
 from exporters.labels import create_block_labels, create_detailed_block_labels
 
 
-def _extract_configuration_info(enhanced_info: Dict) -> Dict:
+def _extract_configuration_info(enhanced_info: Dict, placed: List[Dict] = None, customs: List[Dict] = None) -> Dict:
     """
     Estrae solo le informazioni di configurazione essenziali selezionate dall'utente.
     
     Args:
         enhanced_info: Dizionario con informazioni estese del progetto
+        placed: Lista blocchi standard posizionati (per conteggio moraletti)
+        customs: Lista blocchi custom posizionati (per conteggio moraletti)
         
     Returns:
         Dizionario con le informazioni di configurazione selezionate dall'utente
@@ -46,6 +48,8 @@ def _extract_configuration_info(enhanced_info: Dict) -> Dict:
     print(f"DEBUG: _extract_configuration_info chiamata con enhanced_info keys: {list(enhanced_info.keys()) if enhanced_info else 'None'}")
     
     config = {}
+    placed = placed or []
+    customs = customs or []
     
     # I dati di configurazione si trovano in automatic_measurements -> material_parameters
     automatic_measurements = enhanced_info.get("automatic_measurements", {})
@@ -84,13 +88,8 @@ def _extract_configuration_info(enhanced_info: Dict) -> Dict:
                     config['Posizionamento'] = {}
                 config['Posizionamento']['Altezza Parete'] = f"{wall_dimensions.get('height_mm')} mm"
         
-        # Controlla moretti
-        moretti_requirements = automatic_measurements.get("moretti_requirements", {})
-        if moretti_requirements and isinstance(moretti_requirements, dict) and moretti_requirements.get('needed'):
-            config['Moretti'] = {
-                'Richiesti': 'Sì' if moretti_requirements.get('needed') else 'No',
-                'Altezza': f"{moretti_requirements.get('height_mm', 0)} mm"
-            }
+        # Calcola moraletti usati nei blocchi
+        config['Moraletti'] = _calculate_moraletti_info(enhanced_info, placed, customs)
     
     # Se non abbiamo ancora i blocchi, proviamo nei parametri di produzione
     if 'Blocchi' not in config:
@@ -109,6 +108,150 @@ def _extract_configuration_info(enhanced_info: Dict) -> Dict:
     
     print(f"DEBUG: config estratto finale: {config}")
     return config
+
+
+def _calculate_moraletti_info(enhanced_info: Dict, placed: List[Dict], customs: List[Dict]) -> Dict:
+    """
+    Calcola le informazioni dettagliate sui moraletti usati nei blocchi.
+    
+    Args:
+        enhanced_info: Informazioni enhanced del progetto
+        placed: Lista blocchi standard posizionati
+        customs: Lista blocchi custom posizionati
+        
+    Returns:
+        Dizionario con informazioni moraletti formattate
+    """
+    import math
+    from collections import defaultdict
+    
+    # Estrai configurazione moraletti dalle impostazioni
+    packing_params = enhanced_info.get("automatic_measurements", {}).get("packing_parameters", {})
+    
+    # Default values
+    moraletti_thickness = 58
+    moraletti_height = 495
+    moraletti_height_from_ground = 95
+    moraletti_spacing = 420
+    max_moraletti_large = 3
+    max_moraletti_medium = 2
+    max_moraletti_small = 1
+    
+    # Prova a leggere dalla configurazione salvata
+    config_data = enhanced_info.get("config", {})
+    if config_data:
+        moraletti_thickness = config_data.get("moraletti_thickness", moraletti_thickness)
+        moraletti_height = config_data.get("moraletti_height", moraletti_height)
+        moraletti_height_from_ground = config_data.get("moraletti_height_from_ground", moraletti_height_from_ground)
+        moraletti_spacing = config_data.get("moraletti_spacing", moraletti_spacing)
+        max_moraletti_large = config_data.get("moraletti_count_large", max_moraletti_large)
+        max_moraletti_medium = config_data.get("moraletti_count_medium", max_moraletti_medium)
+        max_moraletti_small = config_data.get("moraletti_count_small", max_moraletti_small)
+    
+    # Larghezze blocchi standard (ordina per larghezza decrescente)
+    block_widths = config_data.get("block_widths", [1239, 826, 413])
+    if isinstance(block_widths, list) and len(block_widths) >= 3:
+        block_widths = sorted(block_widths, reverse=True)
+    else:
+        block_widths = [1239, 826, 413]
+    
+    large_width = block_widths[0]
+    medium_width = block_widths[1]
+    small_width = block_widths[2]
+    
+    # Mappatura larghezza -> max moraletti
+    width_to_max_moraletti = {
+        large_width: max_moraletti_large,
+        medium_width: max_moraletti_medium,
+        small_width: max_moraletti_small
+    }
+    
+    # Mappatura larghezza -> lettera (A, B, C)
+    size_to_letter = config_data.get("size_to_letter", {})
+    if not size_to_letter:
+        size_to_letter = {
+            str(large_width): 'A',
+            str(medium_width): 'B',
+            str(small_width): 'C'
+        }
+    
+    # Funzione per calcolare moraletti per un blocco
+    def calculate_moraletti_count(width: float) -> int:
+        """Calcola numero moraletti per una larghezza blocco"""
+        # Teorico: floor(width / spacing) + 1
+        theoretical_count = math.floor(width / moraletti_spacing) + 1
+        
+        # Applica max per blocchi standard
+        if width in width_to_max_moraletti:
+            return min(theoretical_count, width_to_max_moraletti[width])
+        
+        # Per custom, cerca il range più vicino
+        for std_width, max_count in width_to_max_moraletti.items():
+            if abs(width - std_width) < 50:  # Tolleranza 50mm
+                return min(theoretical_count, max_count)
+        
+        # Fallback: usa theoretical con limite massimo ragionevole
+        return min(theoretical_count, 5)
+    
+    # Conta blocchi standard per tipo
+    standard_counts = defaultdict(int)
+    standard_moraletti = defaultdict(int)
+    
+    for block in placed:
+        width = block.get('width', 0)
+        standard_counts[width] += 1
+        moraletti_count = calculate_moraletti_count(width)
+        standard_moraletti[width] += moraletti_count
+    
+    # Conta blocchi custom per dimensione
+    custom_counts = defaultdict(int)
+    custom_moraletti = defaultdict(int)
+    
+    for block in customs:
+        width = block.get('width', 0)
+        height = block.get('height', moraletti_height)
+        dim_key = f"{int(width)}×{int(height)}"
+        custom_counts[dim_key] += 1
+        moraletti_count = calculate_moraletti_count(width)
+        custom_moraletti[dim_key] += moraletti_count
+    
+    # Calcola totale
+    total_moraletti = sum(standard_moraletti.values()) + sum(custom_moraletti.values())
+    
+    # Crea dizionario dettagliato per tipo (per le tabelle frontend)
+    moraletti_per_blocco = {}
+    
+    # Standard blocks: usa larghezza come chiave
+    for width in standard_moraletti.keys():
+        count = standard_counts[width]
+        mor_per_block = standard_moraletti[width] // count if count > 0 else 0
+        key = f"std_{int(width)}x{moraletti_height}"
+        moraletti_per_blocco[key] = mor_per_block
+        print(f"🔧 [DEBUG Backend] Standard: {key} = {mor_per_block} moraletti/blocco (tot: {standard_moraletti[width]}, count: {count})")
+    
+    # Custom blocks: usa dimensione completa come chiave
+    for dim_key in custom_moraletti.keys():
+        count = custom_counts[dim_key]
+        mor_per_block = custom_moraletti[dim_key] // count if count > 0 else 0
+        key = f"custom_{dim_key}"
+        moraletti_per_blocco[key] = mor_per_block
+        print(f"🔧 [DEBUG Backend] Custom: {key} = {mor_per_block} moraletti/blocco (tot: {custom_moraletti[dim_key]}, count: {count})")
+    
+    # SEMPLIFICATO: Solo dati totali per la card (il dettaglio per tipo sarà nelle tabelle blocchi)
+    lines = []
+    lines.append(f"<strong>Configurazione:</strong> {moraletti_thickness}mm × {moraletti_height}mm")
+    lines.append(f"<strong>Piedini:</strong> {moraletti_height_from_ground}mm")
+    lines.append(f"<strong>Totale Moraletti:</strong> {total_moraletti} pezzi")
+    lines.append("<em style='color: #6b7280; font-size: 0.85rem;'>(Dettagli per blocco nelle tabelle sottostanti)</em>")
+    
+    # Converti in dizionario per compatibilità con _add_configuration_info_box
+    return {
+        '_raw_lines': lines,  # Usa chiave speciale per gestione custom
+        'Configurazione': f"{moraletti_thickness}mm × {moraletti_height}mm",
+        'Piedini': f"{moraletti_height_from_ground}mm",
+        'Quantità Totale': f"{total_moraletti} pezzi",
+        'moraletti_per_blocco': moraletti_per_blocco  # NUOVO: dati dettagliati per frontend
+    }
 
 
 def _add_configuration_info_box(ax, config_info: Dict, bounds):
@@ -141,10 +284,17 @@ def _add_configuration_info_box(ax, config_info: Dict, bounds):
             # Nome sezione
             card_lines.append(f"{section_name.upper()}:")
             
-            # Dati della sezione
-            for key, value in section_data.items():
-                if value and value != 'Non specificato' and value != 'N/A':
-                    card_lines.append(f"  {key}: {value}")
+            # Gestione speciale per Moraletti con formato custom
+            if '_raw_lines' in section_data:
+                # Usa le righe pre-formattate
+                for line in section_data['_raw_lines']:
+                    if line:  # Salta righe vuote iniziali
+                        card_lines.append(f"  {line}")
+            else:
+                # Dati della sezione standard
+                for key, value in section_data.items():
+                    if value and value != 'Non specificato' and value != 'N/A':
+                        card_lines.append(f"  {key}: {value}")
             
             # Spaziatura tra sezioni
             card_lines.append("")
@@ -498,7 +648,7 @@ def generate_preview_image(
         if enhanced_info and enhanced_info.get("enhanced", False):
             # Gather all configuration information
             # Estrai informazioni di configurazione (per uso futuro)
-            config_info = _extract_configuration_info(enhanced_info)
+            config_info = _extract_configuration_info(enhanced_info, placed, customs)
 
         # Genera immagine PNG with extra space for comprehensive configuration card
         img_buffer = io.BytesIO()

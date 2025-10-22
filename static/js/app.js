@@ -1293,8 +1293,8 @@ class WallPackingApp {
         this.updateHeaderStats(data);
         
         // Update tables CON NUOVO SISTEMA RAGGRUPPAMENTO
-        this.updateGroupedStandardTable(data.summary, data.blocks_standard || [], data.config);
-        this.updateGroupedCustomTable(data.blocks_custom || []);
+        this.updateGroupedStandardTable(data.summary, data.blocks_standard || [], data.config, data.config_estratto_finale);
+        this.updateGroupedCustomTable(data.blocks_custom || [], data.config_estratto_finale);
         
         // Update configuration card
         this.updateConfigurationCard(data);
@@ -1354,14 +1354,18 @@ class WallPackingApp {
         }
     }
     
-    updateGroupedStandardTable(summary, standardBlocks, sessionConfig = null) {
+    updateGroupedStandardTable(summary, standardBlocks, sessionConfig = null, configEstratto = null) {
         const tbody = document.querySelector('#standardTable tbody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
         
+        // Estrai dati moraletti dal config_estratto_finale
+        const moralettiData = configEstratto?.Moraletti?.moraletti_per_blocco || {};
+        console.log('🔢 [DEBUG] Dati moraletti per blocco:', moralettiData);
+        
         // 🧪 DEBUG: Vedere cosa arriva dal backend
-        console.log('� [DEBUG] SessionConfig received:', sessionConfig);
+        console.log('📦 [DEBUG] SessionConfig received:', sessionConfig);
         console.log('🔍 [DEBUG] Summary received:', summary);
         
         // �🔧 NEW: Usa le informazioni del backend se disponibili, altrimenti calcola localmente
@@ -1400,6 +1404,11 @@ class WallPackingApp {
                 height: 0
             };
             
+            // Calcola moraletti: usa dati dal backend, fallback a 2
+            const moralettiPerBlock = moralettiData[type] || 2;
+            const totalMoraletti = count * moralettiPerBlock;
+            console.log(`🔍 [DEBUG] Blocco ${type}: ${moralettiPerBlock} moraletti per blocco (chiave: ${type})`);
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
@@ -1415,13 +1424,16 @@ class WallPackingApp {
                 <td class="text-sm text-gray-600">
                     ${typeInfo.category}1, ${typeInfo.category}2, ..., ${typeInfo.category}${count}
                 </td>
+                <td class="text-center">
+                    <span class="text-orange-600 font-medium">${moralettiPerBlock} × ${count} = ${totalMoraletti}</span>
+                </td>
             `;
             tbody.appendChild(row);
         }
         
         if (Object.keys(summary || {}).length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="4" class="text-center text-gray-500">Nessun blocco standard</td>';
+            row.innerHTML = '<td colspan="5" class="text-center text-gray-500">Nessun blocco standard</td>';
             tbody.appendChild(row);
         }
     }
@@ -1508,11 +1520,15 @@ class WallPackingApp {
         return true;
     }
 
-    updateGroupedCustomTable(customBlocks) {
+    updateGroupedCustomTable(customBlocks, configEstratto = null) {
         const tbody = document.querySelector('#customTable tbody');
         if (!tbody) return;
         
         tbody.innerHTML = '';
+        
+        // Estrai dati moraletti dal config_estratto_finale
+        const moralettiData = configEstratto?.Moraletti?.moraletti_per_blocco || {};
+        console.log('🔢 [DEBUG] Dati moraletti custom:', moralettiData);
         
         // Raggruppa custom per dimensioni simili (simulazione raggruppamento)
         const customGroups = this.groupCustomBlocks(customBlocks);
@@ -1521,6 +1537,12 @@ class WallPackingApp {
         
         Object.entries(customGroups).forEach(([dimensions, blocks]) => {
             const count = blocks.length;
+            
+            // Calcola moraletti: usa dati dal backend, fallback a 2
+            const customKey = `custom_${dimensions}`;
+            const moralettiPerBlock = moralettiData[customKey] || 2;
+            const totalMoraletti = count * moralettiPerBlock;
+            console.log(`🔍 [DEBUG] Custom ${dimensions}: ${moralettiPerBlock} moraletti per blocco (chiave: ${customKey})`);
             
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -1537,6 +1559,9 @@ class WallPackingApp {
                 <td class="text-sm text-gray-600">
                     ${blocks.map((b, i) => `${categoryLetter}${i+1}`).join(', ')}
                 </td>
+                <td class="text-center">
+                    <span class="text-orange-600 font-medium">${moralettiPerBlock} × ${count} = ${totalMoraletti}</span>
+                </td>
             `;
             tbody.appendChild(row);
             
@@ -1546,7 +1571,7 @@ class WallPackingApp {
         
         if (customBlocks.length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="4" class="text-center text-gray-500">Nessun pezzo custom</td>';
+            row.innerHTML = '<td colspan="5" class="text-center text-gray-500">Nessun pezzo custom</td>';
             tbody.appendChild(row);
         }
     }
@@ -1583,12 +1608,12 @@ class WallPackingApp {
     // FUNZIONI LEGACY PER COMPATIBILITA'
     updateStandardTable(summary) {
         console.log('⚠️ Usando funzione legacy updateStandardTable');
-        return this.updateGroupedStandardTable(summary, [], null);
+        return this.updateGroupedStandardTable(summary, [], null, null);
     }
 
     updateCustomTable(customBlocks) {
         console.log('⚠️ Usando funzione legacy updateCustomTable');
-        return this.updateGroupedCustomTable(customBlocks);
+        return this.updateGroupedCustomTable(customBlocks, null);
     }
     
     updateMetrics(metrics) {
@@ -1710,9 +1735,6 @@ class WallPackingApp {
             closureInfo.innerHTML = closureText;
             if (closureSection) closureSection.style.display = 'block';
             hasConfigData = true;
-        } else {
-            // Crea la sezione se non esiste
-            this.createClosureSectionInConfigCard(closureText);
         }
         
         // NUOVO: Parete Position section - USA PARAMETRI DINAMICI
@@ -1738,9 +1760,6 @@ class WallPackingApp {
             wallInfo.innerHTML = wallText;
             if (wallSection) wallSection.style.display = 'block';
             hasConfigData = true;
-        } else {
-            // Crea la sezione se non esiste
-            this.createWallSectionInConfigCard(wallText);
         }
         
         // Block section - con config_estratto_finale
@@ -1785,12 +1804,29 @@ class WallPackingApp {
         const morettiInfo = document.getElementById('morettiInfo');
         let morettiText = '';
         
-        if (data.config_estratto_finale?.Moretti) {
+        if (data.config_estratto_finale?.Moraletti) {
+            const moraletti = data.config_estratto_finale.Moraletti;
+            
+            // Nuovo formato con righe pre-formattate
+            if (moraletti._raw_lines && Array.isArray(moraletti._raw_lines)) {
+                morettiText = moraletti._raw_lines
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0)
+                    .join('<br>');
+            } else {
+                // Fallback formato vecchio
+                if (moraletti.Configurazione) morettiText += `<strong>Configurazione:</strong> ${moraletti.Configurazione}<br>`;
+                if (moraletti.Piedini) morettiText += `<strong>Piedini:</strong> ${moraletti.Piedini}<br>`;
+                if (moraletti['Quantità Totale']) morettiText += `<strong>Quantità Totale:</strong> ${moraletti['Quantità Totale']}`;
+            }
+        } else if (data.config_estratto_finale?.Moretti) {
+            // Compatibilità con vecchio nome "Moretti" (senza 'l')
             const moretti = data.config_estratto_finale.Moretti;
             if (moretti.Richiesti !== undefined) morettiText += `<strong>Richiesti:</strong> ${moretti.Richiesti}<br>`;
             if (moretti.Altezza) morettiText += `<strong>Altezza:</strong> ${moretti.Altezza}<br>`;
             if (moretti.Quantità) morettiText += `<strong>Quantità:</strong> ${moretti.Quantità}`;
         } else {
+            // Fallback: cerca nei vecchi formati
             const morettiSources = [
                 data.enhanced_info?.automatic_measurements?.moretti_requirements,
                 data.enhanced_info?.moretti_requirements,
@@ -1811,14 +1847,14 @@ class WallPackingApp {
             }
         }
         
-        // Se non hai dati, mostra placeholder per test
+        // Se non hai dati, nascondi la sezione invece di mostrare placeholder
         if (!morettiText) {
-            morettiText = `<strong>Richiesti:</strong> Sì<br><strong>Altezza:</strong> 150 mm<br><strong>Quantità:</strong> 8`;
+            morettiSection.style.display = 'none';
+        } else {
+            morettiInfo.innerHTML = morettiText;
+            morettiSection.style.display = 'block';
+            hasConfigData = true;
         }
-        
-        morettiInfo.innerHTML = morettiText;
-        morettiSection.style.display = 'block';
-        hasConfigData = true;
         
         // Construction section - FORZA SEMPRE VISIBILE
         const constructionSection = document.getElementById('constructionSection');
@@ -5372,11 +5408,12 @@ async function showStep5FromSavedData(project) {
         window.wallPackingApp.updateGroupedStandardTable(
             summary,
             blocks_standard,
-            sessionConfig
+            sessionConfig,
+            null  // config_estratto_finale non disponibile in restore
         );
         
         // 5. Popola tabella blocchi custom
-        window.wallPackingApp.updateGroupedCustomTable(blocks_custom);
+        window.wallPackingApp.updateGroupedCustomTable(blocks_custom, null);
         
         // 6. Popola configurazione card
         if (project.packing_config) {

@@ -144,6 +144,14 @@ class EnhancedPackingCalculator:
             # Aggiungi parametri produzione
             enhanced_result["production_parameters"] = self._generate_production_parameters(enhanced_params)
             
+            # Estrai configurazione per la card dello step 5
+            from utils.preview_generator import _extract_configuration_info
+            enhanced_result["config_estratto_finale"] = _extract_configuration_info(
+                enhanced_result,
+                packing_result.get("blocks_standard", []),
+                packing_result.get("blocks_custom", [])
+            )
+            
         return enhanced_result
     
     def calculate_wall_position_strategy(self, wall_config: Dict) -> Dict:

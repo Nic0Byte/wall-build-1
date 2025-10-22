@@ -5202,3 +5202,87 @@ table tbody tr:hover {
 .snapshot-badge.legacy i {
     color: #dc2626;
 }
+
+/* ===== Configuration Info Grid ===== */
+.configuration-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.configuration-card h3 {
+    margin: 0 0 20px 0;
+    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.configuration-card h3 i {
+    color: #6366f1;
+}
+
+.config-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.config-section {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.config-section h4 {
+    margin: 0 0 12px 0;
+    color: #374151;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.config-section .info-item {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+.config-section .info-item strong {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+/* Moraletti section - Dimensione normale (dettagli nelle tabelle) */
+#morettiSection #morettiInfo {
+    line-height: 1.8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .config-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    #morettiSection {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 768px) {
+    .config-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    #morettiSection {
+        grid-column: span 1;
+    }
+}
+
