@@ -4463,8 +4463,9 @@ table tbody tr:hover {
     justify-content: center;
     background: var(--gray-50);
     min-height: 400px;
+    max-height: 700px;
     position: relative;
-    overflow: hidden;
+    overflow: auto;
 }
 
 #previewCanvas {
