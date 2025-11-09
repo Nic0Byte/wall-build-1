@@ -566,7 +566,9 @@ async def enhanced_pack_from_preview(
             'file_bytes': preview_data.get("file_content"),  # Riutilizzo per salvataggio progetto
             'original_filename': original_filename,
             'optimized_from_preview': True,  # MARKER: Indica elaborazione ottimizzata
-            'wall_polygon': wall_exterior,  # NUOVO: Salva geometria originale per preview identico
+            'wall_polygon': wall_exterior,  # Geometria per packing (con offset se applicato)
+            'wall_polygon_original': preview_data.get("wall_polygon_original"),  # 📐 NUOVO: Poligono originale per visualizzazione
+            'offset_applied_mm': preview_data.get("offset_applied_mm", 0),  # 📐 NUOVO: Distanza offset
             'apertures': apertures  # NUOVO: Salva anche aperture originali
         }
         
@@ -923,6 +925,12 @@ async def get_preview_image(session_id: str):
                 "production_parameters": data.get("production_parameters", {}),
                 "enhanced": True
             }
+            
+            # 📐 NUOVO: Aggiungi wall_original se presente (per visualizzazione offset)
+            if "wall_polygon_original" in session and session["wall_polygon_original"] is not None:
+                enhanced_info["wall_original"] = session["wall_polygon_original"]
+                enhanced_info["offset_mm"] = session.get("offset_applied_mm", 0)
+                print(f"🎯 Aggiunto wall_original a enhanced_info per visualizzazione offset ({enhanced_info['offset_mm']}mm)")
         else:
             # Standard session format  
             wall_polygon = session["wall_polygon"]
@@ -932,6 +940,12 @@ async def get_preview_image(session_id: str):
             color_theme = session["config"].get("color_theme", {})
             config = session["config"]
             enhanced_info = {"enhanced": False}
+            
+            # 📐 NUOVO: Aggiungi wall_original se presente (per visualizzazione offset)
+            if "wall_polygon_original" in session and session["wall_polygon_original"] is not None:
+                enhanced_info["wall_original"] = session["wall_polygon_original"]
+                enhanced_info["offset_mm"] = session.get("offset_applied_mm", 0)
+                print(f"🎯 Aggiunto wall_original a enhanced_info per visualizzazione offset ({enhanced_info['offset_mm']}mm)")
         
         # ===== FIX: Assicurati che block_config abbia size_to_letter =====
         from utils.config import SIZE_TO_LETTER
