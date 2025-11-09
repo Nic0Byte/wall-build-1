@@ -5286,3 +5286,306 @@ table tbody tr:hover {
     }
 }
 
+/* ================================================================= */
+/* WALL INNER OFFSET CONFIGURATION CARD                             */
+/* ================================================================= */
+
+.offset-configuration-card .feature-icon {
+    background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
+}
+
+.offset-panel {
+    background: #F9FAFB;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 20px;
+}
+
+.offset-enable-section {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #E5E7EB;
+    transition: all 0.3s ease;
+}
+
+.offset-enable-section:has(input:checked) {
+    border-color: #8B5CF6;
+    background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
+}
+
+.offset-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.offset-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.offset-checkbox .checkbox-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    color: #374151;
+}
+
+.offset-checkbox .checkbox-text i {
+    color: #8B5CF6;
+    font-size: 20px;
+}
+
+.offset-checkbox input:checked ~ .checkbox-text {
+    color: #7C3AED;
+    font-weight: 600;
+}
+
+.offset-input-section {
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #E5E7EB;
+}
+
+.offset-control-group {
+    margin-bottom: 20px;
+}
+
+.offset-control-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.offset-control-group label i {
+    color: #8B5CF6;
+}
+
+.offset-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.offset-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1F2937;
+    transition: all 0.2s ease;
+    max-width: 120px;
+}
+
+.offset-input:focus {
+    outline: none;
+    border-color: #8B5CF6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.input-unit-large {
+    font-size: 16px;
+    font-weight: 600;
+    color: #6B7280;
+    min-width: 35px;
+}
+
+.offset-slider-wrapper {
+    width: 100%;
+}
+
+.offset-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #E5E7EB 0%, #8B5CF6 100%);
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.offset-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #8B5CF6;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);
+    transition: all 0.2s ease;
+}
+
+.offset-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 3px 10px rgba(139, 92, 246, 0.6);
+}
+
+.offset-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #8B5CF6;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.offset-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 3px 10px rgba(139, 92, 246, 0.6);
+}
+
+.offset-info-display {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+    border-left: 4px solid #3B82F6;
+    border-radius: 8px;
+    margin-top: 16px;
+}
+
+.offset-info-icon {
+    font-size: 24px;
+    color: #3B82F6;
+    flex-shrink: 0;
+}
+
+.offset-info-text {
+    flex: 1;
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.6;
+}
+
+.offset-info-text strong {
+    color: #8B5CF6;
+    font-weight: 700;
+}
+
+.offset-visual-example {
+    margin-top: 24px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #E5E7EB;
+}
+
+.example-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.example-title i {
+    color: #8B5CF6;
+}
+
+.example-diagram {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    background: #F9FAFB;
+    border-radius: 8px;
+}
+
+.offset-actions {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.save-offset-btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.save-offset-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+}
+
+.save-offset-btn:active {
+    transform: translateY(0);
+}
+
+.offset-save-feedback {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    border-left: 4px solid #10B981;
+    border-radius: 8px;
+    color: #065F46;
+    font-size: 14px;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+}
+
+.offset-save-feedback i {
+    color: #10B981;
+    font-size: 18px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .offset-panel {
+        padding: 16px;
+    }
+    
+    .offset-input-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .offset-input {
+        max-width: 100%;
+    }
+    
+    .example-diagram svg {
+        max-width: 100%;
+    }
+}
+

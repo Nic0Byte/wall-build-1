@@ -550,6 +550,11 @@ class WallPackingApp {
             console.log('🔺🔺🔺 SENDING vertical_spaces:', verticalSpacesConfig);
             formData.append('vertical_spaces', JSON.stringify(verticalSpacesConfig));
             
+            // 📐 NEW: Add offset configuration
+            const offsetConfig = getCurrentOffsetConfig();
+            console.log('📐📐📐 SENDING offset_config:', offsetConfig);
+            formData.append('offset_config', JSON.stringify(offsetConfig));
+            
             // Make API call to enhanced packing endpoint
             const response = await fetch('/api/enhanced-pack', {
                 method: 'POST',
@@ -1301,6 +1306,9 @@ class WallPackingApp {
         
         // Update metrics
         this.updateMetrics(data.metrics);
+        
+        // ✨ NUOVO: Visualizza offset poligono nello Step 2 (se applicato)
+        this.renderWallOffsetVisualization(data);
         
         // Auto-save project when results are shown
         this.autoSaveProject(data);
@@ -2170,6 +2178,77 @@ class WallPackingApp {
     }
     
     // Auto-save project when processing is complete
+    /**
+     * Visualizza offset poligono nello Step 2 (se applicato)
+     */
+    renderWallOffsetVisualization(data) {
+        console.log('🎨 renderWallOffsetVisualization chiamato con data:', {
+            offset: data.offset_applied_mm,
+            has_original: !!data.wall_polygon_original_coords,
+            has_offset: !!data.wall_polygon_coords,
+            original_length: data.wall_polygon_original_coords?.length,
+            offset_length: data.wall_polygon_coords?.length
+        });
+        
+        const wallPreviewDiv = document.getElementById('wallPreview');
+        const previewCanvas = document.getElementById('previewCanvas');
+        
+        if (!wallPreviewDiv) {
+            console.error('❌ Elemento wallPreview non trovato nel DOM!');
+            return;
+        }
+        
+        // Verifica che ci sia offset applicato
+        if (!data.offset_applied_mm || data.offset_applied_mm <= 0) {
+            console.log('ℹ️ Nessun offset applicato, nascondo wallPreview');
+            wallPreviewDiv.style.display = 'none';
+            if (previewCanvas) previewCanvas.style.display = 'block';
+            return;
+        }
+        
+        // Verifica che abbiamo entrambi i poligoni
+        if (!data.wall_polygon_original_coords || !data.wall_polygon_coords) {
+            console.error('❌ Coordinate poligono mancanti!', {
+                original: !!data.wall_polygon_original_coords,
+                offset: !!data.wall_polygon_coords
+            });
+            wallPreviewDiv.style.display = 'none';
+            if (previewCanvas) previewCanvas.style.display = 'block';
+            return;
+        }
+        
+        console.log(`✅ RENDERING DOPPIO POLIGONO: offset ${data.offset_applied_mm}mm`);
+        console.log(`   📐 Original coords: ${data.wall_polygon_original_coords.length} punti`);
+        console.log(`   📐 Offset coords: ${data.wall_polygon_coords.length} punti`);
+        
+        // IMPORTANTE: Nascondi canvas, mostra SVG offset
+        if (previewCanvas) {
+            previewCanvas.style.display = 'none';
+            console.log('✅ Canvas nascosto');
+        }
+        wallPreviewDiv.style.display = 'block';
+        console.log('✅ WallPreview div mostrato (display: block)');
+        
+        // Verifica che la funzione di rendering esista
+        if (typeof renderOffsetVisualization !== 'function') {
+            console.error('❌ Funzione renderOffsetVisualization non trovata! Script offset-visualization.js caricato?');
+            return;
+        }
+        
+        console.log('🎨 Chiamando renderOffsetVisualization...');
+        try {
+            renderOffsetVisualization(
+                data.wall_polygon_original_coords,
+                data.wall_polygon_coords,
+                data.offset_applied_mm,
+                'wallPreview'
+            );
+            console.log('✅ renderOffsetVisualization completato');
+        } catch (error) {
+            console.error('❌ Errore in renderOffsetVisualization:', error);
+        }
+    }
+    
     autoSaveProject(data) {
         if (!this.currentFile || !data) {
             console.log('❌ Auto-save bloccato: mancano file o dati');
@@ -2930,6 +3009,11 @@ class WallPackingApp {
             const formData = new FormData();
             formData.append('file', file);
             
+            // 📐 NUOVO: Aggiungi configurazione offset per preview
+            const offsetConfig = getCurrentOffsetConfig();
+            console.log('📐 Sending offset_config to preview:', offsetConfig);
+            formData.append('offset_config', JSON.stringify(offsetConfig));
+            
             console.log('📡 Sending request to /api/preview-conversion');
             
             const response = await fetch('/api/preview-conversion', {
@@ -3332,8 +3416,30 @@ class WallPackingApp {
     }
     
     updatePreviewUI(previewData) {
-        // Update preview image
-        this.renderPreviewImage(previewData.preview_image);
+        // 📐 PRIORITÀ: Controlla se c'è offset PRIMA di renderizzare canvas
+        const hasOffset = previewData.offset_applied_mm && 
+                         previewData.offset_applied_mm > 0 &&
+                         previewData.wall_polygon_original_coords &&
+                         previewData.wall_polygon_coords;
+        
+        console.log('🔍 Preview UI - Offset rilevato:', hasOffset, {
+            offset_mm: previewData.offset_applied_mm,
+            has_original: !!previewData.wall_polygon_original_coords,
+            has_offset: !!previewData.wall_polygon_coords
+        });
+        
+        if (hasOffset) {
+            // 📐 Mostra SVG offset, nascondi canvas
+            console.log('✅ Usando visualizzazione SVG offset');
+            this.renderWallOffsetVisualization(previewData);
+        } else {
+            // 🖼️ Mostra canvas normale
+            console.log('ℹ️ Usando canvas preview normale');
+            this.renderPreviewImage(previewData.preview_image);
+            // Assicurati che wallPreview sia nascosto
+            const wallPreviewDiv = document.getElementById('wallPreview');
+            if (wallPreviewDiv) wallPreviewDiv.style.display = 'none';
+        }
         
         // Update measurements
         this.updateMeasurementsPanel(previewData.measurements);

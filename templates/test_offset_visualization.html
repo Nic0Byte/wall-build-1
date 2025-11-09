@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Offset Visualization</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #wallPreview {
+            width: 100%;
+            min-height: 400px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background: #3B82F6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563EB;
+        }
+        .info {
+            background: #E0F2FE;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3B82F6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Visualizzazione Offset Poligono</h1>
+        
+        <div class="info">
+            <strong>Test della funzione renderOffsetVisualization()</strong><br>
+            Questo test verifica che la funzione di rendering SVG funzioni correttamente.
+        </div>
+        
+        <h2>Controlli:</h2>
+        <button onclick="testRectangle()">Test Rettangolo (50mm offset)</button>
+        <button onclick="testTrapezoid()">Test Trapezio (30mm offset)</button>
+        <button onclick="testLargeOffset()">Test Offset Grande (100mm)</button>
+        <button onclick="clearVisualization()">Pulisci</button>
+        
+        <h2>Visualizzazione:</h2>
+        <div id="wallPreview"></div>
+        
+        <div id="console" style="background: #1F2937; color: #10B981; padding: 15px; border-radius: 6px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+            <strong style="color: #60A5FA;">Console Log:</strong><br>
+        </div>
+    </div>
+    
+    <!-- Include offset visualization script -->
+    <script src="/static/js/offset-visualization.js"></script>
+    
+    <script>
+        // Override console.log per mostrare nell'UI
+        const consoleDiv = document.getElementById('console');
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            consoleDiv.innerHTML += `<div style="margin: 2px 0;">${new Date().toLocaleTimeString()}: ${msg}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+        
+        function testRectangle() {
+            console.log('🧪 TEST: Rettangolo con offset 50mm');
+            
+            // Rettangolo 5000x3000mm
+            const originalCoords = [
+                [0, 0],
+                [5000, 0],
+                [5000, 3000],
+                [0, 3000],
+                [0, 0]
+            ];
+            
+            // Rettangolo offset 50mm interno
+            const offsetCoords = [
+                [50, 50],
+                [4950, 50],
+                [4950, 2950],
+                [50, 2950],
+                [50, 50]
+            ];
+            
+            renderOffsetVisualization(originalCoords, offsetCoords, 50, 'wallPreview');
+        }
+        
+        function testTrapezoid() {
+            console.log('🧪 TEST: Trapezio con offset 30mm');
+            
+            // Trapezio (base larga 5000, base stretta 3000, altezza 2500)
+            const originalCoords = [
+                [0, 0],
+                [5000, 0],
+                [4000, 2500],
+                [1000, 2500],
+                [0, 0]
+            ];
+            
+            // Offset approssimato
+            const offsetCoords = [
+                [42, 21],
+                [4958, 21],
+                [3979, 2479],
+                [1021, 2479],
+                [42, 21]
+            ];
+            
+            renderOffsetVisualization(originalCoords, offsetCoords, 30, 'wallPreview');
+        }
+        
+        function testLargeOffset() {
+            console.log('🧪 TEST: Offset grande 100mm');
+            
+            const originalCoords = [
+                [0, 0],
+                [3000, 0],
+                [3000, 2000],
+                [0, 2000],
+                [0, 0]
+            ];
+            
+            const offsetCoords = [
+                [100, 100],
+                [2900, 100],
+                [2900, 1900],
+                [100, 1900],
+                [100, 100]
+            ];
+            
+            renderOffsetVisualization(originalCoords, offsetCoords, 100, 'wallPreview');
+        }
+        
+        function clearVisualization() {
+            console.log('🧹 Pulizia visualizzazione');
+            document.getElementById('wallPreview').innerHTML = '';
+        }
+        
+        console.log('✅ Test page loaded. Click buttons to test visualization.');
+    </script>
+</body>
+</html>

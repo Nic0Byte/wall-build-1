@@ -194,6 +194,8 @@
                                         <p>Conversione file in corso...</p>
                                     </div>
                                     <canvas id="previewCanvas" style="display: none;"></canvas>
+                                    <!-- Visualizzazione offset poligono -->
+                                    <div id="wallPreview" style="display: none; width: 100%; padding: 16px;"></div>
                                 </div>
                             </div>
                             
@@ -923,6 +925,144 @@
                                                 <i class="fas fa-spinner fa-spin"></i>
                                                 <p>Caricamento profili...</p>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Wall Inner Offset Configuration Card -->
+                        <div class="feature-card offset-configuration-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-compress-arrows-alt"></i>
+                            </div>
+                            <div class="feature-content">
+                                <h3>Offset Parete Interna <i class="fas fa-chevron-down expand-icon" id="offsetExpandIcon" onclick="toggleOffsetPanel()" style="cursor: pointer;"></i></h3>
+                                <p>Riduci il poligono verso l'interno per margini di sicurezza o guide perimetrali</p>
+                                
+                                <!-- How it works explanation -->
+                                <div class="system-explanation">
+                                    <div class="explanation-header">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>Come funziona:</strong>
+                                    </div>
+                                    <ol class="explanation-steps">
+                                        <li><strong>Abilita offset:</strong> Attiva la funzione per applicare una riduzione al perimetro della parete</li>
+                                        <li><strong>Imposta distanza:</strong> Specifica di quanti millimetri ridurre il poligono verso l'interno</li>
+                                        <li><strong>Visualizzazione automatica:</strong> Allo Step 2 vedrai il poligono originale (blu) e quello ridotto (verde)</li>
+                                        <li><strong>Packing su offset:</strong> L'algoritmo posizionerà i blocchi sul poligono ridotto</li>
+                                    </ol>
+                                    <div class="explanation-note">
+                                        <i class="fas fa-ruler-horizontal"></i>
+                                        <em><strong>Nota:</strong> L'offset si applica SOLO al perimetro esterno della parete, le aperture (porte/finestre) restano invariate</em>
+                                    </div>
+                                </div>
+                                
+                                <!-- Offset Configuration Panel (Initially Hidden) -->
+                                <div class="offset-panel" id="offsetPanel" style="display: none;">
+                                    
+                                    <!-- Enable Offset Checkbox -->
+                                    <div class="offset-enable-section">
+                                        <label class="checkbox-label-inline offset-checkbox">
+                                            <input type="checkbox" id="enableInnerOffset">
+                                            <span class="checkbox-text">
+                                                <i class="fas fa-toggle-on"></i>
+                                                <strong>Abilita Offset Interno</strong>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Offset Distance Input -->
+                                    <div class="offset-input-section" id="offsetInputSection" style="display: none;">
+                                        <div class="offset-control-group">
+                                            <label for="offsetDistance">
+                                                <i class="fas fa-ruler"></i> Distanza Offset:
+                                            </label>
+                                            <div class="offset-input-wrapper">
+                                                <input 
+                                                    type="number" 
+                                                    id="offsetDistance" 
+                                                    value="50" 
+                                                    min="0" 
+                                                    max="500" 
+                                                    step="10" 
+                                                    class="offset-input"
+                                                    onchange="updateOffsetInfo()"
+                                                >
+                                                <span class="input-unit-large">mm</span>
+                                            </div>
+                                            <div class="offset-slider-wrapper">
+                                                <input 
+                                                    type="range" 
+                                                    id="offsetSlider" 
+                                                    min="0" 
+                                                    max="500" 
+                                                    step="10" 
+                                                    value="50" 
+                                                    class="offset-slider"
+                                                    oninput="updateOffsetFromSlider()"
+                                                >
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Offset Info Display -->
+                                        <div class="offset-info-display">
+                                            <div class="offset-info-icon">
+                                                <i class="fas fa-info-circle"></i>
+                                            </div>
+                                            <div class="offset-info-text">
+                                                Il poligono sarà ridotto di <strong id="offsetValueDisplay">50mm</strong> su tutti i lati del perimetro esterno.
+                                                <br>
+                                                <small style="color: #6B7280; margin-top: 5px; display: block;">
+                                                    <i class="fas fa-lightbulb"></i> Usa casi: margini di sicurezza, spazio per guide, correzione dimensioni nominali
+                                                </small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Visual Example -->
+                                        <div class="offset-visual-example">
+                                            <div class="example-title">
+                                                <i class="fas fa-eye"></i> Anteprima Concetto:
+                                            </div>
+                                            <div class="example-diagram">
+                                                <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; max-width: 300px;">
+                                                    <!-- Poligono originale (blu tratteggiato) -->
+                                                    <rect x="10" y="10" width="180" height="100" 
+                                                          fill="rgba(59, 130, 246, 0.1)" 
+                                                          stroke="#3B82F6" 
+                                                          stroke-width="2" 
+                                                          stroke-dasharray="5,5"/>
+                                                    <text x="100" y="25" text-anchor="middle" fill="#3B82F6" font-size="10" font-weight="bold">Originale</text>
+                                                    
+                                                    <!-- Poligono offset (verde) -->
+                                                    <rect x="30" y="30" width="140" height="60" 
+                                                          fill="rgba(34, 197, 94, 0.2)" 
+                                                          stroke="#22C55E" 
+                                                          stroke-width="2"/>
+                                                    <text x="100" y="65" text-anchor="middle" fill="#22C55E" font-size="10" font-weight="bold">Area Packing</text>
+                                                    
+                                                    <!-- Frecce distanza -->
+                                                    <line x1="10" y1="115" x2="30" y2="115" stroke="#EF4444" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                                                    <text x="20" y="112" text-anchor="middle" fill="#EF4444" font-size="9" font-weight="bold">Offset</text>
+                                                    
+                                                    <defs>
+                                                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="5" refY="3" orient="auto">
+                                                            <polygon points="0 0, 10 3, 0 6" fill="#EF4444"/>
+                                                        </marker>
+                                                    </defs>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Save Button -->
+                                    <div class="offset-actions">
+                                        <button class="btn btn-primary save-offset-btn" onclick="event.stopPropagation(); saveOffsetConfiguration()">
+                                            <i class="fas fa-save"></i> Salva Configurazione Offset
+                                        </button>
+                                        <div class="offset-save-feedback" id="offsetSaveFeedback" style="display: none;">
+                                            <i class="fas fa-check-circle"></i>
+                                            <span>Configurazione salvata! Si applicherà automaticamente ai nuovi upload.</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1677,6 +1817,8 @@
 
     <script src="/static/js/smart-loading.js?v=3.0"></script>
     <script src="/static/js/moraletti-helper.js?v=1.0"></script>
+    <script src="/static/js/offset-config.js?v=1.0"></script>
+    <script src="/static/js/offset-visualization.js?v=1.0"></script>
     <script src="/static/js/app.js?v=3.7"></script>
     <script src="/static/js/user-section.js?v=3.0"></script>
     <script src="/static/js/system-profiles.js?v=1.1"></script>

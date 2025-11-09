@@ -20,16 +20,19 @@ router = APIRouter()
 @router.post("/preview-conversion")
 async def preview_file_conversion(
     file: UploadFile = File(...),
+    offset_config: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Genera solo l'anteprima della conversione del file caricato senza fare il packing.
     Mostra la geometria convertita con le relative misure per validazione utente.
+    NUOVO: Applica offset poligono se configurato e restituisce coordinate per visualizzazione.
     """
     # Import qui per evitare circular imports
     from main import parse_wall_file, generate_preview_image, SESSIONS
     import uuid
     import datetime
+    import json
     
     try:
         # Log dell'attività dell'utente
@@ -67,7 +70,44 @@ async def preview_file_conversion(
         if not wall_exterior or wall_exterior.is_empty:
             raise HTTPException(status_code=400, detail="Nessuna geometria valida trovata nel file")
         
-        # Calcola dimensioni e statistiche
+        # 📐 NUOVO: Gestione offset poligono interno
+        wall_original = wall_exterior  # Salva originale
+        offset_applied_mm = 0
+        offset_error = None
+        
+        if offset_config:
+            try:
+                offset_data = json.loads(offset_config)
+                print(f"📐 Offset config ricevuto: {offset_data}")
+                
+                if offset_data.get('enabled') and offset_data.get('distance_mm', 0) > 0:
+                    offset_distance = offset_data['distance_mm']
+                    print(f"📐 Applicando offset di {offset_distance}mm al perimetro...")
+                    
+                    from utils.geometry_utils import create_inner_offset_polygon
+                    
+                    try:
+                        wall_exterior = create_inner_offset_polygon(wall_exterior, offset_distance)
+                        offset_applied_mm = offset_distance
+                        print(f"✅ Offset applicato con successo: {offset_applied_mm}mm")
+                        print(f"   Area originale: {wall_original.area:.2f}mm²")
+                        print(f"   Area ridotta: {wall_exterior.area:.2f}mm²")
+                        print(f"   Riduzione: {((wall_original.area - wall_exterior.area) / wall_original.area * 100):.2f}%")
+                    except ValueError as ve:
+                        offset_error = str(ve)
+                        print(f"⚠️ Errore applicazione offset: {offset_error}")
+                        wall_exterior = wall_original  # Ripristina originale
+                    except Exception as e:
+                        offset_error = f"Errore imprevisto: {str(e)}"
+                        print(f"❌ Errore offset: {offset_error}")
+                        wall_exterior = wall_original
+                        
+            except json.JSONDecodeError:
+                print("⚠️ offset_config non è JSON valido")
+            except Exception as e:
+                print(f"⚠️ Errore parsing offset_config: {e}")
+        
+        # Calcola dimensioni e statistiche (DOPO eventuale offset)
         bounds = wall_exterior.bounds
         area = wall_exterior.area
         perimeter = wall_exterior.length
@@ -180,13 +220,19 @@ async def preview_file_conversion(
             })
         
         print(f"✅ Preview generata - Area: {area/1000000:.2f}m², Aperture: {len(apertures)}")
+        print(f"📐 OFFSET INFO:")
+        print(f"   - Offset applicato: {offset_applied_mm}mm")
+        print(f"   - Errore offset: {offset_error}")
+        print(f"   - Coordinate originale: {len(list(wall_original.exterior.coords))} punti")
+        print(f"   - Coordinate offset: {len(list(wall_exterior.exterior.coords))} punti")
         
         # NUOVO: Salva i dati di conversione per riutilizzo
         preview_session_id = str(uuid.uuid4())
         
         # Store per riutilizzo nel packing finale - EVITA DOPPIA CONVERSIONE
         SESSIONS[preview_session_id] = {
-            "wall_polygon": wall_exterior,
+            "wall_polygon": wall_exterior,  # Con offset applicato
+            "wall_polygon_original": wall_original,  # Originale senza offset
             "apertures": apertures,
             "file_content": file_content,
             "original_filename": file.filename,
@@ -194,6 +240,8 @@ async def preview_file_conversion(
             "user_id": current_user.id,
             "username": current_user.username,
             "preview_only": True,  # Marca come sessione di preview - NESSUN PACKING ANCORA
+            "offset_applied_mm": offset_applied_mm,  # Info offset per reference
+            "offset_error": offset_error
         }
         
         return {
@@ -205,7 +253,12 @@ async def preview_file_conversion(
             "validation_messages": validation_messages,
             "raw_bounds": bounds,
             "raw_area": area,
-            "apertures_data": [{"bounds": list(ap.bounds)} for ap in apertures]
+            "apertures_data": [{"bounds": list(ap.bounds)} for ap in apertures],
+            # 📐 NUOVO: Dati offset per visualizzazione frontend
+            "offset_applied_mm": offset_applied_mm,
+            "offset_error": offset_error,
+            "wall_polygon_coords": list(wall_exterior.exterior.coords) if wall_exterior else [],
+            "wall_polygon_original_coords": list(wall_original.exterior.coords) if wall_original else []
         }
         
     except HTTPException:
@@ -530,6 +583,7 @@ async def upload_and_process(
     color_theme: str = Form("{}"),
     block_dimensions: str = Form("{}"),
     vertical_spaces: Optional[str] = Form(None),
+    offset_config: Optional[str] = Form(None),  # 📐 NUOVO: Configurazione offset interno
     current_user: User = Depends(get_current_active_user)
 ):
     """
@@ -622,13 +676,60 @@ async def upload_and_process(
         # Parse file (SVG o DWG)
         wall, apertures = parse_wall_file(file_bytes, file.filename)
         
+        # 📐 APPLICA OFFSET INTERNO SE ABILITATO
+        wall_original = wall  # Salva sempre poligono originale per visualizzazione
+        offset_applied_mm = 0
+        offset_error = None
+        
+        if offset_config:
+            try:
+                offset_data = json.loads(offset_config)
+                offset_enabled = offset_data.get('enabled', False)
+                offset_distance_mm = offset_data.get('distance_mm', 0)
+                
+                if offset_enabled and offset_distance_mm > 0:
+                    print(f"📐 Applicando offset interno di {offset_distance_mm}mm al poligono parete")
+                    
+                    # Import funzione offset
+                    from utils.geometry_utils import create_inner_offset_polygon
+                    
+                    try:
+                        # Applica offset SOLO al perimetro parete (NON alle aperture)
+                        wall_offset = create_inner_offset_polygon(wall, offset_distance_mm)
+                        
+                        # Successo! Usa poligono ridotto per packing
+                        wall = wall_offset
+                        offset_applied_mm = offset_distance_mm
+                        
+                        print(f"✅ Offset applicato con successo:")
+                        print(f"   Area originale: {wall_original.area:.2f} mm²")
+                        print(f"   Area ridotta: {wall.area:.2f} mm²")
+                        print(f"   Riduzione: {((wall_original.area - wall.area) / wall_original.area * 100):.2f}%")
+                        
+                    except ValueError as e:
+                        # Offset troppo grande o altro errore
+                        offset_error = str(e)
+                        print(f"⚠️ Errore applicazione offset: {e}")
+                        print(f"   Uso poligono originale senza offset")
+                        # wall rimane quello originale
+                        
+                else:
+                    print(f"📐 Offset disabilitato o distanza = 0, uso poligono originale")
+                    
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Errore parsing offset_config: {e}")
+            except Exception as e:
+                print(f"❌ Errore inatteso gestione offset: {e}")
+        else:
+            print(f"📐 Nessuna configurazione offset ricevuta, uso poligono originale")
+        
         # Packing con dimensioni personalizzate (usa default left per questa route legacy)
         placed, custom = pack_wall(
-            wall, 
+            wall,  # Usa il poligono (con o senza offset applicato)
             final_widths,
             final_height,
             row_offset=row_offset,
-            apertures=apertures if apertures else None,
+            apertures=apertures if apertures else None,  # Aperture sempre invariate!
             starting_direction='left',
             vertical_config=vertical_config
         )
@@ -645,7 +746,10 @@ async def upload_and_process(
         
         # Salva in sessione (con info utente e file bytes per salvare dopo)
         SESSIONS[session_id] = {
-            "wall_polygon": wall,
+            "wall_polygon": wall,  # Poligono usato per packing (con offset se applicato)
+            "wall_polygon_original": wall_original,  # 📐 NUOVO: Poligono originale per visualizzazione
+            "offset_applied_mm": offset_applied_mm,  # 📐 NUOVO: Distanza offset applicata
+            "offset_error": offset_error,  # 📐 NUOVO: Eventuale errore offset
             "apertures": apertures,
             "placed": placed,
             "customs": custom,
@@ -714,7 +818,12 @@ async def upload_and_process(
                 "project_name": project_name
             },
             "metrics": metrics,
-            "saved_file_path": None
+            "saved_file_path": None,
+            # 📐 NUOVO: Dati offset per visualizzazione frontend
+            "offset_applied_mm": offset_applied_mm,
+            "offset_error": offset_error,
+            "wall_polygon_coords": list(wall.exterior.coords) if wall else [],  # Poligono packing (con offset)
+            "wall_polygon_original_coords": list(wall_original.exterior.coords) if wall_original else []  # Poligono originale
         }
         
     except Exception as e:
