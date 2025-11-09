@@ -1307,8 +1307,8 @@ class WallPackingApp {
         // Update metrics
         this.updateMetrics(data.metrics);
         
-        // ✨ NUOVO: Visualizza offset poligono nello Step 2 (se applicato)
-        this.renderWallOffsetVisualization(data);
+        // ✨ Offset poligono è ora integrato nell'immagine preview matplotlib
+        // (non serve più SVG separato)
         
         // Auto-save project when results are shown
         this.autoSaveProject(data);
@@ -3428,18 +3428,16 @@ class WallPackingApp {
             has_offset: !!previewData.wall_polygon_coords
         });
         
-        if (hasOffset) {
-            // 📐 Mostra SVG offset, nascondi canvas
-            console.log('✅ Usando visualizzazione SVG offset');
-            this.renderWallOffsetVisualization(previewData);
-        } else {
-            // 🖼️ Mostra canvas normale
-            console.log('ℹ️ Usando canvas preview normale');
-            this.renderPreviewImage(previewData.preview_image);
-            // Assicurati che wallPreview sia nascosto
-            const wallPreviewDiv = document.getElementById('wallPreview');
-            if (wallPreviewDiv) wallPreviewDiv.style.display = 'none';
-        }
+        // �️ Mostra sempre canvas preview (che contiene già entrambi i poligoni se c'è offset)
+        console.log('✅ Usando canvas preview (matplotlib con offset integrato)');
+        this.renderPreviewImage(previewData.preview_image);
+        
+        // Nascondi wallPreview SVG (non più necessario, tutto è in matplotlib)
+        const wallPreviewDiv = document.getElementById('wallPreview');
+        if (wallPreviewDiv) wallPreviewDiv.style.display = 'none';
+        
+        // 📊 Mostra/aggiorna card info offset se presente
+        this.updateOffsetInfoCard(previewData);
         
         // Update measurements
         this.updateMeasurementsPanel(previewData.measurements);
@@ -3567,6 +3565,66 @@ class WallPackingApp {
             
             container.appendChild(messageEl);
         });
+    }
+    
+    updateOffsetInfoCard(previewData) {
+        try {
+            const card = document.getElementById('offsetInfoCard');
+            if (!card) {
+                console.warn('⚠️ offsetInfoCard element not found');
+                return;
+            }
+            
+            const hasOffset = previewData.offset_applied_mm && 
+                             previewData.offset_applied_mm > 0 &&
+                             previewData.measurements;
+            
+            console.log('🔍 updateOffsetInfoCard called:', {
+                offset_mm: previewData.offset_applied_mm,
+                has_measurements: !!previewData.measurements,
+                area_reduction: previewData.measurements?.area_reduction_percent,
+                area_original: previewData.measurements?.area_original,
+                area_reduced: previewData.measurements?.area_reduced,
+                hasOffset: hasOffset
+            });
+            
+            if (!hasOffset) {
+                console.log('ℹ️ No offset, hiding card');
+                card.style.display = 'none';
+                return;
+            }
+            
+            // Mostra la card
+            card.style.display = 'flex';
+            
+            // Usa i dati direttamente dal backend
+            const areaOriginal = previewData.measurements.area_original || 0;
+            const areaReduced = previewData.measurements.area_reduced || previewData.measurements.area || 0;
+            const offsetMm = previewData.offset_applied_mm;
+            const reductionPercent = previewData.measurements.area_reduction_percent || 0;
+            
+            // Se non ci sono dati di riduzione, nascondi la card
+            if (areaOriginal === 0 && reductionPercent === 0) {
+                console.log('⚠️ Missing reduction data, hiding card');
+                card.style.display = 'none';
+                return;
+            }
+            
+            // Popola i valori
+            document.getElementById('offsetOriginalArea').textContent = `${areaOriginal.toFixed(2)} m²`;
+            document.getElementById('offsetPackingArea').textContent = `${areaReduced.toFixed(2)} m²`;
+            document.getElementById('offsetAppliedValue').textContent = `${offsetMm}mm su tutti i lati`;
+            document.getElementById('offsetReductionPercent').textContent = `${reductionPercent.toFixed(2)}%`;
+            
+            console.log('✅ Offset info card aggiornata:', {
+                original: areaOriginal.toFixed(2),
+                reduced: areaReduced.toFixed(2),
+                offset: offsetMm,
+                reduction: reductionPercent.toFixed(2)
+            });
+        } catch (error) {
+            console.error('❌ Error in updateOffsetInfoCard:', error);
+        }
     }
     
     // Canvas interaction methods (zoom, pan)

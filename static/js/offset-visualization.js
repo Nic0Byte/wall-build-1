@@ -11,6 +11,8 @@
  */
 function renderOffsetVisualization(originalCoords, offsetCoords, offsetMm, containerId = 'wallPreview') {
     console.log(`📐 Rendering offset visualization: ${offsetMm}mm`);
+    console.log('📊 Original coords:', originalCoords.slice(0, 3), '... (total:', originalCoords.length, ')');
+    console.log('📊 Offset coords:', offsetCoords.slice(0, 3), '... (total:', offsetCoords.length, ')');
     
     const container = document.getElementById(containerId);
     if (!container) {
@@ -32,45 +34,62 @@ function renderOffsetVisualization(originalCoords, offsetCoords, offsetMm, conta
     const height = maxY - minY;
     const padding = Math.max(width, height) * 0.1; // 10% padding
     
-    // ViewBox per SVG
+    console.log('📏 Bounds:', { minX, maxX, minY, maxY, width, height, padding });
+    
+    // ViewBox normale - coordinate dirette dal backend
     const viewBox = `${minX - padding} ${minY - padding} ${width + 2*padding} ${height + 2*padding}`;
     
-    // Crea SVG
+    console.log('📐 ViewBox:', viewBox);
+    
+    // Crea SVG che riempie lo spazio
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', viewBox);
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
-    svg.setAttribute('style', 'max-height: 500px; border: 1px solid #E5E7EB; border-radius: 8px; background: #F9FAFB;');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('style', 'max-width: 100%; max-height: 100%; background: white; border: 1px solid #E5E7EB; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);');
     
-    // Layer 1: Poligono ORIGINALE (blu tratteggiato)
-    const originalPath = createPolygonPath(originalCoords, {
-        fill: 'rgba(59, 130, 246, 0.1)',
-        stroke: '#3B82F6',
-        strokeWidth: 2,
-        strokeDasharray: '10,5',
-        strokeLinecap: 'round'
-    });
-    svg.appendChild(originalPath);
+    console.log('✅ SVG element created');
     
-    // Layer 2: Poligono OFFSET (verde pieno)
+    // ✅ ORDINE INVERTITO: Prima verde (sotto), poi blu (sopra)
+    
+    // Layer 1: Poligono OFFSET (verde pieno) - SOTTO
     const offsetPath = createPolygonPath(offsetCoords, {
-        fill: 'rgba(34, 197, 94, 0.2)',
+        fill: 'rgba(34, 197, 94, 0.15)',  // Fill leggero
         stroke: '#22C55E',
-        strokeWidth: 3,
-        strokeLinecap: 'round'
+        strokeWidth: 2,
+        strokeLinecap: 'round',
+        strokeOpacity: 0.8
     });
     svg.appendChild(offsetPath);
+    
+    // Layer 2: Poligono ORIGINALE (blu tratteggiato) - SOPRA per essere visibile
+    const originalPath = createPolygonPath(originalCoords, {
+        fill: 'none',  // Nessun fill
+        stroke: '#3B82F6',
+        strokeWidth: 5,  // Molto spesso per visibilità
+        strokeDasharray: '20,10',  // Tratteggio grande
+        strokeLinecap: 'round',
+        strokeOpacity: 1.0  // Opacità piena
+    });
+    svg.appendChild(originalPath);
     
     // Calcola aree per statistiche
     const originalArea = calculatePolygonArea(originalCoords);
     const offsetArea = calculatePolygonArea(offsetCoords);
     const areaReduction = ((originalArea - offsetArea) / originalArea * 100).toFixed(2);
     
-    // Replace container content
+    // Svuota container e crea wrapper per SVG + legenda
     container.innerHTML = '';
-    container.appendChild(svg);
+    container.style.cssText = 'display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; background: #F9FAFB;';
     
-    // Aggiungi legenda sotto l'immagine
+    // Wrapper per SVG (prende tutto lo spazio disponibile)
+    const svgWrapper = document.createElement('div');
+    svgWrapper.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;';
+    svgWrapper.appendChild(svg);
+    container.appendChild(svgWrapper);
+    
+    // Aggiungi legenda in basso
     const legend = createOffsetLegend(originalArea, offsetArea, offsetMm, areaReduction);
     container.appendChild(legend);
     
@@ -83,7 +102,7 @@ function renderOffsetVisualization(originalCoords, offsetCoords, offsetMm, conta
 function createPolygonPath(coords, style) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     
-    // Costruisci il path data
+    // Costruisci il path data - coordinate normali
     const pathData = coords.map((coord, index) => {
         const command = index === 0 ? 'M' : 'L';
         return `${command} ${coord[0]},${coord[1]}`;
@@ -100,6 +119,10 @@ function createPolygonPath(coords, style) {
     
     if (style.strokeLinecap) {
         path.setAttribute('stroke-linecap', style.strokeLinecap);
+    }
+    
+    if (style.strokeOpacity !== undefined) {
+        path.setAttribute('stroke-opacity', style.strokeOpacity);
     }
     
     return path;
@@ -134,6 +157,9 @@ function createOffsetLegend(originalArea, offsetArea, offsetMm, areaReduction) {
         border-left: 4px solid #3B82F6;
         border-radius: 8px;
         font-size: 14px;
+        display: block;
+        clear: both;
+        width: 100%;
     `;
     
     legend.innerHTML = `

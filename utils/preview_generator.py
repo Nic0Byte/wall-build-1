@@ -464,9 +464,26 @@ def generate_preview_image(
         margin = max((norm_maxx - norm_minx), (norm_maxy - norm_miny)) * 0.01
         # NON impostiamo i limiti ancora - li impostiamo alla fine dopo aver disegnato tutto
 
-        # Disegna il contorno della parete normalizzato
+        # Se c'è un offset applicato, disegna PRIMA il poligono originale in blu tratteggiato
+        if enhanced_info and "wall_original" in enhanced_info:
+            wall_original = enhanced_info["wall_original"]
+            wall_original_normalized = translate(wall_original, -orig_minx, -orig_miny)
+            orig_x, orig_y = wall_original_normalized.exterior.xy
+            ax.plot(orig_x, orig_y, color='#3B82F6', linestyle='--', linewidth=5, alpha=0.8, label='Perimetro Originale')
+            info(f"Drawing original wall polygon with offset {enhanced_info.get('offset_mm', 0)}mm")
+
+        # Disegna il contorno della parete normalizzato (con offset se applicato)
         x, y = wall_normalized.exterior.xy
-        ax.plot(x, y, color=wall_color, linewidth=wall_line_width, label="Parete")
+        if enhanced_info and "wall_original" in enhanced_info:
+            # Se c'è offset, disegna il poligono offset con riempimento verde
+            coords = list(wall_normalized.exterior.coords)
+            # Usa patches.Polygon con tupla RGBA (R, G, B, Alpha) normalizzati [0-1]
+            patch = patches.Polygon(coords, facecolor=(34/255, 197/255, 94/255, 0.15), 
+                                   edgecolor='#22C55E', linewidth=3, label='Area Packing (offset)')
+            ax.add_patch(patch)
+        else:
+            # Se non c'è offset, disegna normalmente
+            ax.plot(x, y, color=wall_color, linewidth=wall_line_width, label="Parete")
 
         # Crea labels dettagliate per i blocchi (usando quelli originali per le labels)
         if block_config and size_to_letter:
@@ -638,8 +655,15 @@ def generate_preview_image(
         
         # IMPORTANTE: Impostiamo i limiti degli assi ALLA FINE per evitare che le frecce espandano l'area
         # Questo mantiene il focus sulla parete e evita spazi bianchi indesiderati
-        # USA SOLO I BOUNDS DELLA PARETE NORMALIZZATA - ignora tutto il resto
-        final_minx, final_miny, final_maxx, final_maxy = wall_normalized.bounds
+        # Se c'è offset, usa il poligono ORIGINALE per i bounds (così include sia blu che verde)
+        if enhanced_info and "wall_original" in enhanced_info:
+            wall_original = enhanced_info["wall_original"]
+            wall_original_normalized = translate(wall_original, -orig_minx, -orig_miny)
+            final_minx, final_miny, final_maxx, final_maxy = wall_original_normalized.bounds
+        else:
+            # Altrimenti usa il poligono normalizzato
+            final_minx, final_miny, final_maxx, final_maxy = wall_normalized.bounds
+        
         tiny_margin = max((final_maxx - final_minx), (final_maxy - final_miny)) * 0.01
         ax.set_xlim(final_minx - tiny_margin, final_maxx + tiny_margin)
         ax.set_ylim(final_miny - tiny_margin, final_maxy + tiny_margin)

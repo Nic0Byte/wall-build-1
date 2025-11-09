@@ -188,14 +188,58 @@
                                         </button>
                                     </div>
                                 </div>
+                                
+                                <!-- Offset Information Card (Horizontal Layout) -->
+                                <div class="offset-info-card" id="offsetInfoCard" style="display: flex;">
+                                    <div class="offset-info-item">
+                                        <div class="offset-info-icon blue">
+                                            <i class="fas fa-vector-square"></i>
+                                        </div>
+                                        <div class="offset-info-content">
+                                            <div class="offset-info-label">Perimetro Originale</div>
+                                            <div class="offset-info-value" id="offsetOriginalArea">-- m²</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="offset-info-item">
+                                        <div class="offset-info-icon green">
+                                            <i class="fas fa-compress-arrows-alt"></i>
+                                        </div>
+                                        <div class="offset-info-content">
+                                            <div class="offset-info-label">Area Packing (con offset)</div>
+                                            <div class="offset-info-value" id="offsetPackingArea">-- m²</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="offset-info-item">
+                                        <div class="offset-info-icon orange">
+                                            <i class="fas fa-ruler-horizontal"></i>
+                                        </div>
+                                        <div class="offset-info-content">
+                                            <div class="offset-info-label">Offset applicato</div>
+                                            <div class="offset-info-value" id="offsetAppliedValue">-- mm</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="offset-info-item highlight">
+                                        <div class="offset-info-icon red">
+                                            <i class="fas fa-chart-line"></i>
+                                        </div>
+                                        <div class="offset-info-content">
+                                            <div class="offset-info-label">Riduzione area</div>
+                                            <div class="offset-info-value" id="offsetReductionPercent">--%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="image-container" id="previewImageContainer">
                                     <div class="preview-loading" id="previewLoadingMain">
                                         <div class="spinner"></div>
                                         <p>Conversione file in corso...</p>
                                     </div>
-                                    <canvas id="previewCanvas" style="display: none;"></canvas>
-                                    <!-- Visualizzazione offset poligono -->
-                                    <div id="wallPreview" style="display: none; width: 100%; padding: 16px;"></div>
+                                    <canvas id="previewCanvas" style="display: none; width: 100%; height: auto;"></canvas>
+                                    <!-- Visualizzazione offset poligono - SOSTITUISCE canvas quando attivo -->
+                                    <div id="wallPreview" style="display: none; width: 100%; height: 100%;"></div>
                                 </div>
                             </div>
                             

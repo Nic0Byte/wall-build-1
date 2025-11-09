@@ -149,14 +149,20 @@ async def preview_file_conversion(
             "preview_mode": True
         }
         
+        # 📐 NUOVO: Se c'è offset, passa anche il poligono originale per visualizzazione
+        enhanced_info = {"enhanced": False, "preview_only": True}
+        if offset_applied_mm > 0:
+            enhanced_info["wall_original"] = wall_original  # Poligono originale per linea blu
+            enhanced_info["offset_mm"] = offset_applied_mm
+        
         preview_base64 = generate_preview_image(
-            wall_exterior,
+            wall_exterior,  # Poligono con offset (verde)
             placed,  # *** ARRAY VUOTO - NESSUN BLOCCO ***
             custom,  # *** ARRAY VUOTO - NESSUN CUSTOM *** 
             apertures,
             {},  # color_theme vuoto
             config,
-            enhanced_info={"enhanced": False, "preview_only": True}
+            enhanced_info=enhanced_info
         )
         
         if not preview_base64:
@@ -164,13 +170,26 @@ async def preview_file_conversion(
         
         # Preparazione misure formattate
         measurements = {
-            "area_total": f"{area / 1000000:.2f}",  # Converti da mm² a m²
+            "area": area / 1000000,  # Area in m² (numerica per calcoli JS)
+            "area_total": f"{area / 1000000:.2f}",  # Converti da mm² a m² (stringa per display)
             "max_width": f"{bounds[2] - bounds[0]:.0f}",  # maxx - minx 
             "max_height": f"{bounds[3] - bounds[1]:.0f}",  # maxy - miny
             "apertures_count": f"{len(apertures)}",
             "perimeter": f"{perimeter:.0f}",
             "geometry_type": geometry_type
         }
+        
+        # Se c'è offset, aggiungi dati di riduzione area
+        if offset_applied_mm > 0 and not offset_error:
+            area_original = wall_original.area / 1000000  # m²
+            area_reduced = wall_exterior.area / 1000000   # m²
+            reduction_percent = ((area_original - area_reduced) / area_original) * 100
+            
+            measurements["area_original"] = area_original
+            measurements["area_reduced"] = area_reduced
+            measurements["area_reduction_percent"] = reduction_percent
+            
+            print(f"📊 Area reduction: {area_original:.2f}m² -> {area_reduced:.2f}m² (-{reduction_percent:.2f}%)")
         
         # Dettagli conversione
         conversion_details = {
