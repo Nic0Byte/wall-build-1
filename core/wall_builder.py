@@ -873,6 +873,16 @@ def pack_wall(polygon: Polygon,
                 algorithm_type = 'bidirectional'
     # ===================================================
     
+    # 🏭 ALGORITMO BIG: Forza solo blocco A (più grande)
+    # I custom verranno automaticamente derivati dal blocco A
+    if algorithm_type == 'bidirectional':
+        original_block_widths = block_widths.copy()
+        block_widths = [block_widths[0]]  # Solo il blocco più grande (A)
+        print(f"🏭 ALGORITMO BIG: Limitato solo a BLOCCO A ({block_widths[0]}mm)")
+        print(f"   Blocchi originali: {original_block_widths}")
+        print(f"   Blocchi usati: {block_widths}")
+        print(f"   ✂️ Custom pieces verranno tagliati dal blocco A")
+    
     print(f"ALGORITMO: {algorithm_type.upper()}")
     print(f"   Polygon bounds: {polygon.bounds}")
     print(f"   Polygon area: {polygon.area}")

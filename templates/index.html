@@ -1143,7 +1143,7 @@
                                     
                                     <!-- Block Type 1 -->
                                     <div class="block-group">
-                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 1</h4>
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo A</h4>
                                         <div class="dimensions-controls">
                                             <div class="dimension-control">
                                                 <label for="block1Width">Larghezza (mm):</label>
@@ -1163,8 +1163,8 @@
                                     </div>
                                     
                                     <!-- Block Type 2 -->
-                                    <div class="block-group">
-                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 2</h4>
+                                    <div id="block2Section" class="block-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo B</h4>
                                         <div class="dimensions-controls">
                                             <div class="dimension-control">
                                                 <label for="block2Width">Larghezza (mm):</label>
@@ -1184,8 +1184,8 @@
                                     </div>
                                     
                                     <!-- Block Type 3 -->
-                                    <div class="block-group">
-                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo 3</h4>
+                                    <div id="block3Section" class="block-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco Standard Tipo C</h4>
                                         <div class="dimensions-controls">
                                             <div class="dimension-control">
                                                 <label for="block3Width">Larghezza (mm):</label>
@@ -1732,13 +1732,29 @@
                     </div>
                 </div>
 
+                <!-- Algorithm Selection (FIRST!) -->
+                <div class="modal-section" style="margin-top: 25px;">
+                    <h3 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 8px; margin-bottom: 15px;">
+                        <i class="fas fa-brain"></i> Algoritmo di Packing
+                    </h3>
+                    <select id="modalAlgorithmType" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; cursor: pointer; background: white;">
+                        <option value="small">🏠 SMALL - Costruzione Residenziale (3 blocchi: A, B, C)</option>
+                        <option value="big">🏭 BIG - Costruzione Industriale (solo blocco A)</option>
+                    </select>
+                    <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 4px; font-size: 0.9em; line-height: 1.6;">
+                        <strong>📘 Guida:</strong><br>
+                        <strong>SMALL:</strong> Usa 3 blocchi (A, B, C) con allineamento verticale perfetto e moraletti.<br>
+                        <strong>BIG:</strong> Usa solo blocco A con pattern sfalsato tipo "mattoni". I custom vengono tagliati dal blocco A.
+                    </div>
+                </div>
+
                 <!-- Block Dimensions -->
                 <div class="modal-section" style="margin-top: 25px;">
                     <h3 style="color: #667eea; margin-bottom: 15px;"><i class="fas fa-cube"></i> Dimensioni Blocchi</h3>
                     
                     <!-- Block 1 -->
                     <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Grande (Tipo 1)</h4>
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Grande (Tipo A)</h4>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div>
                                 <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
@@ -1752,8 +1768,8 @@
                     </div>
 
                     <!-- Block 2 -->
-                    <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Medio (Tipo 2)</h4>
+                    <div id="modalBlock2Section" class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Medio (Tipo B)</h4>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div>
                                 <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
@@ -1767,8 +1783,8 @@
                     </div>
 
                     <!-- Block 3 -->
-                    <div class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Piccolo (Tipo 3)</h4>
+                    <div id="modalBlock3Section" class="block-config-group" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Blocco Piccolo (Tipo C)</h4>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div>
                                 <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Larghezza (mm):</label>
@@ -1819,22 +1835,6 @@
                             <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">Blocco Piccolo:</label>
                             <input type="number" id="modalMoralettiCountSmall" value="1" min="1" max="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                         </div>
-                    </div>
-                </div>
-
-                <!-- Algorithm Selection -->
-                <div class="modal-section" style="margin-top: 25px;">
-                    <h3 style="color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 8px; margin-bottom: 15px;">
-                        <i class="fas fa-brain"></i> Algoritmo di Packing
-                    </h3>
-                    <select id="modalAlgorithmType" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; cursor: pointer; background: white;">
-                        <option value="small">🏠 SMALL - Costruzione Residenziale (senza sfalsamento blocchi)</option>
-                        <option value="big">🏭 BIG - Costruzione Industriale (con sfalsamento blocchi)</option>
-                    </select>
-                    <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 4px; font-size: 0.9em; line-height: 1.6;">
-                        <strong>📘 Guida:</strong><br>
-                        <strong>SMALL:</strong> Allineamento verticale perfetto, ideale per costruzioni residenziali e interni.<br>
-                        <strong>BIG:</strong> Pattern sfalsato tipo "mattoni" per maggiore stabilità strutturale in edifici industriali.
                     </div>
                 </div>
 

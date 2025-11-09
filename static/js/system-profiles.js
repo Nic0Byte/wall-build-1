@@ -249,7 +249,7 @@ async function activateProfile(profileId) {
         // 3. Aspetta che il DOM sia pronto, poi applica i valori
         setTimeout(() => {
             // Pre-carica configurazione blocchi nei campi (SENZA salvare)
-            applyBlockConfig(data.block_config);
+            applyBlockConfig(data.block_config, data.algorithm_type);
             console.log('✅ Dati blocchi pre-caricati nei campi');
             
             // SALVA la configurazione moraletti per applicarla dopo (quando il pannello si aprirà)
@@ -309,8 +309,9 @@ async function deleteProfile(profileId, profileName) {
 // Configuration Application
 // ────────────────────────────────────────────────────────────────────────────────
 
-function applyBlockConfig(config) {
+function applyBlockConfig(config, algorithmType = 'small') {
     console.log('📦 Applicazione configurazione blocchi:', config);
+    console.log('🧠 Algoritmo:', algorithmType);
     
     // Blocco 1
     const block1Width = document.getElementById('block1Width');
@@ -354,6 +355,9 @@ function applyBlockConfig(config) {
         block3Height.value = config.heights[2];
         console.log('✅ Block3 Height impostato:', block3Height.value);
     }
+    
+    // 🏭 Gestisci visibilità blocchi B e C in base all'algoritmo
+    toggleBlocksBCVisibilityInStep2(algorithmType);
     
     // Trigger change events per aggiornare UI
     const elements = [block1Width, block1Height, block2Width, block2Height, block3Width, block3Height];
@@ -481,6 +485,11 @@ function renderProfilesList() {
         const algorithmIcon = algorithmType === 'big' ? '🏭' : '🏠';
         const algorithmName = algorithmType === 'big' ? 'Industriale (sfalsato)' : 'Residenziale (allineato)';
         
+        // 🏭 Mostra blocchi in base all'algoritmo
+        const blocksDisplay = algorithmType === 'big' 
+            ? `Tipo A: ${blockConfig.widths[0]}×${blockConfig.heights[0]}mm` 
+            : `${blockConfig.widths[0]}×${blockConfig.heights[0]}mm, ${blockConfig.widths[1]}×${blockConfig.heights[1]}mm, ${blockConfig.widths[2]}×${blockConfig.heights[2]}mm`;
+        
         return `
             <div class="profile-card" data-profile-id="${profile.id}">
                 <div class="profile-header">
@@ -504,7 +513,7 @@ function renderProfilesList() {
                     </div>
                     <div class="detail-section">
                         <strong>📦 Blocchi:</strong>
-                        <span>${blockConfig.widths[0]}×${blockConfig.heights[0]}mm, ${blockConfig.widths[1]}×${blockConfig.heights[1]}mm, ${blockConfig.widths[2]}×${blockConfig.heights[2]}mm</span>
+                        <span>${blocksDisplay}</span>
                     </div>
                     <div class="detail-section">
                         <strong>🔩 Moraletti:</strong>
@@ -577,7 +586,11 @@ function populateModalWithProfile(profile) {
     document.getElementById('modalMoralettiCountSmall').value = moralettiConfig.countSmall;
     
     // Algoritmo
-    document.getElementById('modalAlgorithmType').value = profile.algorithm_type || 'small';
+    const algorithmType = profile.algorithm_type || 'small';
+    document.getElementById('modalAlgorithmType').value = algorithmType;
+    
+    // 🏭 Gestione blocchi B e C per algoritmo BIG
+    toggleBlocksBCForBigAlgorithm(algorithmType);
     
     // Default
     document.getElementById('modalIsDefault').checked = profile.is_default;
@@ -607,6 +620,9 @@ function resetModalFields() {
     
     // Algoritmo (default SMALL)
     document.getElementById('modalAlgorithmType').value = 'small';
+    
+    // 🏭 Abilita blocchi B e C per algoritmo SMALL (default)
+    toggleBlocksBCForBigAlgorithm('small');
     
     // Default
     document.getElementById('modalIsDefault').checked = false;
@@ -749,3 +765,106 @@ function showToast(message, type = 'info') {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+// ────────────────────────────────────────────────────────────────────────────────
+// 🏭 BIG Algorithm - Gestione Blocchi B e C
+// ────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mostra/nasconde i blocchi B e C in base all'algoritmo selezionato
+ * BIG algorithm usa solo blocco A, SMALL usa tutti e 3 i blocchi
+ */
+function toggleBlocksBCForBigAlgorithm(algorithmType) {
+    const block2Section = document.getElementById('modalBlock2Section');
+    const block3Section = document.getElementById('modalBlock3Section');
+    
+    const isBigAlgorithm = algorithmType === 'big';
+    
+    if (isBigAlgorithm) {
+        // 🏭 ALGORITMO BIG: Nascondi blocchi B e C
+        if (block2Section) {
+            block2Section.style.display = 'none';
+        }
+        if (block3Section) {
+            block3Section.style.display = 'none';
+        }
+        
+        console.log('🏭 ALGORITMO BIG: Solo blocco A visibile. Custom tagliati da blocco A.');
+    } else {
+        // 🏠 ALGORITMO SMALL: Mostra tutti i blocchi
+        if (block2Section) {
+            block2Section.style.display = 'block';
+        }
+        if (block3Section) {
+            block3Section.style.display = 'block';
+        }
+        
+        console.log('� ALGORITMO SMALL: Tutti e 3 i blocchi (A, B, C) visibili.');
+    }
+}
+
+/**
+ * Mostra/nasconde i blocchi B e C nello Step 2 in base all'algoritmo del profilo caricato
+ * BIG algorithm: solo blocco A visibile
+ * SMALL algorithm: tutti i blocchi visibili
+ */
+function toggleBlocksBCVisibilityInStep2(algorithmType) {
+    const block2Section = document.getElementById('block2Section');
+    const block3Section = document.getElementById('block3Section');
+    
+    const isBigAlgorithm = algorithmType === 'big';
+    
+    // Rimuovi eventuali messaggi precedenti
+    const existingInfo = document.querySelector('.big-algorithm-info-step2');
+    if (existingInfo) {
+        existingInfo.remove();
+    }
+    
+    if (isBigAlgorithm) {
+        // 🏭 ALGORITMO BIG: Nascondi blocchi B e C nello Step 2
+        if (block2Section) {
+            block2Section.style.display = 'none';
+        }
+        if (block3Section) {
+            block3Section.style.display = 'none';
+        }
+        
+        // Aggiungi messaggio informativo nello Step 2
+        const blockDimensionsPanel = document.getElementById('blockDimensionsPanel');
+        if (blockDimensionsPanel) {
+            const info = document.createElement('div');
+            info.className = 'big-algorithm-info-step2';
+            info.style.cssText = 'margin: 15px 0; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px; font-size: 0.9em; color: #856404;';
+            info.innerHTML = '<strong>🏭 Algoritmo BIG attivo:</strong> Questo profilo usa solo il <strong>blocco A</strong>. I custom verranno tagliati dal blocco A.';
+            
+            // Inserisci dopo il primo blocco
+            const block1Section = blockDimensionsPanel.querySelector('.block-group');
+            if (block1Section && block1Section.nextSibling) {
+                blockDimensionsPanel.insertBefore(info, block1Section.nextSibling);
+            }
+        }
+        
+        console.log('🏭 Step 2: Solo blocco A visibile (Algoritmo BIG)');
+    } else {
+        // 🏠 ALGORITMO SMALL: Mostra tutti i blocchi nello Step 2
+        if (block2Section) {
+            block2Section.style.display = 'block';
+        }
+        if (block3Section) {
+            block3Section.style.display = 'block';
+        }
+        
+        console.log('🏠 Step 2: Tutti i blocchi (A, B, C) visibili (Algoritmo SMALL)');
+    }
+}
+
+// Event listener per cambio algoritmo nel modal
+document.addEventListener('DOMContentLoaded', function() {
+    const algorithmSelector = document.getElementById('modalAlgorithmType');
+    if (algorithmSelector) {
+        algorithmSelector.addEventListener('change', function(e) {
+            const algorithmType = e.target.value;
+            toggleBlocksBCForBigAlgorithm(algorithmType);
+        });
+    }
+});
