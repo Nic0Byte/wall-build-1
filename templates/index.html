@@ -1432,21 +1432,64 @@
                                 
                                 <!-- Color Settings Panel (Initially Hidden) -->
                                 <div class="color-settings-panel" id="colorSettingsPanel" style="display: none;">
+                                    <!-- Blocco A -->
                                     <div class="color-group">
-                                        <h4><i class="fas fa-cubes"></i> Blocchi Standard</h4>
+                                        <h4><i class="fas fa-cube"></i> Blocco A</h4>
                                         <div class="color-controls">
                                             <div class="color-control">
-                                                <label for="standardBlockColor">Colore Riempimento:</label>
+                                                <label for="blockAColor">Colore Riempimento:</label>
                                                 <div class="color-input-group">
-                                                    <input type="color" id="standardBlockColor" value="#E5E7EB" class="color-picker">
-                                                    <input type="text" id="standardBlockColorText" value="#E5E7EB" class="color-text">
+                                                    <input type="color" id="blockAColor" value="#E5E7EB" class="color-picker">
+                                                    <input type="text" id="blockAColorText" value="#E5E7EB" class="color-text">
                                                 </div>
                                             </div>
                                             <div class="color-control">
-                                                <label for="standardBlockBorder">Colore Bordo:</label>
+                                                <label for="blockABorder">Colore Bordo:</label>
                                                 <div class="color-input-group">
-                                                    <input type="color" id="standardBlockBorder" value="#374151" class="color-picker">
-                                                    <input type="text" id="standardBlockBorderText" value="#374151" class="color-text">
+                                                    <input type="color" id="blockABorder" value="#374151" class="color-picker">
+                                                    <input type="text" id="blockABorderText" value="#374151" class="color-text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Blocco B -->
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco B </h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="blockBColor">Colore Riempimento:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="blockBColor" value="#DBEAFE" class="color-picker">
+                                                    <input type="text" id="blockBColorText" value="#DBEAFE" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="blockBBorder">Colore Bordo:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="blockBBorder" value="#1E40AF" class="color-picker">
+                                                    <input type="text" id="blockBBorderText" value="#1E40AF" class="color-text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Blocco C -->
+                                    <div class="color-group">
+                                        <h4><i class="fas fa-cube"></i> Blocco C </h4>
+                                        <div class="color-controls">
+                                            <div class="color-control">
+                                                <label for="blockCColor">Colore Riempimento:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="blockCColor" value="#FEF3C7" class="color-picker">
+                                                    <input type="text" id="blockCColorText" value="#FEF3C7" class="color-text">
+                                                </div>
+                                            </div>
+                                            <div class="color-control">
+                                                <label for="blockCBorder">Colore Bordo:</label>
+                                                <div class="color-input-group">
+                                                    <input type="color" id="blockCBorder" value="#D97706" class="color-picker">
+                                                    <input type="text" id="blockCBorderText" value="#D97706" class="color-text">
                                                 </div>
                                             </div>
                                         </div>
@@ -1517,8 +1560,16 @@
                                         <h4><i class="fas fa-eye"></i> Anteprima Colori</h4>
                                         <div class="color-preview-grid">
                                             <div class="preview-item">
-                                                <div class="preview-block standard-block" id="previewStandardBlock"></div>
-                                                <span>Blocco Standard</span>
+                                                <div class="preview-block standard-block" id="previewBlockA"></div>
+                                                <span>Blocco A</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <div class="preview-block standard-block" id="previewBlockB"></div>
+                                                <span>Blocco B</span>
+                                            </div>
+                                            <div class="preview-item">
+                                                <div class="preview-block standard-block" id="previewBlockC"></div>
+                                                <span>Blocco C</span>
                                             </div>
                                             <div class="preview-item">
                                                 <div class="preview-block door-window-block" id="previewDoorWindow"></div>

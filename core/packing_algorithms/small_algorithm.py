@@ -478,16 +478,53 @@ def pack_wall_with_small_algorithm(wall_width: float,
         
         if enable_debug:
             logger.info(f"🔄 Riga ADATTIVA {complete_rows+1}: y={y_adaptive:.0f}mm, altezza={adaptive_height:.0f}mm")
+            logger.info(f"   ✅ USANDO pack_row() per garantire sfalsamento come le altre righe!")
         
-        # Pack riga adattiva (SENZA validazione moraletti - è l'ultima riga!)
-        # Usa algoritmo semplificato per riempire lo spazio
+        # ✅ FIX: Usa pack_row() anche per l'ultima riga per garantire sfalsamento!
         try:
-            # Genera combinazione semplice per riempire larghezza
+            # Usa lo stesso algoritmo delle altre righe
+            row_result = packer.pack_row(
+                segment_width=wall_width,
+                y=y_adaptive,
+                row_below=previous_row,  # ✅ Valida moraletti e calcola sfalsamento
+                enable_debug=enable_debug
+            )
+            
+            # Aggiorna altezza dei blocchi se necessario
+            for block in row_result['all_blocks']:
+                block['height'] = adaptive_height
+            
+            # Aggiungi risultati
+            all_blocks.extend(row_result['blocks'])
+            all_custom.extend(row_result['custom_blocks'])
+            
+            rows_data.append({
+                'row_index': complete_rows,
+                'y': y_adaptive,
+                'blocks': row_result['all_blocks'],
+                'coverage': row_result['coverage'],
+                'stagger': row_result['stagger'],  # ✅ Sfalsamento reale calcolato!
+                'stats': {
+                    **row_result['stats'],
+                    'is_adaptive': True,
+                    'adaptive_height': adaptive_height
+                }
+            })
+            
+            if enable_debug:
+                logger.info(f"✅ Riga adattiva completata con sfalsamento {row_result['stagger']['stagger_percent']:.1f}%")
+                logger.info(f"   {len(row_result['blocks'])} standard, {len(row_result['custom_blocks'])} custom")
+        
+        except Exception as e:
+            logger.warning(f"⚠️ Errore riga adattiva: {e}")
+            # Fallback al vecchio algoritmo semplificato
+            if enable_debug:
+                logger.info(f"   Usando fallback semplificato...")
+            
             adaptive_blocks = []
             current_x = 0
             remaining_width = wall_width
             
-            # Usa blocchi standard finché possibile
             for block_size in sorted([packer.config.block_sizes['large'], 
                                      packer.config.block_sizes['medium'],
                                      packer.config.block_sizes['small']], reverse=True):
@@ -505,7 +542,6 @@ def pack_wall_with_small_algorithm(wall_width: float,
                     current_x += block_size
                     remaining_width -= block_size
             
-            # Custom per spazio residuo
             adaptive_custom = []
             if remaining_width > 1.0:
                 adaptive_custom.append({
@@ -518,7 +554,6 @@ def pack_wall_with_small_algorithm(wall_width: float,
                     'id': f'adaptive_custom_{current_x}'
                 })
             
-            # Aggiungi ai risultati
             standard_adaptive = [b for b in adaptive_blocks if b['is_standard']]
             all_blocks.extend(standard_adaptive)
             all_custom.extend(adaptive_custom)
@@ -527,21 +562,16 @@ def pack_wall_with_small_algorithm(wall_width: float,
                 'row_index': complete_rows,
                 'y': y_adaptive,
                 'blocks': adaptive_blocks + adaptive_custom,
-                'coverage': {'is_complete': True, 'coverage_percent': 100.0, 'note': 'Riga adattiva (ultima)'},
-                'stagger': {'score': 1.0, 'stagger_percent': 100.0, 'note': 'Riga adattiva'},
+                'coverage': {'is_complete': True, 'coverage_percent': 100.0, 'note': 'Fallback - riga adattiva'},
+                'stagger': {'score': 0, 'stagger_percent': 0, 'note': 'Fallback - nessuno sfalsamento'},
                 'stats': {
                     'custom_count': len(adaptive_custom),
                     'standard_count': len(standard_adaptive),
                     'total_blocks': len(adaptive_blocks) + len(adaptive_custom),
-                    'is_adaptive': True
+                    'is_adaptive': True,
+                    'is_fallback': True
                 }
             })
-            
-            if enable_debug:
-                logger.info(f"✅ Riga adattiva completata: {len(standard_adaptive)} standard, {len(adaptive_custom)} custom")
-        
-        except Exception as e:
-            logger.warning(f"⚠️ Errore riga adattiva: {e}")
     else:
         if enable_debug and remaining_space > 0:
             logger.info(f"⚠️ Spazio residuo {remaining_space:.0f}mm insufficiente per riga adattiva (min 150mm)")

@@ -1138,7 +1138,11 @@ class WallPackingApp {
         if (previewImage) previewImage.style.display = 'none';
         
         try {
-            const response = await fetch(`/api/preview/${this.currentSessionId}`);
+            // Ottieni il tema colori corrente
+            const colorTheme = getCurrentColorTheme();
+            const colorThemeParam = encodeURIComponent(JSON.stringify(colorTheme));
+            
+            const response = await fetch(`/api/preview/${this.currentSessionId}?color_theme=${colorThemeParam}`);
             if (!response.ok) {
                 throw new Error('Errore generazione preview');
             }
@@ -4368,8 +4372,12 @@ function toggleColorThemePanel() {
 // Color presets
 const colorPresets = {
     default: {
-        standardBlockColor: '#E5E7EB',
-        standardBlockBorder: '#374151',
+        blockAColor: '#E5E7EB',
+        blockABorder: '#374151',
+        blockBColor: '#DBEAFE',
+        blockBBorder: '#1E40AF',
+        blockCColor: '#FEF3C7',
+        blockCBorder: '#D97706',
         doorWindowColor: '#FEE2E2',
         doorWindowBorder: '#DC2626',
         wallOutlineColor: '#1E40AF',
@@ -4378,8 +4386,12 @@ const colorPresets = {
         customPieceBorder: '#7C3AED'
     },
     highContrast: {
-        standardBlockColor: '#FFFFFF',
-        standardBlockBorder: '#000000',
+        blockAColor: '#FFFFFF',
+        blockABorder: '#000000',
+        blockBColor: '#FFFF00',
+        blockBBorder: '#000000',
+        blockCColor: '#00FFFF',
+        blockCBorder: '#000000',
         doorWindowColor: '#FFFF00',
         doorWindowBorder: '#FF0000',
         wallOutlineColor: '#0000FF',
@@ -4388,8 +4400,12 @@ const colorPresets = {
         customPieceBorder: '#800080'
     },
     colorful: {
-        standardBlockColor: '#DBEAFE',
-        standardBlockBorder: '#1E40AF',
+        blockAColor: '#FED7D7',
+        blockABorder: '#E53E3E',
+        blockBColor: '#DBEAFE',
+        blockBBorder: '#3B82F6',
+        blockCColor: '#D1FAE5',
+        blockCBorder: '#10B981',
         doorWindowColor: '#FED7D7',
         doorWindowBorder: '#E53E3E',
         wallOutlineColor: '#059669',
@@ -4420,7 +4436,9 @@ function initializeColorTheme() {
 
 function setupColorInputs(theme) {
     const colorInputs = [
-        'standardBlockColor', 'standardBlockBorder',
+        'blockAColor', 'blockABorder',
+        'blockBColor', 'blockBBorder',
+        'blockCColor', 'blockCBorder',
         'doorWindowColor', 'doorWindowBorder',
         'wallOutlineColor', 'customPieceColor', 'customPieceBorder'
     ];
@@ -4494,9 +4512,17 @@ function setupRangeSlider() {
 
 function updateColorPreview() {
     const elements = {
-        'previewStandardBlock': {
-            bg: 'standardBlockColor',
-            border: 'standardBlockBorder'
+        'previewBlockA': {
+            bg: 'blockAColor',
+            border: 'blockABorder'
+        },
+        'previewBlockB': {
+            bg: 'blockBColor',
+            border: 'blockBBorder'
+        },
+        'previewBlockC': {
+            bg: 'blockCColor',
+            border: 'blockCBorder'
         },
         'previewDoorWindow': {
             bg: 'doorWindowColor',
@@ -4572,8 +4598,12 @@ function saveColorTheme() {
     console.log('💾 Saving color theme');
     
     const theme = {
-        standardBlockColor: document.getElementById('standardBlockColor')?.value,
-        standardBlockBorder: document.getElementById('standardBlockBorder')?.value,
+        blockAColor: document.getElementById('blockAColor')?.value,
+        blockABorder: document.getElementById('blockABorder')?.value,
+        blockBColor: document.getElementById('blockBColor')?.value,
+        blockBBorder: document.getElementById('blockBBorder')?.value,
+        blockCColor: document.getElementById('blockCColor')?.value,
+        blockCBorder: document.getElementById('blockCBorder')?.value,
         doorWindowColor: document.getElementById('doorWindowColor')?.value,
         doorWindowBorder: document.getElementById('doorWindowBorder')?.value,
         wallOutlineColor: document.getElementById('wallOutlineColor')?.value,
@@ -4587,6 +4617,12 @@ function saveColorTheme() {
     
     // Apply to current session
     window.currentColorTheme = theme;
+    
+    // 🎨 NUOVO: Aggiorna preview se siamo nello step 5
+    if (window.wallPackingApp && window.wallPackingApp.currentSessionId) {
+        console.log('🔄 Aggiornamento preview con nuovi colori...');
+        window.wallPackingApp.loadPreview();
+    }
     
     // Show confirmation
     if (window.wallPackingApp) {
@@ -4608,8 +4644,12 @@ function getCurrentColorTheme() {
     
     // Fallback to reading from inputs
     return {
-        standardBlockColor: document.getElementById('standardBlockColor')?.value || '#E5E7EB',
-        standardBlockBorder: document.getElementById('standardBlockBorder')?.value || '#374151',
+        blockAColor: document.getElementById('blockAColor')?.value || '#E5E7EB',
+        blockABorder: document.getElementById('blockABorder')?.value || '#374151',
+        blockBColor: document.getElementById('blockBColor')?.value || '#DBEAFE',
+        blockBBorder: document.getElementById('blockBBorder')?.value || '#1E40AF',
+        blockCColor: document.getElementById('blockCColor')?.value || '#FEF3C7',
+        blockCBorder: document.getElementById('blockCBorder')?.value || '#D97706',
         doorWindowColor: document.getElementById('doorWindowColor')?.value || '#FEE2E2',
         doorWindowBorder: document.getElementById('doorWindowBorder')?.value || '#DC2626',
         wallOutlineColor: document.getElementById('wallOutlineColor')?.value || '#1E40AF',

@@ -852,9 +852,10 @@ async def upload_and_process(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/preview/{session_id}")
-async def get_preview_image(session_id: str):
+async def get_preview_image(session_id: str, color_theme: Optional[str] = None):
     """
     Genera immagine preview per sessione.
+    Accetta opzionalmente color_theme come query parameter per aggiornare i colori.
     """
     # Import qui per evitare circular imports
     from main import SESSIONS, generate_preview_image
@@ -915,7 +916,16 @@ async def get_preview_image(session_id: str):
                 print("⚠️ Ricostruendo aperture da bounds - potrebbero non essere identiche")
             
             config = data.get("config", {})
-            color_theme = config.get("color_theme", {})
+            # Usa color_theme passato come parametro, altrimenti quello della config
+            if color_theme:
+                try:
+                    color_theme_dict = json.loads(color_theme)
+                    print(f"🎨 Usando color_theme aggiornato da parametro: {list(color_theme_dict.keys())}")
+                except json.JSONDecodeError:
+                    color_theme_dict = config.get("color_theme", {})
+                    print(f"⚠️ Errore parsing color_theme, usando quello della sessione")
+            else:
+                color_theme_dict = config.get("color_theme", {})
             
             # Extract enhanced information
             enhanced_info = {
@@ -937,7 +947,16 @@ async def get_preview_image(session_id: str):
             placed = session["placed"]
             customs = session["customs"] 
             apertures = session["apertures"]
-            color_theme = session["config"].get("color_theme", {})
+            # Usa color_theme passato come parametro, altrimenti quello della config
+            if color_theme:
+                try:
+                    color_theme_dict = json.loads(color_theme)
+                    print(f"🎨 Usando color_theme aggiornato da parametro: {list(color_theme_dict.keys())}")
+                except json.JSONDecodeError:
+                    color_theme_dict = session["config"].get("color_theme", {})
+                    print(f"⚠️ Errore parsing color_theme, usando quello della sessione")
+            else:
+                color_theme_dict = session["config"].get("color_theme", {})
             config = session["config"]
             enhanced_info = {"enhanced": False}
             
@@ -964,7 +983,7 @@ async def get_preview_image(session_id: str):
             placed,
             customs,
             apertures,
-            color_theme,
+            color_theme_dict,
             config,
             enhanced_info=enhanced_info  # Pass enhanced data
         )

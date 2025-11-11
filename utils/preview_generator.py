@@ -410,8 +410,15 @@ def generate_preview_image(
     # Configurazione colori con fallback
     wall_color = color_theme.get("wallOutlineColor", "#1E40AF")
     wall_line_width = color_theme.get("wallLineWidth", 2)
-    standard_block_color = color_theme.get("standardBlockColor", "#E5E7EB")
-    standard_block_border = color_theme.get("standardBlockBorder", "#374151")
+    
+    # Colori per i tre tipi di blocco standard
+    block_a_color = color_theme.get("blockAColor", "#E5E7EB")
+    block_a_border = color_theme.get("blockABorder", "#374151")
+    block_b_color = color_theme.get("blockBColor", "#DBEAFE")
+    block_b_border = color_theme.get("blockBBorder", "#1E40AF")
+    block_c_color = color_theme.get("blockCColor", "#FEF3C7")
+    block_c_border = color_theme.get("blockCBorder", "#D97706")
+    
     custom_piece_color = color_theme.get("customPieceColor", "#F3E8FF")
     custom_piece_border = color_theme.get("customPieceBorder", "#7C3AED")
     door_window_color = color_theme.get("doorWindowColor", "#FEE2E2")
@@ -419,7 +426,9 @@ def generate_preview_image(
 
     info("Preview colors configured", 
          wall_color=wall_color, 
-         blocks_color=standard_block_color)
+         block_a_color=block_a_color,
+         block_b_color=block_b_color,
+         block_c_color=block_c_color)
 
     try:
         fig, ax = plt.subplots(figsize=(width / 100, height / 100), dpi=100)
@@ -497,14 +506,37 @@ def generate_preview_image(
             detailed_std_labels, detailed_custom_labels = create_detailed_block_labels(placed, customs)
             info("Preview using default size_to_letter mapping")
 
+        # Helper function per determinare il colore in base alla larghezza
+        def get_block_colors(width):
+            """Determina i colori fill e border in base alla larghezza del blocco."""
+            # Tolleranza di 5mm per matching
+            tolerance = 5
+            
+            # Blocco A: 1239mm
+            if abs(width - 1239) <= tolerance:
+                return block_a_color, block_a_border
+            # Blocco B: 826mm
+            elif abs(width - 826) <= tolerance:
+                return block_b_color, block_b_border
+            # Blocco C: 413mm
+            elif abs(width - 413) <= tolerance:
+                return block_c_color, block_c_border
+            else:
+                # Fallback: usa colore blocco A per dimensioni custom
+                return block_a_color, block_a_border
+        
         # Disegna blocchi standard (con coordinate normalizzate)
         for i, blk in enumerate(placed_normalized):
+            # Ottieni blocco originale per larghezza corretta
+            orig_blk = placed[i]
+            fill_color, border_color = get_block_colors(orig_blk["width"])
+            
             rect = patches.Rectangle(
                 (blk["x"], blk["y"]),
                 blk["width"],
                 blk["height"],
-                facecolor=standard_block_color,
-                edgecolor=standard_block_border,
+                facecolor=fill_color,
+                edgecolor=border_color,
                 linewidth=0.5,
             )
             ax.add_patch(rect)
